@@ -1,0 +1,5 @@
+node_modules
+viewer/node_modules
+dist
+.viewer-cache
+.env

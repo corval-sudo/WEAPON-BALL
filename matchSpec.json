@@ -1,0 +1,44 @@
+{
+  "seed": 1651699,
+  "weaponSetVersion": "v0.1.0",
+  "sim": { "scale": 1000, "maxTicks": 18000 },
+  "arena": { "w": 1000, "h": 600, "wallRestitution": 980 },
+
+  "weapons":{
+    "short_sword": {
+        "reach": 35,
+        "tipRadius": 10,
+        "omega": -14,
+        "baseDamage": 12,
+        "ramp": 3,
+        "speedMult": 1000
+    },
+
+    "mace": {
+        "reach": 40,
+        "tipRadius": 8,
+        "omega": 12,
+        "baseDamage": 14,
+        "ramp": 2,
+        "speedMult": 950
+    }
+
+  },
+
+  "ballA": {
+    "id": "A",
+    "hp": 1000,
+    "radius": 25,
+    "pos": { "x": 200, "y": 300 },
+    "vel": { "x": 180, "y": 90 },
+    "weaponId": "mace"
+  },
+  "ballB": {
+    "id": "B",
+    "hp": 1000,
+    "radius": 25,
+    "pos": { "x": 800, "y": 300 },
+    "vel": { "x": -160, "y": -110 },
+    "weaponId": "short_sword"
+  }
+}
