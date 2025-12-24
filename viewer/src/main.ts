@@ -16,6 +16,38 @@ const HEIGHT = 600;
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
+// --- Arena framing (visual only) ---
+const ARENA_W = 520;
+const ARENA_H = 520;
+const ARENA_X = Math.floor((WIDTH - ARENA_W) / 2);
+const ARENA_Y = Math.floor((HEIGHT - ARENA_H) / 2);
+
+// --- Map sim-space (matchSpec arena) into the drawn arena box ---
+const SIM_ARENA_W = matchSpec.arena.w;
+const SIM_ARENA_H = matchSpec.arena.h;
+
+const MAP_X = ARENA_W / SIM_ARENA_W;
+const MAP_Y = ARENA_H / SIM_ARENA_H;
+
+// If your sim arena is not square, this keeps it from stretching.
+// (It letterboxes one dimension slightly.)
+const MAP = Math.min(MAP_X, MAP_Y);
+
+const MAP_OFF_X = ARENA_X + (ARENA_W - SIM_ARENA_W * MAP) / 2;
+const MAP_OFF_Y = ARENA_Y + (ARENA_H - SIM_ARENA_H * MAP) / 2;
+const PLAY_W = SIM_ARENA_W * MAP;
+const PLAY_H = SIM_ARENA_H * MAP;
+const PLAY_X = MAP_OFF_X;
+const PLAY_Y = MAP_OFF_Y;
+
+function toScreen(x: number, y: number) {
+  return { x: MAP_OFF_X + x * MAP, y: MAP_OFF_Y + y * MAP };
+}
+
+// If you later want “bigger presence” without changing sim:
+// multiply ball + weapon sizes in drawing only.
+const VISUAL_SCALE = 1.3;
+
 // --- Sim timing ---
 // Your sim is tick-based. We'll treat it as 60 ticks/sec for replay pacing.
 // (Even if your sim doesn't "use dt", this is just for playback speed.)
@@ -34,59 +66,153 @@ function stepSimOneTick() {
   if (!sim.done) stepSim(sim);
 }
 
-function drawBall(x: number, y: number, r: number, color: string) {
+function drawBall(x: number, y: number, r: number, fill: string) {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+
+  ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = color;
   ctx.fill();
+
+  ctx.restore();
+
+  // outline
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 function render() {
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  // Page background (outside the arena)
+  ctx.fillStyle = "#f4efe6"; // warm parchment like your reference
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  // Arena fill (the pit)
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
+
+  // Arena outer border (thick)
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
+
+  // Arena inner inset (subtle depth)
+  ctx.strokeStyle = "#222222";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(
+  PLAY_X,
+  PLAY_Y,
+  PLAY_W,
+  PLAY_H
+  );
 
   // Draw balls
-  const Ax = sim.A.pos.x / sim.SCALE;
-  const Ay = sim.A.pos.y / sim.SCALE;
-  const Ar = sim.A.r / sim.SCALE;
+  const Apos0 = { x: sim.A.pos.x / sim.SCALE, y: sim.A.pos.y / sim.SCALE };
+  const Bpos0 = { x: sim.B.pos.x / sim.SCALE, y: sim.B.pos.y / sim.SCALE };
 
-  const Bx = sim.B.pos.x / sim.SCALE;
-  const By = sim.B.pos.y / sim.SCALE;
-  const Br = sim.B.r / sim.SCALE;
+  const Apos = toScreen(Apos0.x, Apos0.y);
+  const Bpos = toScreen(Bpos0.x, Bpos0.y);
 
-  drawBall(Ax, Ay, Ar, "red");
-  drawBall(Bx, By, Br, "dodgerblue");
+  const Ar = (sim.A.r / sim.SCALE) * MAP * VISUAL_SCALE;
+  const Br = (sim.B.r / sim.SCALE) * MAP * VISUAL_SCALE;
+
+  drawBall(Apos.x, Apos.y, Ar, "red");
+  drawBall(Bpos.x, Bpos.y, Br, "dodgerblue");
+
+function withShadow(fn: () => void) {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+  fn();
+  ctx.restore();
+}
 
   // Draw weapon arms + tips
-  const Atip = getWeaponTipForRender(sim, sim.A);
-  const Btip = getWeaponTipForRender(sim, sim.B);
+  const Atip0 = getWeaponTipForRender(sim, sim.A);
+  const Btip0 = getWeaponTipForRender(sim, sim.B);
+
+  const Atip = toScreen(Atip0.x, Atip0.y);
+  const Btip = toScreen(Btip0.x, Btip0.y);
 
   // arms
   ctx.strokeStyle = "red";
-  ctx.beginPath();
-  ctx.moveTo(Ax, Ay);
-  ctx.lineTo(Atip.x, Atip.y);
-  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+    withShadow(() => {
+      // Weapon arms: thick + rounded
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 8;
+
+      // A arm
+      ctx.strokeStyle = "#b00000";
+      ctx.beginPath();
+      ctx.moveTo(Apos.x, Apos.y);
+      ctx.lineTo(Atip.x, Atip.y);
+      ctx.stroke();
+
+      // B arm
+      ctx.strokeStyle = "#0b4ed6";
+      ctx.beginPath();
+      ctx.moveTo(Bpos.x, Bpos.y);
+      ctx.lineTo(Btip.x, Btip.y);
+      ctx.stroke();
+    });
 
   ctx.strokeStyle = "dodgerblue";
   ctx.beginPath();
-  ctx.moveTo(Bx, By);
+  ctx.moveTo(Bpos.x, Bpos.y);
   ctx.lineTo(Btip.x, Btip.y);
   ctx.stroke();
 
   // tips
   ctx.fillStyle = "red";
   ctx.beginPath();
-  ctx.arc(Atip.x, Atip.y, sim.A.tipR / sim.SCALE, 0, Math.PI * 2);
+  ctx.arc(Atip.x, Atip.y, (sim.A.tipR / sim.SCALE) * MAP * VISUAL_SCALE, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "dodgerblue";
   ctx.beginPath();
-  ctx.arc(Btip.x, Btip.y, sim.B.tipR / sim.SCALE, 0, Math.PI * 2);
+  ctx.arc(Btip.x, Btip.y, (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE, 0, Math.PI * 2);
   ctx.fill();
 
   tickReadout.textContent = sim.done
     ? `tick: ${sim.tick} (DONE winner: ${sim.winner})`
     : `tick: ${sim.tick}`;
+    withShadow(() => {
+  const tipAR = (sim.A.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
+  const tipBR = (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
+
+  // Tip fill
+  ctx.fillStyle = "#b00000";
+  ctx.beginPath();
+  ctx.arc(Atip.x, Atip.y, tipAR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#0b4ed6";
+  ctx.beginPath();
+  ctx.arc(Btip.x, Btip.y, tipBR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tip outline (adds crispness)
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.arc(Atip.x, Atip.y, tipAR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(Btip.x, Btip.y, tipBR, 0, Math.PI * 2);
+  ctx.stroke();
+});
 }
 
 function frame(nowMs: number) {

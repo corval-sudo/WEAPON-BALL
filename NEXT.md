@@ -17,3 +17,12 @@ Next logical options:
 
 Last discussed direction:
 - Pausing before Phase 4 polish / Phase 5
+
+Additional Ideas:
+- Skin the balls like nation ball
+- Skin like popular NFTS and crypto personalities
+- Create weapon damage ranges ie shortsword 4-6, mace 2-10
+- A suite of different games, like miniclips, monetized for designers, ad-revenue
+
+Short to do:
+- turn balls into pngs
