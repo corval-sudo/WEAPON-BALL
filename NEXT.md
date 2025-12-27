@@ -25,4 +25,5 @@ Additional Ideas:
 - A suite of different games, like miniclips, monetized for designers, ad-revenue
 
 Short to do:
-- turn balls into pngs
+- turn balls into pngs and add interface to easily adjust 
+- need to build custom arena architecture
