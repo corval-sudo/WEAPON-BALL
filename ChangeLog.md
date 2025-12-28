@@ -1,4 +1,23 @@
 # Where to resume
+Changes 12/28
+- Implemented physical weeapon-weapon collisions. Tips now collide. When clashes occur no damage is dealt. Balls bounce away from impact. Added CD to tip collisions.
+- Added directional knockback on weapon hits.
+- Added velocity dampening on ball-ball collisions.
+- Implemented tip velocity physics. Collsions consider ball movement, weapon rotation speed.
+- Added weapon weight as a prameter. Effects knockback strength
+
+Issues
+- Still some overlap in visualization of objects. 
+- Sim takes longer to resolve now.
+- Collision dampening is maybe too aggressive and weapon strikes not explosive enough. 
+- Directional knockback needs more work.
+
+Next up:
+- Event log
+- 
+
+
+-------------------------------------------------------------------------------------------
 
 Changes 12/27
 - Interactions were infrequent and the visualization was too fast for the human eye
@@ -26,14 +45,3 @@ Next logical options:
 
 Last discussed direction:
 - Pausing before Phase 4 polish / Phase 5
-
-Additional Ideas:
-- Skin the balls like nation ball
-- Skin like popular NFTS and crypto personalities
-- Create weapon damage ranges ie shortsword 4-6, mace 2-10
-- A suite of different games, like miniclips, monetized for designers, ad-revenue
-- Weapon ball rogue like NFTS, tear packs for new skins, weapons and balls with randomized characteristics. Purchase potions to re-roll stats or target specific stats or add/remove special characteristics.
-
-Short to do:
-- turn balls into pngs and add interface to easily adjust 
-- need to build custom arena architecture

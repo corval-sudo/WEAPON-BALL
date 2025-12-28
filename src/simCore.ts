@@ -8,6 +8,7 @@ export type WeaponDef = {
   baseDamage: number;
   ramp: number;       // damage ramps per hit (never resets during match)
   speedMult: number;  // 1000 = 1.0x
+  weight: number; // 1000ths. 1000 = normal, 1500 = heavy, 700 = light
 };
 
 export type BallSpec = {
@@ -47,6 +48,7 @@ export type BallState = {
   omega: number;
   weaponReach: number; // scaled
   tipR: number;        // scaled
+  tipCooldown: number;
   baseDamage: number;
   ramp: number;
   hitCount: number; // never resets
@@ -54,6 +56,7 @@ export type BallState = {
   speedMult: number; // 1000ths
   damageDealt: number;
   restitution: number; // 1000ths
+  weaponWeight: number; // 1000ths
 };
 
 export type SimState = {
@@ -88,6 +91,14 @@ export const TRIG_SCALE = 1_000_000;
 
 const COS = new Int32Array(ANGLE_FULL);
 const SIN = new Int32Array(ANGLE_FULL);
+
+//other constants for some reason
+// --- Collision tuning (all deterministic) ---
+const TIP_BOUNCE_BOOST = 1.12;       // tip-tip bounce multiplies impulse a bit
+const TIP_HIT_KNOCKBACK = 220;       // pixels-per-tick-ish in *scaled* units (we'll scale it)
+const BALL_COLLIDE_DAMP = 0.94;      // ball-ball collision loses a bit of speed
+const TIP_COLLIDE_COOLDOWN_TICKS = 2; // prevents repeated tip-tip collisions every tick
+
 
 for (let a = 0; a < ANGLE_FULL; a++) {
   const rad = (a / ANGLE_FULL) * Math.PI * 2;
@@ -145,6 +156,36 @@ function weaponTipScaled(ball: BallState): Vec {
     y: ball.pos.y + Math.round((ball.weaponReach * s) / TRIG_SCALE),
   };
 }
+
+function weaponTipScaledAt(ball: BallState, theta: number): Vec {
+  const c = COS[theta & 0xffff]!;
+  const s = SIN[theta & 0xffff]!;
+  return {
+    x: ball.pos.x + Math.round((ball.weaponReach * c) / TRIG_SCALE),
+    y: ball.pos.y + Math.round((ball.weaponReach * s) / TRIG_SCALE),
+  };
+}
+
+// Matches how you move balls each tick (includes speedMult)
+function effectiveBodyVel(ball: BallState): Vec {
+  return {
+    x: Math.round((ball.vel.x * ball.speedMult) / 1000),
+    y: Math.round((ball.vel.y * ball.speedMult) / 1000),
+  };
+}
+
+// Per-tick tip velocity = body displacement + rotation-induced displacement
+function tipVelScaled(ball: BallState): Vec {
+  const tipNow = weaponTipScaledAt(ball, ball.theta);
+  const tipNext = weaponTipScaledAt(ball, (ball.theta + ball.omega) & 0xffff);
+
+  const rotDx = tipNext.x - tipNow.x;
+  const rotDy = tipNext.y - tipNow.y;
+
+  const v = effectiveBodyVel(ball);
+  return { x: v.x + rotDx, y: v.y + rotDy };
+}
+
 
 function applyWallBounce(state: SimState, ball: BallState) {
   const t = state.tick;
@@ -205,6 +246,12 @@ function resolveBallBallCollision(state: SimState, A: BallState, B: BallState) {
   B.vel.x += Math.round(impulseX * invMassB);
   B.vel.y += Math.round(impulseY * invMassB);
 
+    // Dampen speed slightly on ball-ball collisions
+  A.vel.x = Math.round(A.vel.x * BALL_COLLIDE_DAMP);
+  A.vel.y = Math.round(A.vel.y * BALL_COLLIDE_DAMP);
+  B.vel.x = Math.round(B.vel.x * BALL_COLLIDE_DAMP);
+  B.vel.y = Math.round(B.vel.y * BALL_COLLIDE_DAMP);
+
   state.events.push({ t: state.tick, e: "collide", a: A.id, b: B.id });
 
   const dist = 1 / invLen;
@@ -218,6 +265,74 @@ function resolveBallBallCollision(state: SimState, A: BallState, B: BallState) {
     B.pos.x += Math.round(pushX);
     B.pos.y += Math.round(pushY);
   }
+}
+
+function resolveTipTipCollision(state: SimState, A: BallState, B: BallState): boolean {
+  if (!A.alive || !B.alive) return false;
+  if (A.tipCooldown > 0 || B.tipCooldown > 0) return false;
+
+  const tipA = weaponTipScaled(A);
+  const tipB = weaponTipScaled(B);
+
+  const dx = tipB.x - tipA.x;
+  const dy = tipB.y - tipA.y;
+  const rSum = A.tipR + B.tipR;
+
+  const d2 = dx * dx + dy * dy;
+  if (d2 === 0) return false;
+  if (d2 > rSum * rSum) return false;
+
+  // Normal from A tip -> B tip
+  const invLen = approxInvSqrt(d2);
+  const nx = dx * invLen;
+  const ny = dy * invLen;
+
+  // Relative TIP velocity along normal (includes rotation + body motion)
+  const vA = tipVelScaled(A);
+  const vB = tipVelScaled(B);
+
+  const rvx = vB.x - vA.x;
+  const rvy = vB.y - vA.y;
+
+  const velAlongNormal = rvx * nx + rvy * ny;
+
+  // Closing speed (>=0)
+  const closing = Math.max(0, -velAlongNormal);
+
+  // Baseline pop scales with reach (more consistent across weapons)
+  const baseline = Math.round(A.weaponReach * 0.02);
+
+  // Weight scaling (1000ths): heavier weapons impart more impulse
+  const wAvg = (A.weaponWeight + B.weaponWeight) / 2;
+
+  const j = (closing * TIP_BOUNCE_BOOST + baseline) * (wAvg / 1000);
+
+  const impulseX = j * nx;
+  const impulseY = j * ny;
+
+
+  // Launch both balls away from clash line
+  A.vel.x -= Math.round(impulseX);
+  A.vel.y -= Math.round(impulseY);
+  B.vel.x += Math.round(impulseX);
+  B.vel.y += Math.round(impulseY);
+
+  // Positional separation to avoid repeated collisions from overlap
+  const dist = 1 / invLen;
+  const overlap = rSum - dist;
+  if (overlap > 0) {
+    const pushX = nx * (overlap / 2);
+    const pushY = ny * (overlap / 2);
+    A.pos.x -= Math.round(pushX);
+    A.pos.y -= Math.round(pushY);
+    B.pos.x += Math.round(pushX);
+    B.pos.y += Math.round(pushY);
+  }
+
+  A.tipCooldown = TIP_COLLIDE_COOLDOWN_TICKS;
+  B.tipCooldown = TIP_COLLIDE_COOLDOWN_TICKS;
+
+  return true;
 }
 
 function checkHit(state: SimState, attacker: BallState, victim: BallState) {
@@ -235,9 +350,49 @@ function checkHit(state: SimState, attacker: BallState, victim: BallState) {
 
     state.events.push({ t: state.tick, e: "hit", from: attacker.id, to: victim.id, dmg });
 
+    // Knockback: push victim away from weapon tip impact point
+    const kdx = victim.pos.x - tip.x;
+    const kdy = victim.pos.y - tip.y;
+    const kd2 = kdx * kdx + kdy * kdy;
+
+    if (kd2 > 0) {
+      const inv = approxInvSqrt(kd2);
+      const kx = kdx * inv;
+      const ky = kdy * inv;
+
+      const kbBase = Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000);
+      const kb = Math.round((kbBase * attacker.weaponWeight) / 1000);
+
+      victim.vel.x += Math.round(kx * kb);
+      victim.vel.y += Math.round(ky * kb);
+    }
+
+    // --- Tip vs victim-body collision response (prevents clipping) ---
+    // Treat the hit as a physical contact: separate victim away from tip.
+    const dx = victim.pos.x - tip.x;
+    const dy = victim.pos.y - tip.y;
+    const d2 = dx * dx + dy * dy;
+
+    if (d2 > 0) {
+      const dist = Math.sqrt(d2);
+      const pen = rr - dist; // penetration depth
+      if (pen > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Push victim out so tip isn't inside the body next tick
+        victim.pos.x += Math.round(nx * (pen + 1));
+        victim.pos.y += Math.round(ny * (pen + 1));
+
+        // Optional: tiny recoil so it feels like a strike not a ghost pass-through
+        attacker.vel.x -= Math.round(nx * (Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000) * 0.2));
+        attacker.vel.y -= Math.round(ny * (Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000) * 0.2));
+      }
+    }
+
     // Deterministic tiny jitter
-    const jx = Math.round((state.rng() - 0.5) * 20 * state.SCALE);
-    const jy = Math.round((state.rng() - 0.5) * 20 * state.SCALE);
+    const jx = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
+    const jy = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
     victim.vel.x += jx;
     victim.vel.y += jy;
 
@@ -265,6 +420,7 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     omega: weapon.omega,
     weaponReach: Math.round(weapon.reach * SCALE),
     tipR: Math.round(weapon.tipRadius * SCALE),
+    tipCooldown: 0,
     baseDamage: weapon.baseDamage,
     ramp: weapon.ramp,
     hitCount: 0,
@@ -272,6 +428,7 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     speedMult: weapon.speedMult,
     damageDealt: 0,
     restitution: b.restitution ?? 1000,
+    weaponWeight: weapon.weight ?? 1000,
   };
 }
 
@@ -301,6 +458,7 @@ export function stepSim(state: SimState) {
   if (state.done) return;
 
   const { A, B } = state;
+  let tipClashedThisTick = false;
 
   if (!A.alive || !B.alive) {
     state.done = true;
@@ -352,10 +510,18 @@ pullToCenter(B);
   // 4) ball-ball collision
   resolveBallBallCollision(state, A, B);
 
-  // 5) hits (fixed order)
-  checkHit(state, A, B);
-  checkHit(state, B, A);
+  // 5) tip-tip collision (clash cancels hits this tick)
+  tipClashedThisTick = resolveTipTipCollision(state, A, B);
 
+  // 6) hits (fixed order) — skipped if tips clashed
+  if (!tipClashedThisTick) {
+    checkHit(state, A, B);
+    checkHit(state, B, A);
+  }
+
+  // Cooldowns (prevents repeated tip-tip clashes while overlapped)
+  if (A.tipCooldown > 0) A.tipCooldown -= 1;
+  if (B.tipCooldown > 0) B.tipCooldown -= 1;
   state.tick += 1;
 
   // If someone died this tick, mark done next stepSim call (keeps logic simple)

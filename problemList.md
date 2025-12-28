@@ -1,0 +1,9 @@
+- Fix weapon PNGS
+- Fix render order
+- Tweak arena render a bit more
+- Make collisions feel more impactful. Add velocity to weapon strikes and momentum decay from bounces and ball-ball collision.
+- See about making an exe or hosting somewhere, maybe corval.club secret link?
+- Weapon range and tip maybe don't need to be rendered at all? 
+- What do I do about the weapon range? It's more like a weapon handle. Having a long range shouldn't allow an enemy to pass through the handle between the attacker and the weapon tip.
+- There continues to be some overlap issues. This might have to do with how we are rendering the visual.
+- A little too slow now. Gravity well in center becomes a bit more obvious. Maybe add some slight gravity to balls so they kind of attract each other. 

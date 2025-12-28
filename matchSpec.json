@@ -11,7 +11,8 @@
         "omega": 900,
         "baseDamage": 12,
         "ramp": 3,
-        "speedMult": 1000
+        "speedMult": 1000,
+        "weight": 800
     },
 
     "mace": {
@@ -20,7 +21,8 @@
         "omega": 700,
         "baseDamage": 14,
         "ramp": 2,
-        "speedMult": 950
+        "speedMult": 950,
+        "weight": 1300
     }
 
   },
