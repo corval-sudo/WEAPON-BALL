@@ -1,23 +1,23 @@
 {
   "seed": 1651699,
-  "weaponSetVersion": "v0.1.0",
+  "weaponSetVersion": "v0.1.1",
   "sim": { "scale": 1000, "maxTicks": 18000 },
-  "arena": { "w": 1000, "h": 600, "wallRestitution": 980 },
+  "arena": { "w": 600, "h": 1000, "wallRestitution": 1000 },
 
   "weapons":{
     "short_sword": {
-        "reach": 35,
-        "tipRadius": 10,
-        "omega": -14,
+        "reach": 60,
+        "tipRadius": 25,
+        "omega": 900,
         "baseDamage": 12,
         "ramp": 3,
         "speedMult": 1000
     },
 
     "mace": {
-        "reach": 40,
-        "tipRadius": 8,
-        "omega": 12,
+        "reach": 80,
+        "tipRadius": 30,
+        "omega": 700,
         "baseDamage": 14,
         "ramp": 2,
         "speedMult": 950
@@ -28,17 +28,17 @@
   "ballA": {
     "id": "A",
     "hp": 1000,
-    "radius": 25,
+    "radius": 40,
     "pos": { "x": 200, "y": 300 },
-    "vel": { "x": 180, "y": 90 },
+    "vel": { "x": 20, "y": 30 },
     "weaponId": "mace"
   },
   "ballB": {
     "id": "B",
     "hp": 1000,
-    "radius": 25,
+    "radius": 40,
     "pos": { "x": 800, "y": 300 },
-    "vel": { "x": -160, "y": -110 },
+    "vel": { "x": 20, "y": 30 },
     "weaponId": "short_sword"
   }
 }

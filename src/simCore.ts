@@ -331,6 +331,20 @@ export function stepSim(state: SimState) {
   B.pos.x += Math.round((B.vel.x * B.speedMult) / 1000);
   B.pos.y += Math.round((B.vel.y * B.speedMult) / 1000);
 
+  //gravity pull towards middle
+  const cx = state.arenaW / 2;
+  const cy = state.arenaH / 2;
+
+  function pullToCenter(ball: BallState) {
+    const dx = cx - ball.pos.x;
+    const dy = cy - ball.pos.y;
+    ball.vel.x += Math.round(dx * 0.0005);
+    ball.vel.y += Math.round(dy * 0.0005);
+  }
+
+pullToCenter(A);
+pullToCenter(B);
+
   // 3) wall bounce
   applyWallBounce(state, A);
   applyWallBounce(state, B);

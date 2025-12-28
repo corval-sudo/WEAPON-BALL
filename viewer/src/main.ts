@@ -10,6 +10,44 @@ const playPauseBtn = document.getElementById("playPause") as HTMLButtonElement;
 const speedSelect = document.getElementById("speed") as HTMLSelectElement;
 const tickReadout = document.getElementById("tickReadout") as HTMLSpanElement;
 
+// add skins
+const ballAInput = document.getElementById("ballAImg") as HTMLInputElement;
+const ballBInput = document.getElementById("ballBImg") as HTMLInputElement;
+const weaponAInput = document.getElementById("weaponAImg") as HTMLInputElement;
+const weaponBInput = document.getElementById("weaponBImg") as HTMLInputElement;
+
+let ballAImg: HTMLImageElement | null = null;
+let ballBImg: HTMLImageElement | null = null;
+let weaponAImg: HTMLImageElement | null = null;
+let weaponBImg: HTMLImageElement | null = null;
+
+async function loadPngFromInput(input: HTMLInputElement): Promise<HTMLImageElement | null> {
+  const file = input.files?.[0];
+  if (!file) return null;
+
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.src = url;
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Failed to load image"));
+  });
+
+  return img;
+}
+
+// Weapon sprite anchor point inside the PNG (0..1)
+// 1.0 means right edge, 0.0 means left edge
+const WEAPON_TIP_ANCHOR_X = 0.92; // tune this (0.85–0.98 is common)
+const WEAPON_TIP_ANCHOR_Y = 0.50; // center vertically
+
+ballAInput.addEventListener("change", async () => (ballAImg = await loadPngFromInput(ballAInput)));
+ballBInput.addEventListener("change", async () => (ballBImg = await loadPngFromInput(ballBInput)));
+weaponAInput.addEventListener("change", async () => (weaponAImg = await loadPngFromInput(weaponAInput)));
+weaponBInput.addEventListener("change", async () => (weaponBImg = await loadPngFromInput(weaponBInput)));
+//end add skins
+
 // Fixed render resolution (you can scale visually later)
 const WIDTH = 1000;
 const HEIGHT = 600;
@@ -51,7 +89,7 @@ const VISUAL_SCALE = 1.3;
 // --- Sim timing ---
 // Your sim is tick-based. We'll treat it as 60 ticks/sec for replay pacing.
 // (Even if your sim doesn't "use dt", this is just for playback speed.)
-const TICKS_PER_SEC = 60;
+const TICKS_PER_SEC = 30;
 const MS_PER_TICK = 1000 / TICKS_PER_SEC;
 
 let running = true;
@@ -88,6 +126,102 @@ function drawBall(x: number, y: number, r: number, fill: string) {
   ctx.stroke();
 }
 
+function drawBallSpriteOrFallback(
+  x: number,
+  y: number,
+  r: number,
+  img: HTMLImageElement | null,
+  fallback: string
+) {
+  if (!img) {
+    drawBall(x, y, r, fallback);
+    return;
+  }
+
+  ctx.save();
+
+  // Clip to circle
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Draw sprite inside the clipped circle
+  ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+
+  ctx.restore();
+
+  // Optional: outline for readability
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function thetaToRad(theta: number) {
+  return (theta / 65536) * Math.PI * 2;
+}
+
+
+function drawWeaponSpriteOrFallback(
+  baseX: number,
+  baseY: number,
+  tipX: number,
+  tipY: number,
+  theta: number,
+  img: HTMLImageElement | null,
+  fallbackColor: string
+) {
+  const ang = thetaToRad(theta);
+
+  // Fallback: thick arm line + tip dot (keeps things visible even if sprite fails)
+  if (!img) {
+    ctx.strokeStyle = fallbackColor;
+    ctx.lineWidth = 8;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.lineTo(tipX, tipY);
+    ctx.stroke();
+
+    ctx.fillStyle = fallbackColor;
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 6, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  // Draw sprite so it is always visible:
+  // - position at the TIP
+  // - rotate to theta
+  // - stretch length based on arm length
+  const armLen = Math.hypot(tipX - baseX, tipY - baseY);
+  const w = armLen * 1.35;   // sprite length
+  const h = armLen * 0.45;   // sprite thickness
+
+  ctx.save();
+
+  // Subtle depth
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+
+  // Move to tip and rotate
+  ctx.translate(tipX, tipY);
+  ctx.rotate(ang);
+
+  // Compute draw origin so that (WEAPON_TIP_ANCHOR_X, WEAPON_TIP_ANCHOR_Y) lands at (0,0)
+  const ox = -w * WEAPON_TIP_ANCHOR_X;
+  const oy = -h * WEAPON_TIP_ANCHOR_Y;
+
+  // Assumes PNG points RIGHT (→). We want it extending from tip back toward the ball.
+  // So we draw it ending at x=0, extending leftwards.
+  ctx.drawImage(img, ox, oy, w, h);
+
+  ctx.restore();
+}
+
 function render() {
   // Page background (outside the arena)
   ctx.fillStyle = "#f4efe6"; // warm parchment like your reference
@@ -112,7 +246,7 @@ function render() {
   PLAY_H
   );
 
-  // Draw balls
+  // Define balls
   const Apos0 = { x: sim.A.pos.x / sim.SCALE, y: sim.A.pos.y / sim.SCALE };
   const Bpos0 = { x: sim.B.pos.x / sim.SCALE, y: sim.B.pos.y / sim.SCALE };
 
@@ -122,25 +256,22 @@ function render() {
   const Ar = (sim.A.r / sim.SCALE) * MAP * VISUAL_SCALE;
   const Br = (sim.B.r / sim.SCALE) * MAP * VISUAL_SCALE;
 
-  drawBall(Apos.x, Apos.y, Ar, "red");
-  drawBall(Bpos.x, Bpos.y, Br, "dodgerblue");
-
-function withShadow(fn: () => void) {
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.25)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 2;
-  fn();
-  ctx.restore();
-}
-
-  // Draw weapon arms + tips
+  // Define weapon arms + tips
   const Atip0 = getWeaponTipForRender(sim, sim.A);
   const Btip0 = getWeaponTipForRender(sim, sim.B);
 
   const Atip = toScreen(Atip0.x, Atip0.y);
   const Btip = toScreen(Btip0.x, Btip0.y);
+
+  function withShadow(fn: () => void) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.25)";
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
+    fn();
+    ctx.restore();
+  }
 
   // arms
   ctx.strokeStyle = "red";
@@ -153,19 +284,31 @@ function withShadow(fn: () => void) {
       ctx.lineWidth = 8;
 
       // A arm
-      ctx.strokeStyle = "#b00000";
-      ctx.beginPath();
-      ctx.moveTo(Apos.x, Apos.y);
-      ctx.lineTo(Atip.x, Atip.y);
-      ctx.stroke();
+      drawWeaponSpriteOrFallback(
+        Apos.x,
+        Apos.y,
+        Atip.x,
+        Atip.y,
+        sim.A.theta,
+        weaponAImg,
+        "#b00000"
+      );
 
-      // B arm
-      ctx.strokeStyle = "#0b4ed6";
-      ctx.beginPath();
-      ctx.moveTo(Bpos.x, Bpos.y);
-      ctx.lineTo(Btip.x, Btip.y);
-      ctx.stroke();
+       // B arm
+      drawWeaponSpriteOrFallback(
+        Bpos.x,
+        Bpos.y,
+        Btip.x,
+        Btip.y,
+        sim.B.theta,
+        weaponBImg,
+        "#0b4ed6"
+      );
     });
+
+
+  drawBallSpriteOrFallback(Apos.x, Apos.y, Ar, ballAImg, "red");
+  drawBallSpriteOrFallback(Bpos.x, Bpos.y, Br, ballBImg, "dodgerblue");
 
   ctx.strokeStyle = "dodgerblue";
   ctx.beginPath();
