@@ -15,10 +15,61 @@ body {
   padding: 10px 12px;
   background: #1b1b1b;
   border-bottom: 1px solid #2a2a2a;
+  flex-wrap: wrap;
+}
+
+#main-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+}
+
+#eventLog {
+  width: 220px;
+  height: 800px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  border-right: 1px solid #2a2a2a;
+  padding: 8px;
+  font-size: 11px;
+  font-family: monospace;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+#eventLog .ev {
+  padding: 2px 4px;
+  border-bottom: 1px solid #222;
+}
+
+#eventLog .ev-hit-A {
+  color: #ff4444;
+}
+
+#eventLog .ev-hit-B {
+  color: #4499ff;
+}
+
+#eventLog .ev-collide {
+  color: #ffd43b;
+}
+
+#eventLog .ev-wall {
+  color: #888;
+}
+
+#eventLog .ev-dead {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+#eventLog .ev-timeout {
+  color: #69db7c;
+  font-weight: bold;
 }
 
 canvas {
   display: block;
-  margin: 0 auto;
   background: #0b0b0b;
 }
