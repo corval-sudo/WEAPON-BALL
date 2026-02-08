@@ -1,6 +1,7 @@
 import "./style.css";
 import matchSpecJson from "../../matchSpec.json";
-import { createSim, stepSim, getWeaponTipForRender, MatchSpec } from "../../src/simCore";
+import { createSim, stepSim, getWeaponTipForRender } from "../../src/simCore";
+import type { MatchSpec } from "../../src/simCore";
 
 // Constants for image validation
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -26,10 +27,11 @@ function getElementByIdOrThrow<T extends HTMLElement>(id: string, type: string):
 }
 
 const canvas = getElementByIdOrThrow<HTMLCanvasElement>("arena", "canvas");
-const ctx = canvas.getContext("2d");
-if (!ctx) {
+const ctxNullable = canvas.getContext("2d");
+if (!ctxNullable) {
   throw new Error("Failed to get 2D rendering context from canvas");
 }
+const ctx: CanvasRenderingContext2D = ctxNullable;
 
 const playPauseBtn = getElementByIdOrThrow<HTMLButtonElement>("playPause", "button");
 const speedSelect = getElementByIdOrThrow<HTMLSelectElement>("speed", "select");
@@ -311,7 +313,7 @@ function drawWeaponSpriteOrFallback(
 
 function render() {
   // Page background (outside the arena)
-  ctx.fillStyle = "#f4efe6"; // warm parchment like your reference
+  ctx.fillStyle = "#f4efe6";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   // Arena fill (the pit)
@@ -324,14 +326,9 @@ function render() {
   ctx.strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
 
   // Arena inner inset (subtle depth)
-  ctx.strokeStyle = "#222222";
+  ctx.strokeStyle = "#333333";
   ctx.lineWidth = 2;
-  ctx.strokeRect(
-  PLAY_X,
-  PLAY_Y,
-  PLAY_W,
-  PLAY_H
-  );
+  ctx.strokeRect(PLAY_X, PLAY_Y, PLAY_W, PLAY_H);
 
   // Define balls
   const Apos0 = { x: sim.A.pos.x / sim.SCALE, y: sim.A.pos.y / sim.SCALE };
@@ -350,93 +347,56 @@ function render() {
   const Atip = toScreen(Atip0.x, Atip0.y);
   const Btip = toScreen(Btip0.x, Btip0.y);
 
-  function withShadow(fn: () => void) {
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.25)";
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 2;
-    fn();
-    ctx.restore();
-  }
+  // Draw weapons (behind balls)
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
 
-  // arms
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-    withShadow(() => {
-      // Weapon arms: thick + rounded
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 8;
+  drawWeaponSpriteOrFallback(
+    Apos.x,
+    Apos.y,
+    Atip.x,
+    Atip.y,
+    sim.A.theta,
+    weaponAImg,
+    "#c41e3a"
+  );
 
-      // A arm
-      drawWeaponSpriteOrFallback(
-        Apos.x,
-        Apos.y,
-        Atip.x,
-        Atip.y,
-        sim.A.theta,
-        weaponAImg,
-        "#b00000"
-      );
+  drawWeaponSpriteOrFallback(
+    Bpos.x,
+    Bpos.y,
+    Btip.x,
+    Btip.y,
+    sim.B.theta,
+    weaponBImg,
+    "#1e90ff"
+  );
+  ctx.restore();
 
-       // B arm
-      drawWeaponSpriteOrFallback(
-        Bpos.x,
-        Bpos.y,
-        Btip.x,
-        Btip.y,
-        sim.B.theta,
-        weaponBImg,
-        "#0b4ed6"
-      );
-    });
-
-
-  drawBallSpriteOrFallback(Apos.x, Apos.y, Ar, ballAImg, "red");
-  drawBallSpriteOrFallback(Bpos.x, Bpos.y, Br, ballBImg, "dodgerblue");
-
-  ctx.strokeStyle = "dodgerblue";
-  ctx.beginPath();
-  ctx.moveTo(Bpos.x, Bpos.y);
-  ctx.lineTo(Btip.x, Btip.y);
-  ctx.stroke();
-
-  // tips
-  ctx.fillStyle = "red";
-  ctx.beginPath();
-  ctx.arc(Atip.x, Atip.y, (sim.A.tipR / sim.SCALE) * MAP * VISUAL_SCALE, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "dodgerblue";
-  ctx.beginPath();
-  ctx.arc(Btip.x, Btip.y, (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (tickReadout) {
-    tickReadout.textContent = sim.done
-      ? `tick: ${sim.tick} (DONE winner: ${sim.winner})`
-      : `tick: ${sim.tick}`;
-  }
-    withShadow(() => {
+  // Draw weapon tips
   const tipAR = (sim.A.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
   const tipBR = (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
 
-  // Tip fill
-  ctx.fillStyle = "#b00000";
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 4;
+
+  ctx.fillStyle = "#c41e3a";
   ctx.beginPath();
   ctx.arc(Atip.x, Atip.y, tipAR, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#0b4ed6";
+  ctx.fillStyle = "#1e90ff";
   ctx.beginPath();
   ctx.arc(Btip.x, Btip.y, tipBR, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 
-  // Tip outline (adds crispness)
+  // Tip outlines
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.strokeStyle = "rgba(0,0,0,0.4)";
   ctx.beginPath();
   ctx.arc(Atip.x, Atip.y, tipAR, 0, Math.PI * 2);
   ctx.stroke();
@@ -444,7 +404,15 @@ function render() {
   ctx.beginPath();
   ctx.arc(Btip.x, Btip.y, tipBR, 0, Math.PI * 2);
   ctx.stroke();
-});
+
+  // Draw balls (on top of weapons)
+  drawBallSpriteOrFallback(Apos.x, Apos.y, Ar, ballAImg, "#e74c3c");
+  drawBallSpriteOrFallback(Bpos.x, Bpos.y, Br, ballBImg, "#3498db");
+
+  // Update HUD
+  tickReadout.textContent = sim.done
+    ? `tick: ${sim.tick} (DONE - Winner: ${sim.winner})`
+    : `tick: ${sim.tick}`;
 }
 
 function frame(nowMs: number) {
