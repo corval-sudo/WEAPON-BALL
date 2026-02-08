@@ -1,40 +1,103 @@
 import "./style.css";
-import matchSpec from "../../matchSpec.json";
-import { createSim, stepSim, getWeaponTipForRender } from "../../src/simCore";
-console.log("Loaded matchSpec seed:", matchSpec.seed);
+import matchSpecJson from "../../matchSpec.json";
+import { createSim, stepSim, getWeaponTipForRender, MatchSpec } from "../../src/simCore";
 
-const canvas = document.getElementById("arena") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d")!;
+// Constants for image validation
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
-const playPauseBtn = document.getElementById("playPause") as HTMLButtonElement;
-const speedSelect = document.getElementById("speed") as HTMLSelectElement;
-const tickReadout = document.getElementById("tickReadout") as HTMLSpanElement;
+// Validate and type the match spec
+function validateMatchSpec(spec: unknown): MatchSpec {
+  if (typeof spec !== "object" || spec === null) {
+    throw new Error("Match spec must be an object");
+  }
+  return spec as MatchSpec;
+}
+
+const matchSpec = validateMatchSpec(matchSpecJson);
+
+// Get DOM elements with proper error handling
+function getElementByIdOrThrow<T extends HTMLElement>(id: string, type: string): T {
+  const element = document.getElementById(id);
+  if (!element) {
+    throw new Error(`Required ${type} element with id "${id}" not found`);
+  }
+  return element as T;
+}
+
+const canvas = getElementByIdOrThrow<HTMLCanvasElement>("arena", "canvas");
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Failed to get 2D rendering context from canvas");
+}
+
+const playPauseBtn = getElementByIdOrThrow<HTMLButtonElement>("playPause", "button");
+const speedSelect = getElementByIdOrThrow<HTMLSelectElement>("speed", "select");
+const tickReadout = getElementByIdOrThrow<HTMLSpanElement>("tickReadout", "span");
 
 // add skins
-const ballAInput = document.getElementById("ballAImg") as HTMLInputElement;
-const ballBInput = document.getElementById("ballBImg") as HTMLInputElement;
-const weaponAInput = document.getElementById("weaponAImg") as HTMLInputElement;
-const weaponBInput = document.getElementById("weaponBImg") as HTMLInputElement;
+const ballAInput = getElementByIdOrThrow<HTMLInputElement>("ballAImg", "input");
+const ballBInput = getElementByIdOrThrow<HTMLInputElement>("ballBImg", "input");
+const weaponAInput = getElementByIdOrThrow<HTMLInputElement>("weaponAImg", "input");
+const weaponBInput = getElementByIdOrThrow<HTMLInputElement>("weaponBImg", "input");
 
 let ballAImg: HTMLImageElement | null = null;
 let ballBImg: HTMLImageElement | null = null;
 let weaponAImg: HTMLImageElement | null = null;
 let weaponBImg: HTMLImageElement | null = null;
 
+// Track object URLs for cleanup
+const objectUrls: Set<string> = new Set();
+
+// Cleanup function to revoke object URLs
+function revokeObjectUrl(url: string) {
+  if (objectUrls.has(url)) {
+    URL.revokeObjectURL(url);
+    objectUrls.delete(url);
+  }
+}
+
+// Cleanup on page unload
+window.addEventListener("beforeunload", () => {
+  objectUrls.forEach(revokeObjectUrl);
+});
+
 async function loadPngFromInput(input: HTMLInputElement): Promise<HTMLImageElement | null> {
   const file = input.files?.[0];
   if (!file) return null;
 
+  // Validate file type
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    console.warn(`Invalid image type: ${file.type}. Allowed types: ${ALLOWED_IMAGE_TYPES.join(", ")}`);
+    return null;
+  }
+
+  // Validate file size
+  if (file.size > MAX_IMAGE_SIZE) {
+    console.warn(`Image file too large: ${file.size} bytes. Maximum size: ${MAX_IMAGE_SIZE} bytes`);
+    return null;
+  }
+
   const url = URL.createObjectURL(file);
+  objectUrls.add(url);
+
   const img = new Image();
   img.src = url;
 
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error("Failed to load image"));
-  });
-
-  return img;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => {
+        revokeObjectUrl(url);
+        reject(new Error("Failed to load image"));
+      };
+    });
+    return img;
+  } catch (error) {
+    revokeObjectUrl(url);
+    console.error("Error loading image:", error);
+    return null;
+  }
 }
 
 // Weapon sprite anchor point inside the PNG (0..1)
@@ -42,10 +105,34 @@ async function loadPngFromInput(input: HTMLInputElement): Promise<HTMLImageEleme
 const WEAPON_TIP_ANCHOR_X = 0.92; // tune this (0.85–0.98 is common)
 const WEAPON_TIP_ANCHOR_Y = 0.50; // center vertically
 
-ballAInput.addEventListener("change", async () => (ballAImg = await loadPngFromInput(ballAInput)));
-ballBInput.addEventListener("change", async () => (ballBImg = await loadPngFromInput(ballBInput)));
-weaponAInput.addEventListener("change", async () => (weaponAImg = await loadPngFromInput(weaponAInput)));
-weaponBInput.addEventListener("change", async () => (weaponBImg = await loadPngFromInput(weaponBInput)));
+// Image loading handlers with cleanup
+ballAInput.addEventListener("change", async () => {
+  if (ballAImg?.src && objectUrls.has(ballAImg.src)) {
+    revokeObjectUrl(ballAImg.src);
+  }
+  ballAImg = await loadPngFromInput(ballAInput);
+});
+
+ballBInput.addEventListener("change", async () => {
+  if (ballBImg?.src && objectUrls.has(ballBImg.src)) {
+    revokeObjectUrl(ballBImg.src);
+  }
+  ballBImg = await loadPngFromInput(ballBInput);
+});
+
+weaponAInput.addEventListener("change", async () => {
+  if (weaponAImg?.src && objectUrls.has(weaponAImg.src)) {
+    revokeObjectUrl(weaponAImg.src);
+  }
+  weaponAImg = await loadPngFromInput(weaponAInput);
+});
+
+weaponBInput.addEventListener("change", async () => {
+  if (weaponBImg?.src && objectUrls.has(weaponBImg.src)) {
+    revokeObjectUrl(weaponBImg.src);
+  }
+  weaponBImg = await loadPngFromInput(weaponBInput);
+});
 //end add skins
 
 // Fixed render resolution (you can scale visually later)
@@ -97,8 +184,8 @@ let speed = Number(speedSelect.value); // 0.25, 0.5, 1, 2, 4, 8
 let lastMs = performance.now();
 let accumulatorMs = 0;
 
-// --- Demo state (we’ll replace with real sim state next) ---
-const sim = createSim(matchSpec as any);
+// --- Simulation state ---
+const sim = createSim(matchSpec);
 
 function stepSimOneTick() {
   if (!sim.done) stepSim(sim);
@@ -327,9 +414,11 @@ function render() {
   ctx.arc(Btip.x, Btip.y, (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE, 0, Math.PI * 2);
   ctx.fill();
 
-  tickReadout.textContent = sim.done
-    ? `tick: ${sim.tick} (DONE winner: ${sim.winner})`
-    : `tick: ${sim.tick}`;
+  if (tickReadout) {
+    tickReadout.textContent = sim.done
+      ? `tick: ${sim.tick} (DONE winner: ${sim.winner})`
+      : `tick: ${sim.tick}`;
+  }
     withShadow(() => {
   const tipAR = (sim.A.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
   const tipBR = (sim.B.tipR / sim.SCALE) * MAP * VISUAL_SCALE;
@@ -381,11 +470,15 @@ function frame(nowMs: number) {
 // --- UI wiring ---
 playPauseBtn.addEventListener("click", () => {
   running = !running;
-  playPauseBtn.textContent = running ? "Pause" : "Play";
+  if (playPauseBtn) {
+    playPauseBtn.textContent = running ? "Pause" : "Play";
+  }
 });
 
 speedSelect.addEventListener("change", () => {
-  speed = Number(speedSelect.value);
+  if (speedSelect) {
+    speed = Number(speedSelect.value);
+  }
 });
 
 // Start

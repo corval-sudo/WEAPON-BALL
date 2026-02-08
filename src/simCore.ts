@@ -149,6 +149,7 @@ export function canonicalInputs(spec: MatchSpec) {
 
 // ---------- Core engine ----------
 function weaponTipScaled(ball: BallState): Vec {
+  // Safe: ball.theta is always in range [0, 65535] and arrays are sized to ANGLE_FULL (65536)
   const c = COS[ball.theta]!;
   const s = SIN[ball.theta]!;
   return {
@@ -158,8 +159,10 @@ function weaponTipScaled(ball: BallState): Vec {
 }
 
 function weaponTipScaledAt(ball: BallState, theta: number): Vec {
-  const c = COS[theta & 0xffff]!;
-  const s = SIN[theta & 0xffff]!;
+  // Safe: theta is masked to [0, 65535] and arrays are sized to ANGLE_FULL (65536)
+  const maskedTheta = theta & 0xffff;
+  const c = COS[maskedTheta]!;
+  const s = SIN[maskedTheta]!;
   return {
     x: ball.pos.x + Math.round((ball.weaponReach * c) / TRIG_SCALE),
     y: ball.pos.y + Math.round((ball.weaponReach * s) / TRIG_SCALE),
@@ -500,8 +503,8 @@ export function stepSim(state: SimState) {
     ball.vel.y += Math.round(dy * 0.0005);
   }
 
-pullToCenter(A);
-pullToCenter(B);
+  pullToCenter(A);
+  pullToCenter(B);
 
   // 3) wall bounce
   applyWallBounce(state, A);
