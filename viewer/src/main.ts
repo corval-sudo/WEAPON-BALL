@@ -157,21 +157,22 @@ weaponBInput.addEventListener("change", async () => {
 });
 //end add skins
 
-// Fixed render resolution (you can scale visually later)
-const WIDTH = 1000;
-const HEIGHT = 600;
+// Fixed render resolution — portrait for mobile
+const WIDTH = 500;
+const HEIGHT = 800;
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
-
-// --- Arena framing (visual only) ---
-const ARENA_W = 520;
-const ARENA_H = 520;
-const ARENA_X = Math.floor((WIDTH - ARENA_W) / 2);
-const ARENA_Y = Math.floor((HEIGHT - ARENA_H) / 2);
 
 // --- Map sim-space (matchSpec arena) into the drawn arena box ---
 const SIM_ARENA_W = matchSpec.arena.w;
 const SIM_ARENA_H = matchSpec.arena.h;
+
+// --- Arena framing (visual only) ---
+const ARENA_PAD = 20;
+const ARENA_W = WIDTH - ARENA_PAD * 2;
+const ARENA_H = Math.round(ARENA_W * (SIM_ARENA_H / SIM_ARENA_W));
+const ARENA_X = ARENA_PAD;
+const ARENA_Y = Math.floor((HEIGHT - ARENA_H) / 2);
 
 const MAP_X = ARENA_W / SIM_ARENA_W;
 const MAP_Y = ARENA_H / SIM_ARENA_H;
@@ -191,13 +192,10 @@ function toScreen(x: number, y: number) {
   return { x: MAP_OFF_X + x * MAP, y: MAP_OFF_Y + y * MAP };
 }
 
-// If you later want “bigger presence” without changing sim:
-// multiply ball + weapon sizes in drawing only.
-const VISUAL_SCALE = 1.3;
+// Visual scale matches sim hitboxes exactly (1.0 = pixel-accurate collisions)
+const VISUAL_SCALE = 1.0;
 
 // --- Sim timing ---
-// Your sim is tick-based. We'll treat it as 60 ticks/sec for replay pacing.
-// (Even if your sim doesn't "use dt", this is just for playback speed.)
 const TICKS_PER_SEC = 30;
 const MS_PER_TICK = 1000 / TICKS_PER_SEC;
 
@@ -206,8 +204,47 @@ let speed = Number(speedSelect.value); // 0.25, 0.5, 1, 2, 4, 8
 let lastMs = performance.now();
 let accumulatorMs = 0;
 
+// --- Event log ---
+const eventLogEl = getElementByIdOrThrow<HTMLDivElement>("eventLog", "div");
+let lastEventIdx = 0;
+
 // --- Simulation state ---
 const sim = createSim(matchSpec);
+
+function formatEvent(ev: (typeof sim.events)[number]): { text: string; cls: string } {
+  switch (ev.e) {
+    case "hit":
+      return { text: `t${ev.t} HIT ${ev.from}\u2192${ev.to} dmg:${ev.dmg}`, cls: `ev ev-hit-${ev.from}` };
+    case "collide":
+      return { text: `t${ev.t} BUMP ${ev.a}\u2194${ev.b}`, cls: "ev ev-collide" };
+    case "wall":
+      return { text: `t${ev.t} WALL ${ev.id} ${ev.side}`, cls: "ev ev-wall" };
+    case "dead":
+      return { text: `t${ev.t} DEAD ${ev.id}`, cls: "ev ev-dead" };
+    case "timeout":
+      return { text: `t${ev.t} TIMEOUT winner:${ev.winner}`, cls: "ev ev-timeout" };
+  }
+}
+
+function flushEventLog() {
+  const events = sim.events;
+  if (events.length === lastEventIdx) return;
+
+  for (let i = lastEventIdx; i < events.length; i++) {
+    const ev = events[i]!;
+    // Only show hit, dead, and timeout events
+    if (ev.e !== "hit" && ev.e !== "dead" && ev.e !== "timeout") continue;
+    const { text, cls } = formatEvent(ev);
+    const div = document.createElement("div");
+    div.className = cls;
+    div.textContent = text;
+    eventLogEl.appendChild(div);
+  }
+  lastEventIdx = events.length;
+
+  // Auto-scroll to bottom
+  eventLogEl.scrollTop = eventLogEl.scrollHeight;
+}
 
 function stepSimOneTick() {
   if (!sim.done) stepSim(sim);
@@ -270,7 +307,6 @@ function drawBallSpriteOrFallback(
 function thetaToRad(theta: number) {
   return (theta / 65536) * Math.PI * 2;
 }
-
 
 function drawWeaponSpriteOrFallback(
   baseX: number,
@@ -346,9 +382,15 @@ function render() {
   ctx.strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
 
   // Arena inner inset (subtle depth)
-  ctx.strokeStyle = "#333333";
+  ctx.strokeStyle = "#222222";
   ctx.lineWidth = 2;
   ctx.strokeRect(PLAY_X, PLAY_Y, PLAY_W, PLAY_H);
+
+  // Clip all game content to the arena bounds
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
+  ctx.clip();
 
   // Define balls
   const Apos0 = { x: sim.A.pos.x / sim.SCALE, y: sim.A.pos.y / sim.SCALE };
@@ -373,25 +415,18 @@ function render() {
   ctx.shadowBlur = 6;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 8;
 
   drawWeaponSpriteOrFallback(
-    Apos.x,
-    Apos.y,
-    Atip.x,
-    Atip.y,
-    sim.A.theta,
-    weaponAImg,
-    "#c41e3a"
+    Apos.x, Apos.y, Atip.x, Atip.y,
+    sim.A.theta, weaponAImg, "#b00000"
   );
 
   drawWeaponSpriteOrFallback(
-    Bpos.x,
-    Bpos.y,
-    Btip.x,
-    Btip.y,
-    sim.B.theta,
-    weaponBImg,
-    "#1e90ff"
+    Bpos.x, Bpos.y, Btip.x, Btip.y,
+    sim.B.theta, weaponBImg, "#0b4ed6"
   );
   ctx.restore();
 
@@ -403,12 +438,12 @@ function render() {
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 4;
 
-  ctx.fillStyle = "#c41e3a";
+  ctx.fillStyle = "#b00000";
   ctx.beginPath();
   ctx.arc(Atip.x, Atip.y, tipAR, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#1e90ff";
+  ctx.fillStyle = "#0b4ed6";
   ctx.beginPath();
   ctx.arc(Btip.x, Btip.y, tipBR, 0, Math.PI * 2);
   ctx.fill();
@@ -428,6 +463,9 @@ function render() {
   // Draw balls (on top of weapons)
   drawBallSpriteOrFallback(Apos.x, Apos.y, Ar, ballAImg, "#e74c3c");
   drawBallSpriteOrFallback(Bpos.x, Bpos.y, Br, ballBImg, "#3498db");
+
+  // End arena clip region
+  ctx.restore();
 
   // Update HUD
   tickReadout.textContent = sim.done
@@ -467,6 +505,7 @@ function frame(nowMs: number) {
   }
 
   render();
+  flushEventLog();
   requestAnimationFrame(frame);
 }
 

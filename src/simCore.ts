@@ -95,7 +95,7 @@ const SIN = new Int32Array(ANGLE_FULL);
 //other constants for some reason
 // --- Collision tuning (all deterministic) ---
 const TIP_BOUNCE_BOOST = 1.12;       // tip-tip bounce multiplies impulse a bit
-const TIP_HIT_KNOCKBACK = 220;       // pixels-per-tick-ish in *scaled* units (we'll scale it)
+const TIP_HIT_KNOCKBACK = 600;       // pixels-per-tick-ish in *scaled* units (we'll scale it)
 const BALL_COLLIDE_DAMP = 0.94;      // ball-ball collision loses a bit of speed
 const TIP_COLLIDE_COOLDOWN_TICKS = 2; // prevents repeated tip-tip collisions every tick
 
@@ -492,19 +492,18 @@ export function stepSim(state: SimState) {
   B.pos.x += Math.round((B.vel.x * B.speedMult) / 1000);
   B.pos.y += Math.round((B.vel.y * B.speedMult) / 1000);
 
-  //gravity pull towards middle
-  const cx = state.arenaW / 2;
-  const cy = state.arenaH / 2;
+  // downward gravity (positive Y = down in screen space)
+  const GRAVITY = Math.round(0.15 * state.SCALE);
+  A.vel.y += GRAVITY;
+  B.vel.y += GRAVITY;
 
-  function pullToCenter(ball: BallState) {
-    const dx = cx - ball.pos.x;
-    const dy = cy - ball.pos.y;
-    ball.vel.x += Math.round(dx * 0.0005);
-    ball.vel.y += Math.round(dy * 0.0005);
-  }
-
-  pullToCenter(A);
-  pullToCenter(B);
+  // mutual attraction so balls collide more often
+  const adx = B.pos.x - A.pos.x;
+  const ady = B.pos.y - A.pos.y;
+  A.vel.x += Math.round(adx * 0.0008);
+  A.vel.y += Math.round(ady * 0.0008);
+  B.vel.x -= Math.round(adx * 0.0008);
+  B.vel.y -= Math.round(ady * 0.0008);
 
   // 3) wall bounce
   applyWallBounce(state, A);
