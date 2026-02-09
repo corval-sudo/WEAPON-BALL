@@ -9,27 +9,7 @@
     <body>
     <div id="hud">
       <button id="playPause">Pause</button>
-      
-      <label>
-        Ball A PNG
-        <input id="ballAImg" type="file" accept="image/png" />
-      </label>
 
-      <label>
-        Ball B PNG
-        <input id="ballBImg" type="file" accept="image/png" />
-      </label>
-
-      <label>
-        Weapon A PNG
-        <input id="weaponAImg" type="file" accept="image/png" />
-      </label>
-
-      <label>
-        Weapon B PNG
-        <input id="weaponBImg" type="file" accept="image/png" />
-      </label>
-      
       <label>
         Speed:
         <select id="speed">
@@ -43,9 +23,59 @@
       </label>
 
       <span id="tickReadout">tick: 0</span>
+
+      <button id="adminToggle" class="admin-btn">Admin</button>
     </div>
 
-    <canvas id="arena"></canvas>
+    <!-- Admin panel (hidden by default) -->
+    <div id="adminPanel" class="admin-panel hidden">
+      <div class="admin-header">
+        <span>Skin Uploads</span>
+        <button id="adminClose" class="admin-close">&times;</button>
+      </div>
+      <div class="admin-body">
+        <label>
+          Ball A PNG
+          <input id="ballAImg" type="file" accept="image/png" />
+        </label>
+        <label>
+          Ball B PNG
+          <input id="ballBImg" type="file" accept="image/png" />
+        </label>
+        <label>
+          Weapon A PNG
+          <input id="weaponAImg" type="file" accept="image/png" />
+        </label>
+        <label>
+          Weapon B PNG
+          <input id="weaponBImg" type="file" accept="image/png" />
+        </label>
+      </div>
+    </div>
+
+    <div id="main-container">
+      <canvas id="arena"></canvas>
+
+      <div id="hp-panel">
+        <div class="hp-tracker" id="hp-tracker-a">
+          <div class="hp-label">Fighter A</div>
+          <div class="hp-bar-container">
+            <div class="hp-bar hp-bar-a" id="hp-bar-a"></div>
+          </div>
+          <div class="hp-text" id="hp-text-a">1000 / 1000</div>
+          <div class="hp-stats" id="hp-stats-a"></div>
+        </div>
+
+        <div class="hp-tracker" id="hp-tracker-b">
+          <div class="hp-label">Fighter B</div>
+          <div class="hp-bar-container">
+            <div class="hp-bar hp-bar-b" id="hp-bar-b"></div>
+          </div>
+          <div class="hp-text" id="hp-text-b">1000 / 1000</div>
+          <div class="hp-stats" id="hp-stats-b"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -37,6 +37,26 @@ const playPauseBtn = getElementByIdOrThrow<HTMLButtonElement>("playPause", "butt
 const speedSelect = getElementByIdOrThrow<HTMLSelectElement>("speed", "select");
 const tickReadout = getElementByIdOrThrow<HTMLSpanElement>("tickReadout", "span");
 
+// HP tracker elements
+const hpBarA = getElementByIdOrThrow<HTMLDivElement>("hp-bar-a", "div");
+const hpBarB = getElementByIdOrThrow<HTMLDivElement>("hp-bar-b", "div");
+const hpTextA = getElementByIdOrThrow<HTMLDivElement>("hp-text-a", "div");
+const hpTextB = getElementByIdOrThrow<HTMLDivElement>("hp-text-b", "div");
+const hpStatsA = getElementByIdOrThrow<HTMLDivElement>("hp-stats-a", "div");
+const hpStatsB = getElementByIdOrThrow<HTMLDivElement>("hp-stats-b", "div");
+
+// Admin panel elements
+const adminToggleBtn = getElementByIdOrThrow<HTMLButtonElement>("adminToggle", "button");
+const adminPanel = getElementByIdOrThrow<HTMLDivElement>("adminPanel", "div");
+const adminCloseBtn = getElementByIdOrThrow<HTMLButtonElement>("adminClose", "button");
+
+adminToggleBtn.addEventListener("click", () => {
+  adminPanel.classList.toggle("hidden");
+});
+adminCloseBtn.addEventListener("click", () => {
+  adminPanel.classList.add("hidden");
+});
+
 // add skins
 const ballAInput = getElementByIdOrThrow<HTMLInputElement>("ballAImg", "input");
 const ballBInput = getElementByIdOrThrow<HTMLInputElement>("ballBImg", "input");
@@ -413,6 +433,21 @@ function render() {
   tickReadout.textContent = sim.done
     ? `tick: ${sim.tick} (DONE - Winner: ${sim.winner})`
     : `tick: ${sim.tick}`;
+
+  // Update HP trackers
+  const maxHpA = matchSpec.ballA.hp;
+  const maxHpB = matchSpec.ballB.hp;
+  const curHpA = Math.max(0, sim.A.hp);
+  const curHpB = Math.max(0, sim.B.hp);
+
+  hpBarA.style.width = `${(curHpA / maxHpA) * 100}%`;
+  hpBarB.style.width = `${(curHpB / maxHpB) * 100}%`;
+
+  hpTextA.textContent = `${curHpA} / ${maxHpA}`;
+  hpTextB.textContent = `${curHpB} / ${maxHpB}`;
+
+  hpStatsA.textContent = `Hits: ${sim.A.hitCount} | Dmg: ${sim.A.damageDealt}`;
+  hpStatsB.textContent = `Hits: ${sim.B.hitCount} | Dmg: ${sim.B.damageDealt}`;
 }
 
 function frame(nowMs: number) {

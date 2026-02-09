@@ -17,8 +17,147 @@ body {
   border-bottom: 1px solid #2a2a2a;
 }
 
+/* --- Main layout: canvas + HP panel side by side --- */
+#main-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+}
+
 canvas {
   display: block;
-  margin: 0 auto;
   background: #0b0b0b;
+}
+
+/* --- HP Panel (right side) --- */
+#hp-panel {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px 16px;
+  background: #1b1b1b;
+  border-left: 1px solid #2a2a2a;
+  min-height: 600px;
+  box-sizing: border-box;
+}
+
+.hp-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hp-label {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#hp-tracker-a .hp-label { color: #e74c3c; }
+#hp-tracker-b .hp-label { color: #3498db; }
+
+.hp-bar-container {
+  width: 100%;
+  height: 14px;
+  background: #333;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.hp-bar {
+  height: 100%;
+  border-radius: 7px;
+  transition: width 0.1s linear;
+  width: 100%;
+}
+
+.hp-bar-a {
+  background: linear-gradient(to right, #c0392b, #e74c3c);
+}
+
+.hp-bar-b {
+  background: linear-gradient(to right, #2471a3, #3498db);
+}
+
+.hp-text {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #ccc;
+}
+
+.hp-stats {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.5;
+}
+
+/* --- Admin button + panel --- */
+.admin-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: #333;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.admin-btn:hover {
+  background: #444;
+  color: #eee;
+}
+
+.admin-panel {
+  background: #1b1b1b;
+  border-bottom: 1px solid #2a2a2a;
+  padding: 0 12px;
+  overflow: hidden;
+  max-height: 200px;
+  transition: max-height 0.2s ease, padding 0.2s ease;
+}
+.admin-panel.hidden {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.admin-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.admin-close:hover {
+  color: #eee;
+}
+.admin-body {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+.admin-body label {
+  font-size: 12px;
+  color: #999;
+}
+.admin-body input[type="file"] {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
 }
