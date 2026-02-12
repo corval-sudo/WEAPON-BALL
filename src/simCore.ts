@@ -1,14 +1,20 @@
 // src/simCore.ts
 export type Vec = { x: number; y: number };
 
+export type WeaponType = "blade" | "point" | "blunt";
+
 export type WeaponDef = {
+  type?: WeaponType;   // defaults to "point" if omitted (backward compat)
   reach: number;
   tipRadius: number;
-  omega: number;      // angle units per tick (0..65535 wraps full circle)
+  omega: number;       // angle units per tick (0..65535 wraps full circle)
   baseDamage: number;
-  ramp: number;       // damage ramps per hit (never resets during match)
-  speedMult: number;  // 1000 = 1.0x
-  weight: number; // 1000ths. 1000 = normal, 1500 = heavy, 700 = light
+  ramp: number;        // damage ramps per hit (never resets during match)
+  speedMult: number;   // 1000 = 1.0x
+  weight: number;      // 1000ths. 1000 = normal, 1500 = heavy, 700 = light
+  bladeStart?: number;   // where blade damage zone begins (blade only, defaults to reach*0.4)
+  bladeWidth?: number;   // capsule half-width for blade (defaults to tipRadius)
+  shaftRadius?: number;  // deflection hitbox radius for the arm (defaults to 8)
 };
 
 export type BallSpec = {
@@ -57,6 +63,10 @@ export type BallState = {
   damageDealt: number;
   restitution: number; // 1000ths
   weaponWeight: number; // 1000ths
+  weaponType: WeaponType;
+  bladeStart: number;  // scaled
+  bladeWidth: number;  // scaled
+  shaftRadius: number; // scaled
 };
 
 export type SimState = {
@@ -119,6 +129,59 @@ function dist2(a: Vec, b: Vec) {
 
 function approxInvSqrt(n: number): number {
   return 1 / Math.sqrt(n);
+}
+
+// Point-to-line-segment squared distance (integer math, no sqrt).
+// Uses t1000 fixed-point to avoid overflow with SCALE=1000.
+function segmentPointDist2(
+  ax: number, ay: number,
+  bx: number, by: number,
+  px: number, py: number
+): number {
+  const vx = bx - ax;
+  const vy = by - ay;
+  const denom = vx * vx + vy * vy;
+  if (denom === 0) {
+    const ddx = px - ax;
+    const ddy = py - ay;
+    return ddx * ddx + ddy * ddy;
+  }
+  const wx = px - ax;
+  const wy = py - ay;
+  const numer = wx * vx + wy * vy;
+  let t1000: number;
+  if (numer <= 0) t1000 = 0;
+  else if (numer >= denom) t1000 = 1000;
+  else t1000 = Math.round((numer * 1000) / denom);
+
+  const cx = ax + Math.round((vx * t1000) / 1000);
+  const cy = ay + Math.round((vy * t1000) / 1000);
+  const ddx = px - cx;
+  const ddy = py - cy;
+  return ddx * ddx + ddy * ddy;
+}
+
+// Closest point on segment to a point (for shaft deflection push direction)
+function segmentClosestPoint(
+  ax: number, ay: number,
+  bx: number, by: number,
+  px: number, py: number
+): Vec {
+  const vx = bx - ax;
+  const vy = by - ay;
+  const denom = vx * vx + vy * vy;
+  if (denom === 0) return { x: ax, y: ay };
+  const wx = px - ax;
+  const wy = py - ay;
+  const numer = wx * vx + wy * vy;
+  let t1000: number;
+  if (numer <= 0) t1000 = 0;
+  else if (numer >= denom) t1000 = 1000;
+  else t1000 = Math.round((numer * 1000) / denom);
+  return {
+    x: ax + Math.round((vx * t1000) / 1000),
+    y: ay + Math.round((vy * t1000) / 1000),
+  };
 }
 
 export function canonicalEventsString(events: Event[]): string {
@@ -305,20 +368,23 @@ function resolveTipTipCollision(state: SimState, A: BallState, B: BallState): bo
   // Baseline pop scales with reach (more consistent across weapons)
   const baseline = Math.round(A.weaponReach * 0.02);
 
-  // Weight scaling (1000ths): heavier weapons impart more impulse
-  const wAvg = (A.weaponWeight + B.weaponWeight) / 2;
+  // Total impulse magnitude
+  const totalJ = closing * TIP_BOUNCE_BOOST + baseline;
 
-  const j = (closing * TIP_BOUNCE_BOOST + baseline) * (wAvg / 1000);
+  // Weight-proportional distribution:
+  // Heavier weapon pushes the lighter one more.
+  // A gets pushed proportional to B's weight, B gets pushed proportional to A's weight.
+  const wSum = A.weaponWeight + B.weaponWeight;
+  // pushRatioA = B.weight / wSum (how much A gets pushed)
+  // pushRatioB = A.weight / wSum (how much B gets pushed)
+  const pushA = Math.round((totalJ * B.weaponWeight) / wSum);
+  const pushB = Math.round((totalJ * A.weaponWeight) / wSum);
 
-  const impulseX = j * nx;
-  const impulseY = j * ny;
-
-
-  // Launch both balls away from clash line
-  A.vel.x -= Math.round(impulseX);
-  A.vel.y -= Math.round(impulseY);
-  B.vel.x += Math.round(impulseX);
-  B.vel.y += Math.round(impulseY);
+  // Launch both balls away from clash line (proportional to opponent's weight)
+  A.vel.x -= Math.round(pushA * nx);
+  A.vel.y -= Math.round(pushA * ny);
+  B.vel.x += Math.round(pushB * nx);
+  B.vel.y += Math.round(pushB * ny);
 
   // Positional separation to avoid repeated collisions from overlap
   const dist = 1 / invLen;
@@ -338,71 +404,203 @@ function resolveTipTipCollision(state: SimState, A: BallState, B: BallState): bo
   return true;
 }
 
+// --- Shape-based collision helpers ---
+
+function bladeSegmentScaled(ball: BallState): { sx: number; sy: number; ex: number; ey: number } {
+  const c = COS[ball.theta]!;
+  const s = SIN[ball.theta]!;
+  return {
+    sx: ball.pos.x + Math.round((ball.bladeStart * c) / TRIG_SCALE),
+    sy: ball.pos.y + Math.round((ball.bladeStart * s) / TRIG_SCALE),
+    ex: ball.pos.x + Math.round((ball.weaponReach * c) / TRIG_SCALE),
+    ey: ball.pos.y + Math.round((ball.weaponReach * s) / TRIG_SCALE),
+  };
+}
+
+function checkBladeHit(attacker: BallState, victim: BallState): boolean {
+  const seg = bladeSegmentScaled(attacker);
+  const d2 = segmentPointDist2(seg.sx, seg.sy, seg.ex, seg.ey, victim.pos.x, victim.pos.y);
+  const rr = attacker.bladeWidth + victim.r;
+  return d2 <= rr * rr;
+}
+
+function shaftSegmentScaled(ball: BallState): { sx: number; sy: number; ex: number; ey: number } {
+  const c = COS[ball.theta]!;
+  const s = SIN[ball.theta]!;
+  // Shaft goes from ball edge (not center, to avoid overlap with body) to bladeStart
+  const startDist = ball.r; // start at body surface
+  return {
+    sx: ball.pos.x + Math.round((startDist * c) / TRIG_SCALE),
+    sy: ball.pos.y + Math.round((startDist * s) / TRIG_SCALE),
+    ex: ball.pos.x + Math.round((ball.bladeStart * c) / TRIG_SCALE),
+    ey: ball.pos.y + Math.round((ball.bladeStart * s) / TRIG_SCALE),
+  };
+}
+
+const SHAFT_PUSH = 300;
+
+function resolveShaftDeflections(state: SimState, A: BallState, B: BallState) {
+  if (!A.alive || !B.alive) return;
+
+  // A's shaft pushes B
+  {
+    const seg = shaftSegmentScaled(A);
+    const d2 = segmentPointDist2(seg.sx, seg.sy, seg.ex, seg.ey, B.pos.x, B.pos.y);
+    const rr = A.shaftRadius + B.r;
+    if (d2 <= rr * rr && d2 > 0) {
+      const cp = segmentClosestPoint(seg.sx, seg.sy, seg.ex, seg.ey, B.pos.x, B.pos.y);
+      const dx = B.pos.x - cp.x;
+      const dy = B.pos.y - cp.y;
+      const cd2 = dx * dx + dy * dy;
+      if (cd2 > 0) {
+        const invLen = approxInvSqrt(cd2);
+        const nx = dx * invLen;
+        const ny = dy * invLen;
+        const pushBase = Math.round((SHAFT_PUSH * state.SCALE) / 1000);
+        const push = Math.round((pushBase * A.weaponWeight) / 1000);
+        B.vel.x += Math.round(nx * push);
+        B.vel.y += Math.round(ny * push);
+        const dist = 1 / invLen;
+        const overlap = rr - dist;
+        if (overlap > 0) {
+          B.pos.x += Math.round(nx * (overlap + 1));
+          B.pos.y += Math.round(ny * (overlap + 1));
+        }
+      }
+    }
+  }
+
+  // B's shaft pushes A
+  {
+    const seg = shaftSegmentScaled(B);
+    const d2 = segmentPointDist2(seg.sx, seg.sy, seg.ex, seg.ey, A.pos.x, A.pos.y);
+    const rr = B.shaftRadius + A.r;
+    if (d2 <= rr * rr && d2 > 0) {
+      const cp = segmentClosestPoint(seg.sx, seg.sy, seg.ex, seg.ey, A.pos.x, A.pos.y);
+      const dx = A.pos.x - cp.x;
+      const dy = A.pos.y - cp.y;
+      const cd2 = dx * dx + dy * dy;
+      if (cd2 > 0) {
+        const invLen = approxInvSqrt(cd2);
+        const nx = dx * invLen;
+        const ny = dy * invLen;
+        const pushBase = Math.round((SHAFT_PUSH * state.SCALE) / 1000);
+        const push = Math.round((pushBase * B.weaponWeight) / 1000);
+        A.vel.x += Math.round(nx * push);
+        A.vel.y += Math.round(ny * push);
+        const dist = 1 / invLen;
+        const overlap = rr - dist;
+        if (overlap > 0) {
+          A.pos.x += Math.round(nx * (overlap + 1));
+          A.pos.y += Math.round(ny * (overlap + 1));
+        }
+      }
+    }
+  }
+}
+
+const BLUNT_KNOCKBACK_MULT = 1500; // 1.5x in 1000ths
+
+function doesWeaponHit(attacker: BallState, victim: BallState): boolean {
+  switch (attacker.weaponType) {
+    case "blade":
+      return checkBladeHit(attacker, victim);
+    case "point":
+    case "blunt":
+    default: {
+      // Circle-circle: tip vs victim body
+      const tip = weaponTipScaled(attacker);
+      const rr = attacker.tipR + victim.r;
+      return dist2(tip, victim.pos) <= rr * rr;
+    }
+  }
+}
+
 function checkHit(state: SimState, attacker: BallState, victim: BallState) {
   if (!attacker.alive || !victim.alive) return;
 
-  const tip = weaponTipScaled(attacker);
-  const rr = attacker.tipR + victim.r;
+  if (!doesWeaponHit(attacker, victim)) return;
 
-  if (dist2(tip, victim.pos) <= rr * rr) {
-    attacker.hitCount += 1;
-    const dmg = attacker.baseDamage + attacker.ramp * (attacker.hitCount - 1);
+  attacker.hitCount += 1;
+  const dmg = attacker.baseDamage + attacker.ramp * (attacker.hitCount - 1);
 
-    victim.hp -= dmg;
-    attacker.damageDealt += dmg;
+  victim.hp -= dmg;
+  attacker.damageDealt += dmg;
 
-    state.events.push({ t: state.tick, e: "hit", from: attacker.id, to: victim.id, dmg });
+  state.events.push({ t: state.tick, e: "hit", from: attacker.id, to: victim.id, dmg });
 
-    // Knockback: push victim away from weapon tip impact point
-    const kdx = victim.pos.x - tip.x;
-    const kdy = victim.pos.y - tip.y;
-    const kd2 = kdx * kdx + kdy * kdy;
+  // Compute impact point (for knockback direction)
+  let impactX: number;
+  let impactY: number;
+  if (attacker.weaponType === "blade") {
+    // Closest point on the blade segment to the victim
+    const seg = bladeSegmentScaled(attacker);
+    const cp = segmentClosestPoint(seg.sx, seg.sy, seg.ex, seg.ey, victim.pos.x, victim.pos.y);
+    impactX = cp.x;
+    impactY = cp.y;
+  } else {
+    const tip = weaponTipScaled(attacker);
+    impactX = tip.x;
+    impactY = tip.y;
+  }
 
-    if (kd2 > 0) {
-      const inv = approxInvSqrt(kd2);
-      const kx = kdx * inv;
-      const ky = kdy * inv;
+  // Knockback: push victim away from impact point
+  const kdx = victim.pos.x - impactX;
+  const kdy = victim.pos.y - impactY;
+  const kd2 = kdx * kdx + kdy * kdy;
 
-      const kbBase = Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000);
-      const kb = Math.round((kbBase * attacker.weaponWeight) / 1000);
+  if (kd2 > 0) {
+    const inv = approxInvSqrt(kd2);
+    const kx = kdx * inv;
+    const ky = kdy * inv;
 
-      victim.vel.x += Math.round(kx * kb);
-      victim.vel.y += Math.round(ky * kb);
+    let kbBase = Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000);
+    kbBase = Math.round((kbBase * attacker.weaponWeight) / 1000);
+
+    // Blunt weapons get 1.5x knockback
+    if (attacker.weaponType === "blunt") {
+      kbBase = Math.round((kbBase * BLUNT_KNOCKBACK_MULT) / 1000);
     }
 
-    // --- Tip vs victim-body collision response (prevents clipping) ---
-    // Treat the hit as a physical contact: separate victim away from tip.
-    const dx = victim.pos.x - tip.x;
-    const dy = victim.pos.y - tip.y;
-    const d2 = dx * dx + dy * dy;
+    victim.vel.x += Math.round(kx * kbBase);
+    victim.vel.y += Math.round(ky * kbBase);
+  }
 
-    if (d2 > 0) {
-      const dist = Math.sqrt(d2);
-      const pen = rr - dist; // penetration depth
-      if (pen > 0) {
-        const nx = dx / dist;
-        const ny = dy / dist;
+  // --- Physical separation (prevents clipping) ---
+  const dx = victim.pos.x - impactX;
+  const dy = victim.pos.y - impactY;
+  const d2val = dx * dx + dy * dy;
 
-        // Push victim out so tip isn't inside the body next tick
-        victim.pos.x += Math.round(nx * (pen + 1));
-        victim.pos.y += Math.round(ny * (pen + 1));
+  if (d2val > 0) {
+    const dval = Math.sqrt(d2val);
+    // Combined collision radius depends on type
+    const rr = attacker.weaponType === "blade"
+      ? attacker.bladeWidth + victim.r
+      : attacker.tipR + victim.r;
+    const pen = rr - dval;
+    if (pen > 0) {
+      const nx = dx / dval;
+      const ny = dy / dval;
 
-        // Optional: tiny recoil so it feels like a strike not a ghost pass-through
-        attacker.vel.x -= Math.round(nx * (Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000) * 0.2));
-        attacker.vel.y -= Math.round(ny * (Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000) * 0.2));
-      }
+      victim.pos.x += Math.round(nx * (pen + 1));
+      victim.pos.y += Math.round(ny * (pen + 1));
+
+      // Tiny recoil on attacker
+      const recoilBase = Math.round((TIP_HIT_KNOCKBACK * state.SCALE) / 1000);
+      attacker.vel.x -= Math.round(nx * (recoilBase * 0.2));
+      attacker.vel.y -= Math.round(ny * (recoilBase * 0.2));
     }
+  }
 
-    // Deterministic tiny jitter
-    const jx = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
-    const jy = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
-    victim.vel.x += jx;
-    victim.vel.y += jy;
+  // Deterministic tiny jitter
+  const jx = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
+  const jy = Math.round((state.rng() - 0.5) * 6 * state.SCALE);
+  victim.vel.x += jx;
+  victim.vel.y += jy;
 
-    if (victim.hp <= 0) {
-      victim.alive = false;
-      state.events.push({ t: state.tick, e: "dead", id: victim.id });
-    }
+  if (victim.hp <= 0) {
+    victim.alive = false;
+    state.events.push({ t: state.tick, e: "dead", id: victim.id });
   }
 }
 
@@ -413,6 +611,12 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
   const rng = mulberry32((spec.seed ^ jitter) >>> 0);
   const theta0 = (Math.floor(rng() * ANGLE_FULL) & 0xffff) >>> 0;
 
+  const wtype: WeaponType = weapon.type ?? "point";
+  const reach = weapon.reach;
+  const bladeStartRaw = weapon.bladeStart ?? Math.round(reach * 0.4);
+  const bladeWidthRaw = weapon.bladeWidth ?? weapon.tipRadius;
+  const shaftRadiusRaw = weapon.shaftRadius ?? 8;
+
   return {
     id: b.id,
     hp: b.hp,
@@ -421,7 +625,7 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     vel: scaleVec(b.vel, SCALE),
     theta: theta0,
     omega: weapon.omega,
-    weaponReach: Math.round(weapon.reach * SCALE),
+    weaponReach: Math.round(reach * SCALE),
     tipR: Math.round(weapon.tipRadius * SCALE),
     tipCooldown: 0,
     baseDamage: weapon.baseDamage,
@@ -432,6 +636,10 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     damageDealt: 0,
     restitution: b.restitution ?? 1000,
     weaponWeight: weapon.weight ?? 1000,
+    weaponType: wtype,
+    bladeStart: Math.round(bladeStartRaw * SCALE),
+    bladeWidth: Math.round(bladeWidthRaw * SCALE),
+    shaftRadius: Math.round(shaftRadiusRaw * SCALE),
   };
 }
 
@@ -512,10 +720,13 @@ export function stepSim(state: SimState) {
   // 4) ball-ball collision
   resolveBallBallCollision(state, A, B);
 
-  // 5) tip-tip collision (clash cancels hits this tick)
+  // 5) shaft deflections (push-only, no damage)
+  resolveShaftDeflections(state, A, B);
+
+  // 6) tip-tip collision (clash cancels hits this tick)
   tipClashedThisTick = resolveTipTipCollision(state, A, B);
 
-  // 6) hits (fixed order) — skipped if tips clashed
+  // 7) hits (fixed order) — skipped if tips clashed
   if (!tipClashedThisTick) {
     checkHit(state, A, B);
     checkHit(state, B, A);
@@ -537,4 +748,40 @@ export function getWeaponTipForRender(state: SimState, ball: BallState): Vec {
   // Return *unscaled* for canvas drawing
   const tip = weaponTipScaled(ball);
   return { x: tip.x / state.SCALE, y: tip.y / state.SCALE };
+}
+
+export type WeaponShapeRender = {
+  type: WeaponType;
+  baseX: number; baseY: number;       // ball center (unscaled)
+  tipX: number; tipY: number;         // weapon tip (unscaled)
+  tipR: number;                        // tip radius (unscaled)
+  bladeStartX: number; bladeStartY: number; // blade start point (unscaled)
+  bladeWidth: number;                  // capsule half-width (unscaled)
+  shaftRadius: number;                 // shaft deflection radius (unscaled)
+  reach: number;                       // full reach (unscaled)
+  bladeStartDist: number;             // distance from center to blade start (unscaled)
+};
+
+export function getWeaponShapeForRender(state: SimState, ball: BallState): WeaponShapeRender {
+  const S = state.SCALE;
+  const tip = weaponTipScaled(ball);
+  const c = COS[ball.theta]!;
+  const s = SIN[ball.theta]!;
+  const bsX = ball.pos.x + Math.round((ball.bladeStart * c) / TRIG_SCALE);
+  const bsY = ball.pos.y + Math.round((ball.bladeStart * s) / TRIG_SCALE);
+
+  return {
+    type: ball.weaponType,
+    baseX: ball.pos.x / S,
+    baseY: ball.pos.y / S,
+    tipX: tip.x / S,
+    tipY: tip.y / S,
+    tipR: ball.tipR / S,
+    bladeStartX: bsX / S,
+    bladeStartY: bsY / S,
+    bladeWidth: ball.bladeWidth / S,
+    shaftRadius: ball.shaftRadius / S,
+    reach: ball.weaponReach / S,
+    bladeStartDist: ball.bladeStart / S,
+  };
 }

@@ -1,30 +1,61 @@
 {
   "seed": 1651699,
-  "weaponSetVersion": "v0.1.1",
+  "weaponSetVersion": "v0.2.0",
   "sim": { "scale": 1000, "maxTicks": 18000 },
   "arena": { "w": 400, "h": 700, "wallRestitution": 850 },
 
-  "weapons":{
+  "weapons": {
     "short_sword": {
-        "reach": 60,
-        "tipRadius": 25,
-        "omega": 1800,
-        "baseDamage": 12,
-        "ramp": 3,
-        "speedMult": 1000,
-        "weight": 800
+      "type": "blade",
+      "reach": 60,
+      "tipRadius": 15,
+      "bladeStart": 25,
+      "bladeWidth": 8,
+      "shaftRadius": 5,
+      "omega": 1800,
+      "baseDamage": 12,
+      "ramp": 3,
+      "speedMult": 1000,
+      "weight": 800
+    },
+
+    "katana": {
+      "type": "blade",
+      "reach": 85,
+      "tipRadius": 12,
+      "bladeStart": 30,
+      "bladeWidth": 10,
+      "shaftRadius": 6,
+      "omega": 1600,
+      "baseDamage": 11,
+      "ramp": 3,
+      "speedMult": 1050,
+      "weight": 850
+    },
+
+    "spear": {
+      "type": "point",
+      "reach": 110,
+      "tipRadius": 8,
+      "shaftRadius": 5,
+      "omega": 1200,
+      "baseDamage": 18,
+      "ramp": 4,
+      "speedMult": 950,
+      "weight": 900
     },
 
     "mace": {
-        "reach": 80,
-        "tipRadius": 30,
-        "omega": 1400,
-        "baseDamage": 14,
-        "ramp": 2,
-        "speedMult": 950,
-        "weight": 1300
+      "type": "blunt",
+      "reach": 70,
+      "tipRadius": 35,
+      "shaftRadius": 8,
+      "omega": 1400,
+      "baseDamage": 14,
+      "ramp": 2,
+      "speedMult": 900,
+      "weight": 1400
     }
-
   },
 
   "ballA": {
