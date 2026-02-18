@@ -58,3 +58,66 @@ export interface BallMatchStats {
   longestCombo: number;          // Consecutive hits without interruption
   maxExcitementEvent: number;    // 0-10 scale for highlight detection
 }
+
+// --- Balance & AI Agent Types ---
+
+export interface WeaponOverride {
+  ballId: string;
+  weaponId: string;              // Which weapon this applies to
+  baseDamage?: number;
+  reach?: number;
+  omega?: number;
+  speedMult?: number;
+  weight?: number;
+  tipRadius?: number;
+  appliedAt: string;             // ISO date
+  proposalId: string;            // Links to proposal that created this
+}
+
+export interface StatProposal {
+  id: string;                    // UUID
+  ballId: string;
+  ballName: string;
+  reason: string;                // Claude's explanation
+  currentStats: Record<string, unknown>;
+  proposedStats: Record<string, unknown>;
+  dryRunResults?: DryRunResult;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+}
+
+export interface DryRunResult {
+  matchesSimulated: number;
+  winRateBefore: number;         // 0-1
+  winRateAfter: number;          // 0-1
+  avgExcitementBefore: number;   // 0-10
+  avgExcitementAfter: number;    // 0-10
+  avgMatchDurationBefore: number; // ticks
+  avgMatchDurationAfter: number;
+}
+
+export interface BalanceReport {
+  generatedAt: string;
+  totalMatches: number;
+  fighters: FighterBalance[];
+  weaponSummary: WeaponBalance[];
+  overallEngagementScore: number; // 0-10
+}
+
+export interface FighterBalance {
+  ball: BallEntity;
+  winRate: number;               // 0-1
+  avgDamageDealt: number;
+  avgDamageTaken: number;
+  avgExcitement: number;         // 0-10 estimated from damage ratios
+  matchCount: number;
+  balanceScore: number;          // 0-100, 50 = perfectly balanced
+}
+
+export interface WeaponBalance {
+  weaponId: string;
+  userCount: number;
+  avgWinRate: number;
+  avgDamageDealt: number;
+  dominanceScore: number;        // >60 = overpowered, <40 = underpowered
+}

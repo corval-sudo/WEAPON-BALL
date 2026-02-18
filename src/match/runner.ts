@@ -93,15 +93,50 @@ export class MatchRunner {
     ballB: BallEntity,
     request: MatchRequest
   ): MatchSpec {
-    // Generate initial positions/velocities
-    // TODO: Enhance with matchmaker-driven positioning
+    const weapons = { ...request.weapons };
+
+    // Apply per-ball weapon overrides if present
+    const overrideA = this.db.getWeaponOverrides(ballA.id)
+      .find(o => o.weaponId === ballA.weaponId);
+    const overrideB = this.db.getWeaponOverrides(ballB.id)
+      .find(o => o.weaponId === ballB.weaponId);
+
+    let weaponIdA = ballA.weaponId;
+    let weaponIdB = ballB.weaponId;
+
+    if (overrideA) {
+      weaponIdA = `${ballA.weaponId}_A`;
+      weapons[weaponIdA] = {
+        ...request.weapons[ballA.weaponId],
+        ...(overrideA.baseDamage !== undefined && { baseDamage: overrideA.baseDamage }),
+        ...(overrideA.reach !== undefined && { reach: overrideA.reach }),
+        ...(overrideA.omega !== undefined && { omega: overrideA.omega }),
+        ...(overrideA.speedMult !== undefined && { speedMult: overrideA.speedMult }),
+        ...(overrideA.weight !== undefined && { weight: overrideA.weight }),
+        ...(overrideA.tipRadius !== undefined && { tipRadius: overrideA.tipRadius }),
+      };
+    }
+
+    if (overrideB) {
+      weaponIdB = `${ballB.weaponId}_B`;
+      weapons[weaponIdB] = {
+        ...request.weapons[ballB.weaponId],
+        ...(overrideB.baseDamage !== undefined && { baseDamage: overrideB.baseDamage }),
+        ...(overrideB.reach !== undefined && { reach: overrideB.reach }),
+        ...(overrideB.omega !== undefined && { omega: overrideB.omega }),
+        ...(overrideB.speedMult !== undefined && { speedMult: overrideB.speedMult }),
+        ...(overrideB.weight !== undefined && { weight: overrideB.weight }),
+        ...(overrideB.tipRadius !== undefined && { tipRadius: overrideB.tipRadius }),
+      };
+    }
+
     const ballASpec: BallSpec = {
       id: "A",
       hp: ballA.baseHp,
       radius: ballA.radius,
       pos: { x: 120, y: 200 },
       vel: { x: 25, y: 35 },
-      weaponId: ballA.weaponId,
+      weaponId: weaponIdA,
       ...(ballA.restitution !== undefined && { restitution: ballA.restitution }),
     };
 
@@ -111,7 +146,7 @@ export class MatchRunner {
       radius: ballB.radius,
       pos: { x: 280, y: 200 },
       vel: { x: -20, y: 30 },
-      weaponId: ballB.weaponId,
+      weaponId: weaponIdB,
       ...(ballB.restitution !== undefined && { restitution: ballB.restitution }),
     };
 
@@ -119,7 +154,7 @@ export class MatchRunner {
       seed: request.seed,
       sim: request.simConfig,
       arena: request.arenaConfig,
-      weapons: request.weapons,
+      weapons,
       ballA: ballASpec,
       ballB: ballBSpec,
     };

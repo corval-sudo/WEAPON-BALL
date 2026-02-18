@@ -2,7 +2,7 @@
 import Database from "better-sqlite3";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { BallEntity, EnhancedMatchResult } from "./types";
+import type { BallEntity, EnhancedMatchResult, WeaponOverride, StatProposal } from "./types";
 
 const DB_PATH = path.join(__dirname, "../../data/arena.db");
 
@@ -22,12 +22,22 @@ export class ArenaDatabase {
 
   private migrate(): void {
     const tables = this.db.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table'"
-    ).all();
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).all() as { name: string }[];
 
-    if (tables.length === 0) {
+    const tableNames = tables.map(t => t.name);
+
+    if (!tableNames.includes("balls")) {
       const migration = fs.readFileSync(
         path.join(__dirname, "migrations/001_initial.sql"),
+        "utf-8"
+      );
+      this.db.exec(migration);
+    }
+
+    if (!tableNames.includes("proposals")) {
+      const migration = fs.readFileSync(
+        path.join(__dirname, "migrations/002_balance.sql"),
         "utf-8"
       );
       this.db.exec(migration);
@@ -152,6 +162,170 @@ export class ArenaDatabase {
       LIMIT ?
     `).all(limit);
     return rows.map(r => this.rowToBallEntity(r as any));
+  }
+
+  applyBallStatChanges(id: string, changes: Record<string, any>): void {
+    const colMap: Record<string, string> = {
+      baseHp: "base_hp",
+      radius: "radius",
+      restitution: "restitution",
+      weaponId: "weapon_id",
+    };
+    const fields: string[] = [];
+    const values: any[] = [];
+    for (const [key, val] of Object.entries(changes)) {
+      const col = colMap[key];
+      if (col) { fields.push(`${col} = ?`); values.push(val); }
+    }
+    if (fields.length === 0) return;
+    values.push(id);
+    this.db.prepare(`UPDATE balls SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  }
+
+  // Balance analysis queries
+  getRecentMatches(limit: number = 50): any[] {
+    return this.db.prepare(`
+      SELECT m.*, ba.name AS ball_a_name, bb.name AS ball_b_name,
+             ba.weapon_id AS ball_a_weapon, bb.weapon_id AS ball_b_weapon
+      FROM matches m
+      JOIN balls ba ON m.ball_a_id = ba.id
+      JOIN balls bb ON m.ball_b_id = bb.id
+      ORDER BY m.timestamp DESC
+      LIMIT ?
+    `).all(limit);
+  }
+
+  getBallPerformanceStats(ballId: string): any {
+    return this.db.prepare(`
+      SELECT
+        COUNT(*) AS match_count,
+        SUM(CASE
+          WHEN (ball_a_id = ? AND winner = 'A') OR (ball_b_id = ? AND winner = 'B') THEN 1
+          ELSE 0
+        END) AS wins,
+        AVG(CASE WHEN ball_a_id = ? THEN ball_a_damage_dealt ELSE ball_b_damage_dealt END) AS avg_damage_dealt,
+        AVG(CASE WHEN ball_a_id = ? THEN ball_a_damage_taken ELSE ball_b_damage_taken END) AS avg_damage_taken,
+        AVG(CASE WHEN ball_a_id = ? THEN ball_a_accuracy ELSE ball_b_accuracy END) AS avg_accuracy,
+        AVG(ticks) AS avg_ticks
+      FROM matches
+      WHERE ball_a_id = ? OR ball_b_id = ?
+    `).get(ballId, ballId, ballId, ballId, ballId, ballId, ballId);
+  }
+
+  getWeaponAggregates(): any[] {
+    return this.db.prepare(`
+      SELECT
+        b.weapon_id,
+        COUNT(DISTINCT b.id) AS user_count,
+        AVG(CASE
+          WHEN m.ball_a_id = b.id AND m.winner = 'A' THEN 1.0
+          WHEN m.ball_b_id = b.id AND m.winner = 'B' THEN 1.0
+          ELSE 0.0
+        END) AS avg_win_rate,
+        AVG(CASE WHEN m.ball_a_id = b.id THEN m.ball_a_damage_dealt ELSE m.ball_b_damage_dealt END) AS avg_damage_dealt
+      FROM balls b
+      JOIN matches m ON (m.ball_a_id = b.id OR m.ball_b_id = b.id)
+      WHERE b.retired = 0
+      GROUP BY b.weapon_id
+    `).all();
+  }
+
+  // Weapon override operations
+  getWeaponOverrides(ballId: string): WeaponOverride[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM weapon_overrides WHERE ball_id = ? ORDER BY applied_at DESC"
+    ).all(ballId) as any[];
+    return rows.map(r => ({
+      ballId: r.ball_id,
+      weaponId: r.weapon_id,
+      ...(r.base_damage !== null && { baseDamage: r.base_damage }),
+      ...(r.reach !== null && { reach: r.reach }),
+      ...(r.omega !== null && { omega: r.omega }),
+      ...(r.speed_mult !== null && { speedMult: r.speed_mult }),
+      ...(r.weight !== null && { weight: r.weight }),
+      ...(r.tip_radius !== null && { tipRadius: r.tip_radius }),
+      appliedAt: r.applied_at,
+      proposalId: r.proposal_id,
+    }));
+  }
+
+  saveWeaponOverride(override: WeaponOverride): void {
+    // Remove any existing override for same ball+weapon
+    this.db.prepare(
+      "DELETE FROM weapon_overrides WHERE ball_id = ? AND weapon_id = ?"
+    ).run(override.ballId, override.weaponId);
+
+    this.db.prepare(`
+      INSERT INTO weapon_overrides (
+        ball_id, weapon_id, base_damage, reach, omega, speed_mult, weight, tip_radius, applied_at, proposal_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      override.ballId, override.weaponId,
+      override.baseDamage ?? null,
+      override.reach ?? null,
+      override.omega ?? null,
+      override.speedMult ?? null,
+      override.weight ?? null,
+      override.tipRadius ?? null,
+      override.appliedAt,
+      override.proposalId
+    );
+  }
+
+  // Proposal operations
+  saveProposal(proposal: StatProposal): void {
+    this.db.prepare(`
+      INSERT OR REPLACE INTO proposals (id, ball_id, ball_name, reason, current_stats, proposed_stats, dry_run_results, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proposal.id,
+      proposal.ballId,
+      proposal.ballName,
+      proposal.reason,
+      JSON.stringify(proposal.currentStats),
+      JSON.stringify(proposal.proposedStats),
+      proposal.dryRunResults ? JSON.stringify(proposal.dryRunResults) : null,
+      proposal.status,
+      proposal.createdAt
+    );
+  }
+
+  updateProposalStatus(id: string, status: "pending" | "approved" | "rejected"): void {
+    this.db.prepare("UPDATE proposals SET status = ? WHERE id = ?").run(status, id);
+  }
+
+  getPendingProposals(): StatProposal[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM proposals WHERE status = 'pending' ORDER BY created_at DESC"
+    ).all() as any[];
+    return rows.map(r => ({
+      id: r.id,
+      ballId: r.ball_id,
+      ballName: r.ball_name,
+      reason: r.reason,
+      currentStats: JSON.parse(r.current_stats),
+      proposedStats: JSON.parse(r.proposed_stats),
+      dryRunResults: r.dry_run_results ? JSON.parse(r.dry_run_results) : undefined,
+      status: r.status as "pending" | "approved" | "rejected",
+      createdAt: r.created_at,
+    }));
+  }
+
+  getAllProposals(): StatProposal[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM proposals ORDER BY created_at DESC"
+    ).all() as any[];
+    return rows.map(r => ({
+      id: r.id,
+      ballId: r.ball_id,
+      ballName: r.ball_name,
+      reason: r.reason,
+      currentStats: JSON.parse(r.current_stats),
+      proposedStats: JSON.parse(r.proposed_stats),
+      dryRunResults: r.dry_run_results ? JSON.parse(r.dry_run_results) : undefined,
+      status: r.status as "pending" | "approved" | "rejected",
+      createdAt: r.created_at,
+    }));
   }
 
   private rowToBallEntity(row: any): BallEntity {

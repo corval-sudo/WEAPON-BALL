@@ -32,7 +32,7 @@ const DEFAULT_OPTIONS: MatchmakingOptions = {
 /**
  * Calculate a skill rating for a ball based on their record and stats
  */
-function calculateSkill(ball: BallEntity): number {
+export function calculateSkill(ball: BallEntity): number {
   const totalMatches = ball.wins + ball.losses;
 
   if (totalMatches === 0) {

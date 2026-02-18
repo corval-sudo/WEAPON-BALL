@@ -9,13 +9,16 @@
     "test-match": "ts-node src/scripts/test-match.ts",
     "match": "ts-node src/scripts/run-match.ts",
     "roster": "ts-node src/scripts/roster.ts",
-    "suggest": "ts-node src/scripts/suggest-matchup.ts"
+    "suggest": "ts-node src/scripts/suggest-matchup.ts",
+    "balance": "ts-node src/scripts/balance.ts",
+    "schedule": "ts-node src/scripts/schedule.ts"
   },
   "keywords": [],
   "author": "Corval GPT",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.75.0",
     "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {
