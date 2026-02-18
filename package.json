@@ -11,7 +11,8 @@
     "roster": "ts-node src/scripts/roster.ts",
     "suggest": "ts-node src/scripts/suggest-matchup.ts",
     "balance": "ts-node src/scripts/balance.ts",
-    "schedule": "ts-node src/scripts/schedule.ts"
+    "schedule": "ts-node src/scripts/schedule.ts",
+    "admin": "ts-node src/scripts/admin.ts"
   },
   "keywords": [],
   "author": "Corval GPT",

@@ -13,6 +13,8 @@ import * as dotenv from "dotenv";
 dotenv.config({ override: true });
 
 import { ArenaDatabase } from "../data/database";
+import { ConfigStore } from "../data/config-store";
+import { loadPersonality } from "../agent/character";
 import { MatchRunner } from "../match/runner";
 import { findBestMatchup } from "../simulation/matchmaker";
 import { generateMatchSummary } from "../analysis/summary";
@@ -20,14 +22,19 @@ import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyz
 import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
-const MATCH_INTERVAL_MS = 30_000;   // 30 seconds between matches
-const BALANCE_CHECK_EVERY = 10;     // AI balance analysis every N matches
-const ARENA_NAME = "The Pit";
+const db = new ArenaDatabase();
+const configStore = new ConfigStore(db.getRawDb());
 
+const MATCH_INTERVAL_MS   = configStore.getMatchIntervalMs();
+const BALANCE_CHECK_EVERY = configStore.getBalanceCheckEvery();
+const ARENA_NAME          = configStore.getArenaName();
+
+// Physics params are not in the config store (changing them without
+// understanding simCore implications can corrupt match physics).
 const ARENA_CONFIG = { w: 400, h: 700, wallRestitution: 850 };
-const SIM_CONFIG = { scale: 1000, maxTicks: 18000 };
+const SIM_CONFIG   = { scale: 1000, maxTicks: 18000 };
 
 const WEAPONS_CATALOG: Record<string, any> = {
   short_sword: { type: "blade", reach: 60, tipRadius: 15, bladeStart: 25, bladeWidth: 8,  shaftRadius: 5, omega: 1800, baseDamage: 12, ramp: 3, speedMult: 1000, weight: 800  },
@@ -46,6 +53,7 @@ function printBanner(): void {
   console.log("╔══════════════════════════════════════════════╗");
   console.log("║          ARENA SCHEDULER STARTED             ║");
   console.log(`║   Match every ${MATCH_INTERVAL_MS / 1000}s | Balance every ${BALANCE_CHECK_EVERY} matches  ║`);
+  console.log(`║   Arena: ${ARENA_NAME.padEnd(36)}║`);
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
 }
@@ -54,9 +62,13 @@ function printBanner(): void {
 
 let matchCount = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
-const db = new ArenaDatabase();
 const runner = new MatchRunner(db);
-const commentator = new CommentaryAgent();
+const commentator = new CommentaryAgent({
+  personality:        loadPersonality(db),
+  model:              configStore.getModelCommentary(),
+  tokensAnnouncement: configStore.getCommentaryTokensAnnouncement(),
+  tokensPostmatch:    configStore.getCommentaryTokensPostmatch(),
+});
 
 // ─── Balance Check ───────────────────────────────────────────────────────────
 
@@ -77,7 +89,7 @@ async function runBalanceCheck(): Promise<void> {
     }
 
     console.log("  Calling Arena Master AI...");
-    const agent = new ArenaMasterAgent();
+    const agent = new ArenaMasterAgent(configStore.getModelBalance());
     const proposals = await agent.analyzeAndPropose(db, report);
 
     if (proposals.length === 0) {

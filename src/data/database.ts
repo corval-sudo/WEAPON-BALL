@@ -42,6 +42,19 @@ export class ArenaDatabase {
       );
       this.db.exec(migration);
     }
+
+    if (!tableNames.includes("arena_master_config")) {
+      const migration = fs.readFileSync(
+        path.join(__dirname, "migrations/003_config.sql"),
+        "utf-8"
+      );
+      this.db.exec(migration);
+    }
+  }
+
+  /** Expose the raw database handle for use by ConfigStore. */
+  getRawDb(): Database.Database {
+    return this.db;
   }
 
   // Ball CRUD operations

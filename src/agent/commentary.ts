@@ -2,10 +2,12 @@
 // Arena Master Commentary Agent — generates in-character match announcements and
 // post-match analysis using the Arena Master persona via the Claude Haiku model.
 // Designed to fire every 30 seconds alongside the scheduler, so latency and cost matter.
+//
+// All config (personality, model, token limits) is injected at construction time
+// from ConfigStore so the owner can tune it live via `npm run admin`.
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { BallEntity, EnhancedMatchResult } from "../data/types";
-import { ARENA_MASTER_SYSTEM_PROMPT } from "./character";
 
 export interface HeadToHeadRecord {
   totalMatches: number;
@@ -13,11 +15,20 @@ export interface HeadToHeadRecord {
   bWins: number;
 }
 
+export interface CommentaryConfig {
+  personality: string;
+  model: string;
+  tokensAnnouncement: number;
+  tokensPostmatch: number;
+}
+
 export class CommentaryAgent {
   private client: Anthropic;
+  private config: CommentaryConfig;
 
-  constructor() {
+  constructor(config: CommentaryConfig) {
     this.client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
+    this.config = config;
   }
 
   /**
@@ -51,7 +62,7 @@ ${rivalryLine}
 
 Write a fight announcement in your character. 2-4 sentences. Hype the matchup dramatically. Reference streaks, rivalry history, or weapon matchup if interesting. End with something that makes people want to watch.`;
 
-    return this.callClaude(prompt, 256);
+    return this.callClaude(prompt, this.config.tokensAnnouncement);
   }
 
   /**
@@ -92,14 +103,14 @@ ${ballB.name}: ${ballB.wins}W/${ballB.losses}L (${formatStreak(ballB.currentStre
 
 Write post-match commentary in character. React to the performance, call out the biggest moment, and say something about what this win/loss means for each fighter's story going forward. 3-5 sentences. The winner is on ${winnerStreak}.`;
 
-    return this.callClaude(prompt, 384);
+    return this.callClaude(prompt, this.config.tokensPostmatch);
   }
 
   private async callClaude(userPrompt: string, maxTokens: number): Promise<string> {
     const message = await this.client.messages.create({
-      model: "claude-haiku-4-5",
+      model: this.config.model,
       max_tokens: maxTokens,
-      system: ARENA_MASTER_SYSTEM_PROMPT,
+      system: this.config.personality,
       messages: [{ role: "user", content: userPrompt }],
     });
 

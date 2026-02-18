@@ -27,9 +27,11 @@ interface RawProposal {
 
 export class ArenaMasterAgent {
   private client: Anthropic;
+  private model: string;
 
-  constructor() {
+  constructor(model: string = "claude-opus-4-6") {
     this.client = new Anthropic();
+    this.model = model;
   }
 
   async analyzeAndPropose(db: ArenaDatabase, report: BalanceReport): Promise<StatProposal[]> {
@@ -108,7 +110,7 @@ Respond with ONLY a JSON array — no markdown, no explanation outside the JSON:
     console.log("  Calling Claude API...");
 
     const message = await this.client.messages.create({
-      model: "claude-opus-4-6",
+      model: this.model,
       max_tokens: 2048,
       messages: [{ role: "user", content: userPrompt }],
       system: systemPrompt,
