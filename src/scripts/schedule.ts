@@ -9,12 +9,16 @@
 // Balance proposals are saved to DB for human review:
 //   npm run balance -- --list
 
+import * as dotenv from "dotenv";
+dotenv.config({ override: true });
+
 import { ArenaDatabase } from "../data/database";
 import { MatchRunner } from "../match/runner";
 import { findBestMatchup } from "../simulation/matchmaker";
 import { generateMatchSummary } from "../analysis/summary";
 import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyzer";
 import { ArenaMasterAgent } from "../agent/arena-master";
+import { CommentaryAgent } from "../agent/commentary";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +56,7 @@ let matchCount = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 const db = new ArenaDatabase();
 const runner = new MatchRunner(db);
+const commentator = new CommentaryAgent();
 
 // ─── Balance Check ───────────────────────────────────────────────────────────
 
@@ -109,6 +114,15 @@ async function runNextMatch(): Promise<void> {
   const { ballA, ballB } = matchup;
   const seed = Math.floor(Math.random() * 1_000_000);
 
+  // Pre-match announcement
+  try {
+    const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
+    const announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
+    console.log(`\n🎙️  ${announcement}\n`);
+  } catch (e: any) {
+    // Commentary failure should never block the match
+  }
+
   let result;
   try {
     result = await runner.runMatch({
@@ -141,6 +155,14 @@ async function runNextMatch(): Promise<void> {
     for (const h of summary.highlights.slice(0, 3)) {
       console.log(`      ${h}`);
     }
+  }
+
+  // Post-match Arena Master commentary
+  try {
+    const postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
+    console.log(`\n🎙️  ${postMatch}\n`);
+  } catch (e: any) {
+    // Commentary failure should never block the scheduler
   }
 
   // Trigger balance check every N matches

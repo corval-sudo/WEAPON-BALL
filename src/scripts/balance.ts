@@ -7,6 +7,9 @@
 //   npm run balance -- --list    # List all pending proposals
 //   npm run balance -- --apply   # Apply all approved proposals to DB
 
+import * as dotenv from "dotenv";
+dotenv.config({ override: true });
+
 import * as readline from "node:readline";
 import { ArenaDatabase } from "../data/database";
 import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyzer";

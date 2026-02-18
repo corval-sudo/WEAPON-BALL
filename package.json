@@ -19,7 +19,8 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.75.0",
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^17.3.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

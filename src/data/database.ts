@@ -350,6 +350,26 @@ export class ArenaDatabase {
     };
   }
 
+  getHeadToHeadRecord(
+    ballAId: string,
+    ballBId: string
+  ): { totalMatches: number; aWins: number; bWins: number } {
+    const rows = this.db
+      .prepare(
+        `SELECT ball_a_id, ball_b_id, winner FROM matches
+         WHERE (ball_a_id = ? AND ball_b_id = ?) OR (ball_a_id = ? AND ball_b_id = ?)`
+      )
+      .all(ballAId, ballBId, ballBId, ballAId) as any[];
+
+    const aWins = rows.filter(
+      r =>
+        (r.ball_a_id === ballAId && r.winner === "A") ||
+        (r.ball_b_id === ballAId && r.winner === "B")
+    ).length;
+
+    return { totalMatches: rows.length, aWins, bWins: rows.length - aWins };
+  }
+
   close(): void {
     this.db.close();
   }
