@@ -4,13 +4,27 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "sim": "ts-node src/sim.ts matchSpec.json"
+    "sim": "ts-node src/sim.ts matchSpec.json",
+    "init-roster": "ts-node src/scripts/init-roster.ts",
+    "test-match": "ts-node src/scripts/test-match.ts",
+    "match": "ts-node src/scripts/run-match.ts",
+    "roster": "ts-node src/scripts/roster.ts",
+    "suggest": "ts-node src/scripts/suggest-matchup.ts",
+    "balance": "ts-node src/scripts/balance.ts",
+    "schedule": "ts-node src/scripts/schedule.ts",
+    "admin": "ts-node src/scripts/admin.ts"
   },
   "keywords": [],
   "author": "Corval GPT",
   "license": "ISC",
   "type": "commonjs",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.75.0",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^17.3.1"
+  },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^25.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

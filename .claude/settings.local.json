@@ -9,7 +9,12 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
-      "Bash(git -C \"C:/Users/borja/.claude-worktrees/arena-sim/pedantic-cannon\" diff)"
+      "Bash(git -C \"C:/Users/borja/.claude-worktrees/arena-sim/pedantic-cannon\" diff)",
+      "Bash(npm run init-roster:*)",
+      "Bash(npm run test-match:*)",
+      "Bash(npm run roster:*)",
+      "Bash(npm run match:*)",
+      "Bash(npm run suggest:*)"
     ]
   }
 }

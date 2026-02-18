@@ -3,3 +3,4 @@ viewer/node_modules
 dist
 .viewer-cache
 .env
+DEVELOPMENT_LOG.md
