@@ -20,8 +20,10 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.75.0",
+    "@types/node-telegram-bot-api": "^0.64.13",
     "better-sqlite3": "^11.7.0",
-    "dotenv": "^17.3.1"
+    "dotenv": "^17.3.1",
+    "node-telegram-bot-api": "^0.67.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

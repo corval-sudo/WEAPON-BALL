@@ -51,4 +51,7 @@ OUTPUT RULES:
   ('commentary_tokens_postmatch',     '384',               datetime('now'), 'Max tokens for post-match commentary'),
   ('match_interval_ms',               '30000',             datetime('now'), 'Milliseconds between scheduled matches'),
   ('balance_check_every',             '10',                datetime('now'), 'Number of matches between automatic balance checks'),
-  ('arena_name',                      'The Pit',           datetime('now'), 'Default arena name used in match records');
+  ('arena_name',                      'The Pit',           datetime('now'), 'Default arena name used in match records'),
+  ('telegram_bot_token',              '',                  datetime('now'), 'Telegram bot token from @BotFather — keep secret'),
+  ('telegram_channel_id',             '',                  datetime('now'), 'Telegram channel ID (e.g. @worbz_arena) or numeric -100… ID'),
+  ('telegram_enabled',                'false',             datetime('now'), 'Set to "true" to enable live match posting to Telegram');

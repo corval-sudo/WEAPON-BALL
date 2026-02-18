@@ -21,6 +21,7 @@ import { generateMatchSummary } from "../analysis/summary";
 import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyzer";
 import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
+import { TelegramService } from "../services/telegram";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -69,6 +70,12 @@ const commentator = new CommentaryAgent({
   tokensAnnouncement: configStore.getCommentaryTokensAnnouncement(),
   tokensPostmatch:    configStore.getCommentaryTokensPostmatch(),
 });
+
+const telegram = new TelegramService(
+  configStore.getTelegramBotToken(),
+  configStore.getTelegramChannelId(),
+  configStore.isTelegramEnabled(),
+);
 
 // ─── Balance Check ───────────────────────────────────────────────────────────
 
@@ -131,8 +138,9 @@ async function runNextMatch(): Promise<void> {
     const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
     const announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
     console.log(`\n🎙️  ${announcement}\n`);
+    await telegram.sendAnnouncement(ballA, ballB, announcement);
   } catch (e: any) {
-    // Commentary failure should never block the match
+    // Commentary/Telegram failure should never block the match
   }
 
   let result;
@@ -169,12 +177,16 @@ async function runNextMatch(): Promise<void> {
     }
   }
 
+  // Send match result card to Telegram (no AI needed — fires immediately)
+  await telegram.sendMatchResult(matchCount, result, freshA, freshB, summary);
+
   // Post-match Arena Master commentary
   try {
     const postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
     console.log(`\n🎙️  ${postMatch}\n`);
+    await telegram.sendPostMatchCommentary(postMatch);
   } catch (e: any) {
-    // Commentary failure should never block the scheduler
+    // Commentary/Telegram failure should never block the scheduler
   }
 
   // Trigger balance check every N matches

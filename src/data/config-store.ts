@@ -19,6 +19,9 @@ export const CONFIG_KEYS = [
   "match_interval_ms",
   "balance_check_every",
   "arena_name",
+  "telegram_bot_token",
+  "telegram_channel_id",
+  "telegram_enabled",
 ] as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
@@ -104,5 +107,17 @@ export class ConfigStore {
 
   getArenaName(): string {
     return this.get("arena_name") ?? "The Pit";
+  }
+
+  getTelegramBotToken(): string {
+    return this.get("telegram_bot_token") ?? "";
+  }
+
+  getTelegramChannelId(): string {
+    return this.get("telegram_channel_id") ?? "";
+  }
+
+  isTelegramEnabled(): boolean {
+    return (this.get("telegram_enabled") ?? "false") === "true";
   }
 }
