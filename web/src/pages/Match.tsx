@@ -22,42 +22,19 @@ interface Fighter {
   id: string; name: string; color: string; baseHp: number; weaponId: string;
 }
 
-// Generate an approximate replay animation from match data (no stored events)
-function generateFrames(match: MatchDetail): TickFrame[] {
-  const SCALE = 1000;
-  const totalTicks = match.ticks;
-  const frames: TickFrame[] = [];
-
-  const arenaW = 400, arenaH = 700;
-  const radius = 85;
-  const angSpeed = (2 * Math.PI) / 300;
-
-  // Interpolate HP loss evenly across the match duration
-  const aStartHp = 500, bStartHp = 500; // We don't have base HP here, use defaults
-  const aEndHp   = match.winner === "A" ? Math.max(1, aStartHp - match.ball_b_damage_dealt) : 0;
-  const bEndHp   = match.winner === "B" ? Math.max(1, bStartHp - match.ball_a_damage_dealt) : 0;
-
-  for (let t = 0; t <= totalTicks; t++) {
-    const progress = t / totalTicks;
-    const angle = t * angSpeed;
-
-    const ax = arenaW / 2 - 80 + Math.round(radius * Math.cos(angle));
-    const ay = arenaH / 2 + Math.round(radius * Math.sin(angle));
-    const bx = arenaW / 2 + 80 + Math.round(radius * Math.cos(angle + Math.PI));
-    const by = arenaH / 2 + Math.round(radius * Math.sin(angle + Math.PI));
-
-    const aHp = Math.round(aStartHp - (aStartHp - aEndHp) * progress);
-    const bHp = Math.round(bStartHp - (bStartHp - bEndHp) * progress);
-
-    frames.push({
-      tick: t,
-      a: { x: ax * SCALE, y: ay * SCALE, angle: (t * 600) % 65536, hp: aHp },
-      b: { x: bx * SCALE, y: by * SCALE, angle: ((t * 600) + 32768) % 65536, hp: bHp },
-      events: t === totalTicks ? [`${match.winner === "A" ? match.ball_a_name : match.ball_b_name} wins`] : [],
-    });
-  }
-
-  return frames;
+interface ReplayData {
+  matchId: number;
+  totalTicks: number;
+  scale: number;
+  arenaW: number;
+  arenaH: number;
+  ballAName: string;
+  ballBName: string;
+  ballAColor: string;
+  ballBColor: string;
+  ballAHp: number;
+  ballBHp: number;
+  frames: TickFrame[];
 }
 
 export default function MatchPage() {
@@ -66,6 +43,7 @@ export default function MatchPage() {
   const [ballA, setBallA] = useState<Fighter | null>(null);
   const [ballB, setBallB] = useState<Fighter | null>(null);
   const [loading, setLoading] = useState(true);
+  const [replayLoading, setReplayLoading] = useState(true);
 
   const [frames, setFrames] = useState<TickFrame[]>([]);
   const [currentTick, setCurrentTick] = useState(0);
@@ -75,14 +53,12 @@ export default function MatchPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API}/api/matches/${id}`)
+
+    // Fetch match metadata and fighters in parallel with replay frames
+    const matchPromise = fetch(`${API}/api/matches/${id}`)
       .then(r => r.json())
       .then(async (m: MatchDetail) => {
         setMatch(m);
-        const generated = generateFrames(m);
-        setFrames(generated);
-        setCurrentTick(0);
-        // Fetch both fighters for colors
         const [fA, fB] = await Promise.all([
           fetch(`${API}/api/fighters/${m.ball_a_id}`).then(r => r.json()).then(d => d.fighter).catch(() => null),
           fetch(`${API}/api/fighters/${m.ball_b_id}`).then(r => r.json()).then(d => d.fighter).catch(() => null),
@@ -92,6 +68,18 @@ export default function MatchPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Fetch real deterministic replay frames from the server
+    const replayPromise = fetch(`${API}/api/matches/${id}/replay`)
+      .then(r => r.json())
+      .then((data: ReplayData) => {
+        setFrames(data.frames);
+        setCurrentTick(0);
+        setReplayLoading(false);
+      })
+      .catch(() => setReplayLoading(false));
+
+    Promise.all([matchPromise, replayPromise]);
   }, [id]);
 
   const startReplay = useCallback(() => {
@@ -123,6 +111,7 @@ export default function MatchPage() {
 
   if (loading) return <div style={styles.page}><div style={styles.muted}>Loading...</div></div>;
   if (!match) return <div style={styles.page}><div style={styles.muted}>Match not found.</div></div>;
+  if (replayLoading) return <div style={styles.page}><div style={styles.muted}>Loading replay frames...</div></div>;
 
   const currentFrame = frames[currentTick] ?? null;
   const winnerName = match.winner === "A" ? match.ball_a_name : match.ball_b_name;
