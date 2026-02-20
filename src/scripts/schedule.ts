@@ -22,6 +22,7 @@ import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyz
 import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
 import { TelegramService } from "../services/telegram";
+import { broadcaster } from "../api/ws-broadcaster";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -133,15 +134,22 @@ async function runNextMatch(): Promise<void> {
   const { ballA, ballB } = matchup;
   const seed = Math.floor(Math.random() * 1_000_000);
 
+  // Broadcast upcoming match (fires before AI commentary, gives browser a countdown)
+  broadcaster.broadcast({ type: "next_match", ballA, ballB, startsInMs: 5000 });
+
   // Pre-match announcement
+  let announcement = "";
   try {
     const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
-    const announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
+    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
     console.log(`\n🎙️  ${announcement}\n`);
     await telegram.sendAnnouncement(ballA, ballB, announcement);
   } catch (e: any) {
     // Commentary/Telegram failure should never block the match
   }
+
+  // Broadcast match start with announcement text
+  broadcaster.broadcast({ type: "match_start", ballA, ballB, matchNumber: matchCount + 1, announcement });
 
   let result;
   try {
@@ -180,14 +188,29 @@ async function runNextMatch(): Promise<void> {
   // Send match result card to Telegram (no AI needed — fires immediately)
   await telegram.sendMatchResult(matchCount, result, freshA, freshB, summary);
 
+  // Replay match ticks to connected WebSocket clients
+  broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp);
+
   // Post-match Arena Master commentary
+  let postMatch = "";
   try {
-    const postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
+    postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
     console.log(`\n🎙️  ${postMatch}\n`);
     await telegram.sendPostMatchCommentary(postMatch);
   } catch (e: any) {
     // Commentary/Telegram failure should never block the scheduler
   }
+
+  // Broadcast match end (fires after commentary so it includes the text)
+  broadcaster.broadcast({
+    type: "match_end",
+    matchNumber: matchCount,
+    winner: result.winner,
+    ballA: freshA,
+    ballB: freshB,
+    ticks: result.ticks,
+    commentary: postMatch,
+  });
 
   // Trigger balance check every N matches
   if (matchCount % BALANCE_CHECK_EVERY === 0) {
