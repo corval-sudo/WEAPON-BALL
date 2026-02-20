@@ -159,7 +159,7 @@ export default function Dashboard() {
   );
 }
 
-function FighterCard({ f, side }: { f: Fighter; side: "A" | "B" }) {
+function FighterCard({ f }: { f: Fighter; side?: "A" | "B" }) {
   const total = f.wins + f.losses;
   const wr = total > 0 ? Math.round((f.wins / total) * 100) : 0;
   return (

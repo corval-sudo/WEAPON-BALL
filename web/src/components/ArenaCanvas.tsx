@@ -38,8 +38,10 @@ export function ArenaCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const ctxOrNull = canvas.getContext("2d");
+    if (!ctxOrNull) return;
+    // Assign to a const that TypeScript knows is non-null inside nested functions
+    const ctx: CanvasRenderingContext2D = ctxOrNull;
 
     // Scale canvas for crisp rendering on high-DPI screens
     const dpr = window.devicePixelRatio || 1;
