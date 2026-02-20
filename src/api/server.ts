@@ -30,7 +30,9 @@ import { broadcaster } from "./ws-broadcaster";
 
 const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
 // Comma-separated list of allowed origins (set on Railway/Vercel)
-const CORS_ORIGINS = (process.env["CORS_ORIGINS"] ?? "http://localhost:5174,http://localhost:5173").split(",");
+const CORS_ORIGINS = (process.env["CORS_ORIGINS"] ?? "http://localhost:5174,http://localhost:5173")
+  .split(",")
+  .map(o => o.trim().replace(/\/$/, ""));  // trim spaces + trailing slashes
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 
