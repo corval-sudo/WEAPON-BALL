@@ -1,0 +1,27 @@
+/* web/src/index.css — dark base reset */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: #0a0a0f;
+  color: #e0e0ff;
+  min-height: 100vh;
+}
+
+body {
+  font-family: "Courier New", Courier, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+button, select {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #333355; border-radius: 3px; }

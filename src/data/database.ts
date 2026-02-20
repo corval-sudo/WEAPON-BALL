@@ -363,6 +363,18 @@ export class ArenaDatabase {
     };
   }
 
+  /** Get a single match by its row ID with joined fighter names. */
+  getMatchById(id: number): any | undefined {
+    return this.db.prepare(`
+      SELECT m.*, ba.name AS ball_a_name, bb.name AS ball_b_name,
+             ba.weapon_id AS ball_a_weapon, bb.weapon_id AS ball_b_weapon
+      FROM matches m
+      JOIN balls ba ON m.ball_a_id = ba.id
+      JOIN balls bb ON m.ball_b_id = bb.id
+      WHERE m.id = ?
+    `).get(id) ?? undefined;
+  }
+
   getHeadToHeadRecord(
     ballAId: string,
     ballBId: string
