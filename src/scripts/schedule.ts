@@ -241,15 +241,18 @@ async function main(): Promise<void> {
 
   const roster = db.getActiveBalls();
   if (roster.length < 2) {
-    console.error("✗ Need at least 2 active balls to schedule matches.");
-    console.error("  Run: npm run init-roster");
-    db.close();
-    process.exit(1);
+    console.warn("⚠  No active fighters found yet — waiting for roster to be initialized.");
+    console.warn("   Run: npm run init-roster (or railway ssh -- npm run init-roster)");
+    console.warn("   Scheduler will start automatically once fighters are added.");
+    console.warn("");
+    // Don't exit — keep the process alive so the container stays healthy.
+    // The setInterval loop will pick up fighters once they are seeded.
+  } else {
+    console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
   }
 
-  console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
-
-  // Run first match immediately, then every MATCH_INTERVAL_MS
+  // Run first match immediately, then every MATCH_INTERVAL_MS.
+  // runNextMatch() handles the empty-roster case gracefully (logs + returns early).
   await runNextMatch();
   timer = setInterval(() => {
     runNextMatch().catch(e => console.error("Unhandled match error:", e));
