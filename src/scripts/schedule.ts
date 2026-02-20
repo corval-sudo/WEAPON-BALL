@@ -23,6 +23,7 @@ import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
 import { TelegramService } from "../services/telegram";
 import { broadcaster } from "../api/ws-broadcaster";
+import { setNextMatch } from "../api/server";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -218,6 +219,20 @@ async function runNextMatch(): Promise<void> {
   }
 }
 
+// ─── Next-match advertisement ─────────────────────────────────────────────────
+
+/**
+ * Picks the best upcoming matchup and tells the API server when it will fire.
+ * This populates /api/next so clients that load the page mid-interval see the
+ * countdown immediately rather than waiting for the WebSocket next_match event.
+ */
+function scheduleNextMatchAd(delayMs: number): void {
+  const roster = db.getActiveBalls();
+  const matchup = findBestMatchup(roster);
+  if (!matchup) return;
+  setNextMatch(matchup.ballA.id, matchup.ballB.id, delayMs);
+}
+
 // ─── Startup & Shutdown ───────────────────────────────────────────────────────
 
 function shutdown(): void {
@@ -254,8 +269,12 @@ async function main(): Promise<void> {
   // Run first match immediately, then every MATCH_INTERVAL_MS.
   // runNextMatch() handles the empty-roster case gracefully (logs + returns early).
   await runNextMatch();
+  // After the first match, schedule the next one and advertise it via the API.
+  scheduleNextMatchAd(MATCH_INTERVAL_MS);
   timer = setInterval(() => {
-    runNextMatch().catch(e => console.error("Unhandled match error:", e));
+    runNextMatch()
+      .then(() => scheduleNextMatchAd(MATCH_INTERVAL_MS))
+      .catch(e => console.error("Unhandled match error:", e));
   }, MATCH_INTERVAL_MS);
 }
 

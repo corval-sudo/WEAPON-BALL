@@ -21,15 +21,23 @@ interface RecentMatch {
   ball_a_damage_dealt: number; ball_b_damage_dealt: number;
 }
 
+interface NextMatchInfo {
+  ballA: Fighter;
+  ballB: Fighter;
+  startsAt: string; // ISO timestamp
+}
+
 export default function Dashboard() {
   const arena = useArenaSocket();
   const [fighters, setFighters] = useState<Fighter[]>([]);
   const [matches, setMatches] = useState<RecentMatch[]>([]);
   const [countdown, setCountdown] = useState(0);
+  const [nextMatch, setNextMatch] = useState<NextMatchInfo | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
     fetch(`${API}/api/matches`).then(r => r.json()).then(setMatches).catch(() => {});
+    fetch(`${API}/api/next`).then(r => r.json()).then(setNextMatch).catch(() => {});
   }, []);
 
   // Refresh recent matches after each result
@@ -38,21 +46,36 @@ export default function Dashboard() {
       setTimeout(() => {
         fetch(`${API}/api/matches`).then(r => r.json()).then(setMatches).catch(() => {});
         fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
+        fetch(`${API}/api/next`).then(r => r.json()).then(setNextMatch).catch(() => {});
       }, 2000);
     }
   }, [arena.phase]);
 
-  // Countdown timer
+  // Countdown timer — driven by /api/next startsAt timestamp when idle,
+  // or by the WebSocket startsInMs during live countdown phase.
   useEffect(() => {
-    if (arena.phase !== "countdown") return;
-    setCountdown(Math.ceil(arena.startsInMs / 1000));
-    const timer = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [arena.phase, arena.startsInMs]);
+    // WebSocket live countdown takes priority (match is imminent)
+    if (arena.phase === "countdown") {
+      setCountdown(Math.ceil(arena.startsInMs / 1000));
+      const timer = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+      return () => clearInterval(timer);
+    }
 
-  // Current fighters for canvas
-  const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA;
-  const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB;
+    // HTTP polling fallback: compute countdown from the scheduled startsAt timestamp
+    if (arena.phase === "idle" && nextMatch?.startsAt) {
+      const update = () => {
+        const secsLeft = Math.max(0, Math.ceil((new Date(nextMatch.startsAt).getTime() - Date.now()) / 1000));
+        setCountdown(secsLeft);
+      };
+      update();
+      const timer = setInterval(update, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [arena.phase, arena.startsInMs, nextMatch?.startsAt]);
+
+  // Current fighters for canvas — fall back to /api/next data when WebSocket is idle
+  const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA ?? nextMatch?.ballA ?? null;
+  const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB ?? nextMatch?.ballB ?? null;
 
   return (
     <div style={styles.page}>
@@ -72,6 +95,7 @@ export default function Dashboard() {
             {arena.phase === "live" ? `⚔️ MATCH #${arena.matchNumber}` :
              arena.phase === "countdown" ? `🔜 NEXT MATCH IN ${countdown}s` :
              arena.phase === "result" ? `🏆 MATCH #${arena.matchNumber} RESULT` :
+             (nextMatch && countdown > 0) ? `🔜 NEXT MATCH IN ${countdown}s` :
              "🎯 ARENA"}
           </h2>
 
