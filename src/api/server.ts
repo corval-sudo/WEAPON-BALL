@@ -303,6 +303,14 @@ wss.on("connection", (ws, req) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`✗ Port ${PORT} is already in use. Exiting so Railway can restart cleanly.`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, () => {
   console.log(`╔══════════════════════════════════════════════╗`);
   console.log(`║           WORBZ API SERVER STARTED           ║`);

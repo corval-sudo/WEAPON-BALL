@@ -76,7 +76,8 @@ export default function Dashboard() {
     return () => clearTimeout(t);
   }, [arena.phase]);
 
-  // Countdown — WebSocket takes priority, falls back to /api/next startsAt
+  // Countdown — WebSocket takes priority, falls back to /api/next startsAt.
+  // Use -1 as sentinel for "startsAt is known but in the past" (scheduler busy/restarting).
   useEffect(() => {
     if (arena.phase === "countdown") {
       setCountdown(Math.ceil(arena.startsInMs / 1000));
@@ -85,8 +86,9 @@ export default function Dashboard() {
     }
     if ((arena.phase === "idle" || arena.phase === "result") && nextMatch?.startsAt) {
       const update = () => {
-        const s = Math.max(0, Math.ceil((new Date(nextMatch.startsAt).getTime() - Date.now()) / 1000));
-        setCountdown(s);
+        const ms = new Date(nextMatch.startsAt).getTime() - Date.now();
+        // If startsAt is in the past the scheduler is mid-match or restarting — use -1 sentinel
+        setCountdown(ms > 0 ? Math.ceil(ms / 1000) : -1);
       };
       update();
       const t = setInterval(update, 1000);
@@ -98,11 +100,12 @@ export default function Dashboard() {
   const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA ?? nextMatch?.ballA ?? null;
   const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB ?? nextMatch?.ballB ?? null;
 
-  // Arena status label
+  // Arena status label — countdown === -1 means startsAt is known but past (match imminent)
   const arenaLabel =
     arena.phase === "live"      ? `⚔️ MATCH #${arena.matchNumber} — LIVE` :
     arena.phase === "countdown" ? `🔜 STARTING IN ${fmtCountdown(countdown)}` :
     arena.phase === "result"    ? `🏆 MATCH #${arena.matchNumber} RESULT` :
+    countdown === -1            ? `⏳ NEXT MATCH STARTING SOON` :
     countdown > 0               ? `🔜 NEXT MATCH IN ${fmtCountdown(countdown)}` :
     "🎯 WORBZ ARENA";
 
@@ -161,7 +164,7 @@ export default function Dashboard() {
                 🏆 {(arena.winner === "A" ? arena.resultBallA : arena.resultBallB)?.name} WINS
               </div>
               <div style={S.resultMeta}>
-                {(arena.ticks / 30).toFixed(1)}s · {fmtCountdown(countdown)} until next match
+                {(arena.ticks / 30).toFixed(1)}s · {countdown === -1 ? "starting soon" : countdown > 0 ? `${fmtCountdown(countdown)} until next` : "next match soon"}
               </div>
               {arena.commentary && <p style={S.commentary}>{arena.commentary}</p>}
             </div>
@@ -193,21 +196,33 @@ export default function Dashboard() {
       {/* ── Recent results ──────────────────────────────────────────────── */}
       <section style={S.resultsSection}>
         <h2 style={S.sideTitle}>📋 RECENT RESULTS</h2>
-        <div style={S.resultsGrid} className="worbz-results-grid">
-          {matches.slice(0, 20).map(m => {
-            const winnerName = m.winner === "A" ? m.ball_a_name : m.ball_b_name;
-            const loserName  = m.winner === "A" ? m.ball_b_name : m.ball_a_name;
+        <div style={S.resultsScroll} className="worbz-results-grid">
+          {matches.slice(0, 30).map(m => {
+            const isAWin     = m.winner === "A";
+            const winnerName = isAWin ? m.ball_a_name : m.ball_b_name;
+            const loserName  = isAWin ? m.ball_b_name : m.ball_a_name;
+            const winnerWeap = isAWin ? m.ball_a_weapon : m.ball_b_weapon;
+            const loserWeap  = isAWin ? m.ball_b_weapon : m.ball_a_weapon;
             const dur = `${(m.ticks / 30).toFixed(0)}s`;
             const ago = timeAgo(m.timestamp);
             return (
-              <Link key={m.id} to={`/match/${m.id}`} style={S.resultRow}>
-                <span style={S.matchId}>#{m.id}</span>
-                <span style={S.resultText}>
-                  <strong>{winnerName}</strong>
-                  <span style={S.def}> def. </span>
-                  {loserName}
-                </span>
-                <span style={S.resultMeta2}>{dur} · {ago}</span>
+              <Link key={m.id} to={`/match/${m.id}`} style={S.resultCard2}>
+                <div style={S.resultCardTop}>
+                  <span style={S.matchId}>#{m.id}</span>
+                  <span style={S.resultMeta2}>{ago}</span>
+                </div>
+                <div style={S.resultCardBody}>
+                  <span style={S.winnerText}>🏆 {winnerName}</span>
+                  <span style={S.weaponBadge}>{winnerWeap}</span>
+                </div>
+                <div style={S.resultCardBody}>
+                  <span style={S.loserText}>💀 {loserName}</span>
+                  <span style={S.weaponBadge}>{loserWeap}</span>
+                </div>
+                <div style={S.resultCardFooter}>
+                  <span style={S.durText}>⏱ {dur}</span>
+                  <span style={S.viewReplay}>▶ replay →</span>
+                </div>
               </Link>
             );
           })}
@@ -428,29 +443,59 @@ const S: Record<string, React.CSSProperties> = {
   wr: { color: "#9977cc" },
   streak: { fontSize: 10, color: "#ff9800", flexShrink: 0 },
 
-  // Recent results — full-width strip below the main grid
+  // Recent results — full-width scrollable card strip below main grid
   resultsSection: {
     borderTop: `1px solid ${C.border}`,
-    padding: "16px 20px",
+    padding: "14px 16px 0",
     background: C.panel,
   },
-  resultsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "2px 16px",
-  },
-  resultRow: {
+  // Horizontal scroll on desktop, wraps on mobile
+  resultsScroll: {
     display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "5px 0",
-    borderBottom: `1px solid ${C.border}`,
+    flexDirection: "row" as const,
+    gap: 10,
+    overflowX: "auto" as const,
+    paddingBottom: 14,
+    scrollbarWidth: "thin" as const,
+  },
+  resultCard2: {
+    flex: "0 0 200px",
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    padding: "10px 12px",
     textDecoration: "none",
     color: C.text,
-    fontSize: 11,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 5,
+    transition: "border-color 0.15s",
+    cursor: "pointer",
   },
-  matchId:    { color: "#444466", width: 36, flexShrink: 0 },
-  resultText: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const },
-  def:        { color: "#555577" },
-  resultMeta2:{ color: "#555577", flexShrink: 0, fontSize: 10 },
+  resultCardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  resultCardBody: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 6,
+  },
+  resultCardFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+    borderTop: `1px solid ${C.border}`,
+    paddingTop: 5,
+  },
+  matchId:     { color: "#444466", fontSize: 10 },
+  winnerText:  { fontSize: 12, fontWeight: "bold" as const, color: C.gold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  loserText:   { fontSize: 11, color: "#666688", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  weaponBadge: { fontSize: 9, color: "#555577", background: "#1a1a2e", borderRadius: 3, padding: "1px 4px", flexShrink: 0, whiteSpace: "nowrap" as const },
+  durText:     { fontSize: 10, color: "#555577" },
+  viewReplay:  { fontSize: 10, color: C.accent },
+  resultMeta2: { fontSize: 10, color: "#555577" },
 };
