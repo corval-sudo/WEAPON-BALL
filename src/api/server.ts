@@ -24,6 +24,7 @@ import * as http from "node:http";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { ArenaDatabase } from "../data/database";
+import { ConfigStore } from "../data/config-store";
 import { broadcaster } from "./ws-broadcaster";
 import { createSim, stepSim } from "../simCore";
 import type { TickFrame } from "./ws-broadcaster";
@@ -58,6 +59,7 @@ app.use(express.json());
 // ─── DB ───────────────────────────────────────────────────────────────────────
 
 const db = new ArenaDatabase();
+const configStore = new ConfigStore(db.getRawDb());
 
 // ─── REST Routes ──────────────────────────────────────────────────────────────
 
@@ -254,10 +256,36 @@ export function setNextMatch(ballAId: string, ballBId: string, startsInMs: numbe
 }
 
 app.get("/api/next", (_req, res) => {
-  if (!nextMatchInfo) { res.json(null); return; }
-  const ballA = db.getBallById(nextMatchInfo.ballAId);
-  const ballB = db.getBallById(nextMatchInfo.ballBId);
-  res.json({ ballA, ballB, startsAt: nextMatchInfo.startsAt });
+  try {
+    // Use explicitly scheduled next match if available
+    if (nextMatchInfo) {
+      const ballA = db.getBallById(nextMatchInfo.ballAId);
+      const ballB = db.getBallById(nextMatchInfo.ballBId);
+      if (ballA && ballB) {
+        res.json({ ballA, ballB, startsAt: nextMatchInfo.startsAt });
+        return;
+      }
+    }
+
+    // Fallback: compute startsAt from last match timestamp + configured interval.
+    // This works immediately after a deploy before the scheduler has called setNextMatch.
+    const recentMatches = db.getRecentMatches(1);
+    if (recentMatches.length === 0) { res.json(null); return; }
+
+    const lastMatch = recentMatches[0] as any;
+    const intervalMs = configStore.getMatchIntervalMs();
+    const startsAt = new Date(new Date(lastMatch.timestamp).getTime() + intervalMs).toISOString();
+
+    // Pick best upcoming matchup for the preview fighters
+    const { findBestMatchup } = require("../simulation/matchmaker");
+    const roster = db.getActiveBalls();
+    const matchup = findBestMatchup(roster);
+    if (!matchup) { res.json(null); return; }
+
+    res.json({ ballA: matchup.ballA, ballB: matchup.ballB, startsAt });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
