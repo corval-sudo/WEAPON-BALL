@@ -45,9 +45,12 @@ button, select {
     height: auto !important;
   }
 
-  /* Results grid: single column on mobile */
+  /* Results scroll: allow wrapping on very narrow screens */
   .worbz-results-grid {
-    grid-template-columns: 1fr !important;
+    flex-wrap: wrap !important;
+  }
+  .worbz-results-grid > a {
+    flex: 1 1 160px !important;
   }
 
   /* Topbar: stack vertically if very narrow */
