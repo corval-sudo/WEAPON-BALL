@@ -53,10 +53,12 @@ function timeAgo(iso: string): string {
 
 export default function Dashboard() {
   const arena = useArenaSocket();
-  const [fighters, setFighters]   = useState<Fighter[]>([]);
-  const [matches, setMatches]     = useState<RecentMatch[]>([]);
-  const [countdown, setCountdown] = useState(0);
-  const [nextMatch, setNextMatch] = useState<NextMatchInfo | null>(null);
+  const [fighters, setFighters]       = useState<Fighter[]>([]);
+  const [matches, setMatches]         = useState<RecentMatch[]>([]);
+  const [countdown, setCountdown]     = useState(0);
+  const [nextMatch, setNextMatch]     = useState<NextMatchInfo | null>(null);
+  const [showLeaderboard, setShowLB]  = useState(true);
+  const [showResults, setShowResults] = useState(true);
 
   // Initial data fetch
   useEffect(() => {
@@ -174,28 +176,37 @@ export default function Dashboard() {
         {/* ── Leaderboard sidebar ──────────────────────────────────────── */}
         <aside style={S.sidebar} className="worbz-sidebar">
           <div style={S.sideCard}>
-            <h2 style={S.sideTitle}>🏅 LEADERBOARD</h2>
-            {fighters.slice(0, 15).map((f, i) => (
-              <Link key={f.id} to={`/fighter/${f.id}`} style={S.leaderRow}>
-                <span style={S.rank}>#{i + 1}</span>
-                <span style={{ ...S.colorDot, background: f.color }} />
-                <span style={S.leaderName}>{f.name}</span>
-                <span style={S.leaderStats}>
-                  {f.wins}W {f.losses}L
-                  <span style={S.wr}> {fmtWR(f.wins, f.losses)}</span>
-                </span>
-                {f.currentStreak >= 2 && (
-                  <span style={S.streak}>🔥{f.currentStreak}</span>
-                )}
-              </Link>
-            ))}
+            <button style={S.panelToggle} onClick={() => setShowLB(v => !v)}>
+              <span>🏅 LEADERBOARD</span>
+              <span style={S.chevron}>{showLeaderboard ? "▲" : "▼"}</span>
+            </button>
+            <div style={{ overflow: "hidden", maxHeight: showLeaderboard ? 1200 : 0, transition: "max-height 0.3s ease" }}>
+              {fighters.slice(0, 15).map((f, i) => (
+                <Link key={f.id} to={`/fighter/${f.id}`} style={S.leaderRow}>
+                  <span style={S.rank}>#{i + 1}</span>
+                  <span style={{ ...S.colorDot, background: f.color }} />
+                  <span style={S.leaderName}>{f.name}</span>
+                  <span style={S.leaderStats}>
+                    {f.wins}W {f.losses}L
+                    <span style={S.wr}> {fmtWR(f.wins, f.losses)}</span>
+                  </span>
+                  {f.currentStreak >= 2 && (
+                    <span style={S.streak}>🔥{f.currentStreak}</span>
+                  )}
+                </Link>
+              ))}
+            </div>
           </div>
         </aside>
       </div>
 
       {/* ── Recent results ──────────────────────────────────────────────── */}
       <section style={S.resultsSection}>
-        <h2 style={S.sideTitle}>📋 RECENT RESULTS</h2>
+        <button style={S.panelToggle} onClick={() => setShowResults(v => !v)}>
+          <span>📋 RECENT RESULTS</span>
+          <span style={S.chevron}>{showResults ? "▲" : "▼"}</span>
+        </button>
+        <div style={{ overflow: "hidden", maxHeight: showResults ? 400 : 0, transition: "max-height 0.3s ease" }}>
         <div style={S.resultsScroll} className="worbz-results-grid">
           {matches.slice(0, 30).map(m => {
             const isAWin     = m.winner === "A";
@@ -227,6 +238,7 @@ export default function Dashboard() {
             );
           })}
         </div>
+        </div>{/* end collapse wrapper */}
       </section>
     </div>
   );
@@ -426,6 +438,28 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: 2,
     color: "#666688",
     textTransform: "uppercase" as const,
+  },
+  // Clickable collapse toggle — looks like the old section header but interactive
+  panelToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    background: "none",
+    border: "none",
+    borderBottom: `1px solid #1c1c2e`,
+    padding: "0 0 8px 0",
+    marginBottom: 10,
+    cursor: "pointer",
+    color: "#666688",
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: "uppercase" as const,
+    fontFamily: "'Courier New', Courier, monospace",
+  },
+  chevron: {
+    fontSize: 9,
+    color: "#444466",
   },
   leaderRow: {
     display: "flex",
