@@ -14,7 +14,7 @@
     "schedule": "ts-node src/scripts/schedule.ts",
     "admin": "ts-node src/scripts/admin.ts",
     "api": "ts-node src/api/server.ts",
-    "start": "ts-node src/api/server.ts & ts-node src/scripts/schedule.ts & wait"
+    "serve": "ts-node src/api/server.ts & ts-node src/scripts/schedule.ts & wait"
   },
   "keywords": [],
   "author": "Corval GPT",
