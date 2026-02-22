@@ -295,42 +295,47 @@ function resolveBallBallCollision(state: SimState, A: BallState, B: BallState) {
   const nx = dx * invLen;
   const ny = dy * invLen;
 
+  // Fix #3 & #4: depenetrate FIRST so impulse acts on correctly-separated positions,
+  // and a minimum 2-unit push prevents rounding from leaving 1-unit stuck overlaps.
+  const dist = 1 / invLen;
+  const overlap = rSum - dist;
+  if (overlap > 0) {
+    const push = Math.max(overlap / 2, 2); // at least 2 units to escape rounding trap
+    A.pos.x -= Math.round(nx * push);
+    A.pos.y -= Math.round(ny * push);
+    B.pos.x += Math.round(nx * push);
+    B.pos.y += Math.round(ny * push);
+  }
+
   const rvx = B.vel.x - A.vel.x;
   const rvy = B.vel.y - A.vel.y;
   const velAlongNormal = rvx * nx + rvy * ny;
 
-  const e = Math.min(A.restitution, B.restitution) / 1000;
-  const invMassA = 1;
-  const invMassB = 1;
+  // Fix #1: only apply impulse when balls are approaching (velAlongNormal < 0).
+  // Without this guard, overlapping-but-separating balls get a reverse impulse
+  // that drags them back together, causing sticking, jitter, and tunnelling.
+  if (velAlongNormal >= 0) return;
 
-  const j = -(1 + e) * velAlongNormal / (invMassA + invMassB);
+  state.events.push({ t: state.tick, e: "collide", a: A.id, b: B.id });
+
+  const e = Math.min(A.restitution, B.restitution) / 1000;
+
+  // invMassA = invMassB = 1 (equal-mass balls); denominator = 2
+  const j = -(1 + e) * velAlongNormal / 2;
   const impulseX = j * nx;
   const impulseY = j * ny;
 
-  A.vel.x -= Math.round(impulseX * invMassA);
-  A.vel.y -= Math.round(impulseY * invMassA);
-  B.vel.x += Math.round(impulseX * invMassB);
-  B.vel.y += Math.round(impulseY * invMassB);
+  A.vel.x -= Math.round(impulseX);
+  A.vel.y -= Math.round(impulseY);
+  B.vel.x += Math.round(impulseX);
+  B.vel.y += Math.round(impulseY);
 
-    // Dampen speed slightly on ball-ball collisions
+  // Fix #2: dampen only on genuine first-contact (approaching) frames,
+  // not on every tick two balls happen to still be overlapping.
   A.vel.x = Math.round(A.vel.x * BALL_COLLIDE_DAMP);
   A.vel.y = Math.round(A.vel.y * BALL_COLLIDE_DAMP);
   B.vel.x = Math.round(B.vel.x * BALL_COLLIDE_DAMP);
   B.vel.y = Math.round(B.vel.y * BALL_COLLIDE_DAMP);
-
-  state.events.push({ t: state.tick, e: "collide", a: A.id, b: B.id });
-
-  const dist = 1 / invLen;
-  const overlap = rSum - dist;
-  if (overlap > 0) {
-    const pushX = nx * (overlap / 2);
-    const pushY = ny * (overlap / 2);
-
-    A.pos.x -= Math.round(pushX);
-    A.pos.y -= Math.round(pushY);
-    B.pos.x += Math.round(pushX);
-    B.pos.y += Math.round(pushY);
-  }
 }
 
 function resolveTipTipCollision(state: SimState, A: BallState, B: BallState): boolean {
