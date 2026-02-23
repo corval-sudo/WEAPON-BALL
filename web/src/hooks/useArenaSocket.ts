@@ -135,6 +135,10 @@ export function useArenaSocket(): ArenaState {
           nextBallB: msg.ballB,
           startsInMs: msg.startsInMs,
           currentFrame: null,
+          // Pick up weapon defs from next_match so browsers joining during
+          // countdown already know the weapon metadata before match_start.
+          weaponA: msg.weaponA ?? prev.weaponA,
+          weaponB: msg.weaponB ?? prev.weaponB,
         }));
         break;
 

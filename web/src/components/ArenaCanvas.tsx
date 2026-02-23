@@ -18,6 +18,9 @@ interface ArenaCanvasProps {
   ballBColor?: string;
   ballAHp: number;   // max HP for bar calculation
   ballBHp: number;
+  /** Ball radius in arena units (from BallEntity.radius, typically 40-42). */
+  ballARadius?: number;
+  ballBRadius?: number;
   /** Weapon definition for accurate hitbox rendering (sent in match_start). */
   weaponA?: WeaponDef | null;
   weaponB?: WeaponDef | null;
@@ -33,6 +36,8 @@ export function ArenaCanvas({
   ballBColor = "#ef5350",
   ballAHp,
   ballBHp,
+  ballARadius = 42,
+  ballBRadius = 42,
   weaponA,
   weaponB,
   width = 320,
@@ -99,7 +104,10 @@ export function ArenaCanvas({
     const { a, b } = frame;
     const [ax, ay] = toScreen(a.x, a.y);
     const [bx, by] = toScreen(b.x, b.y);
-    const ballR = 18;
+    // Ball radius in screen pixels — derived from the actual arena-unit radius
+    // (ballARadius/ballBRadius are in arena units; multiply by scaleX to get pixels).
+    const ballRA = Math.max(8, ballARadius * scaleX);
+    const ballRB = Math.max(8, ballBRadius * scaleX);
 
     // ─── Weapon rendering ─────────────────────────────────────────────────────
     // Uses real weapon metadata when available, falls back to fixed-length approx.
@@ -253,7 +261,7 @@ export function ArenaCanvas({
     drawWeapon(bx, by, b.angle, ballBColor, weaponB);
 
     // ─── Ball bodies ─────────────────────────────────────────────────────────
-    function drawBall(cx: number, cy: number, hp: number, maxHp: number, color: string, name: string) {
+    function drawBall(cx: number, cy: number, ballR: number, hp: number, maxHp: number, color: string, name: string) {
       const hpFrac = Math.max(0, hp / maxHp);
       // Glow for high HP
       if (hpFrac > 0.5) {
@@ -292,8 +300,8 @@ export function ArenaCanvas({
       ctx.fillText(name.length > 10 ? name.slice(0, 10) + "…" : name, cx, cy - ballR - 14);
     }
 
-    drawBall(ax, ay, a.hp, ballAHp, ballAColor, ballAName);
-    drawBall(bx, by, b.hp, ballBHp, ballBColor, ballBName);
+    drawBall(ax, ay, ballRA, a.hp, ballAHp, ballAColor, ballAName);
+    drawBall(bx, by, ballRB, b.hp, ballBHp, ballBColor, ballBName);
 
     // ─── Collision / hit flash rings ──────────────────────────────────────────
     // Draw a ring around ball(s) when they collide, take a hit, or are eliminated.
@@ -302,9 +310,9 @@ export function ArenaCanvas({
     const hasElim    = frame.events.some(ev => ev.includes("eliminated"));
 
     if (hasCollide || hasHit || hasElim) {
-      const flashColor  = hasElim ? "#ff4444" : hasHit ? "#ffcc00" : "#aaddff";
-      const flashRadius = ballR + (hasElim ? 14 : hasHit ? 10 : 7);
-      const flashAlpha  = hasElim ? 0.9 : 0.7;
+      const flashColor = hasElim ? "#ff4444" : hasHit ? "#ffcc00" : "#aaddff";
+      const flashAlpha = hasElim ? 0.9 : 0.7;
+      const flashExtra = hasElim ? 10 : hasHit ? 7 : 5; // extra px beyond ball edge
 
       ctx.save();
       ctx.globalAlpha = flashAlpha;
@@ -322,12 +330,12 @@ export function ArenaCanvas({
 
       if (ringA) {
         ctx.beginPath();
-        ctx.arc(ax, ay, flashRadius, 0, Math.PI * 2);
+        ctx.arc(ax, ay, ballRA + flashExtra, 0, Math.PI * 2);
         ctx.stroke();
       }
       if (ringB) {
         ctx.beginPath();
-        ctx.arc(bx, by, flashRadius, 0, Math.PI * 2);
+        ctx.arc(bx, by, ballRB + flashExtra, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.restore();
@@ -352,7 +360,7 @@ export function ArenaCanvas({
     ctx.textAlign = "right";
     ctx.fillText(`t:${frame.tick}`, width - 4, height - 4);
 
-  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, weaponA, weaponB, width, height]);
+  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, ballARadius, ballBRadius, weaponA, weaponB, width, height]);
 
   return (
     <canvas

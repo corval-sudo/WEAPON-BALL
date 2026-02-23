@@ -136,21 +136,8 @@ async function runNextMatch(): Promise<void> {
   const { ballA, ballB } = matchup;
   const seed = Math.floor(Math.random() * 1_000_000);
 
-  // Broadcast upcoming match (fires before AI commentary, gives browser a countdown)
-  broadcaster.broadcast({ type: "next_match", ballA, ballB, startsInMs: 5000 });
-
-  // Pre-match announcement
-  let announcement = "";
-  try {
-    const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
-    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
-    console.log(`\n🎙️  ${announcement}\n`);
-    await telegram.sendAnnouncement(ballA, ballB, announcement);
-  } catch (e: any) {
-    // Commentary/Telegram failure should never block the match
-  }
-
   // Build weapon definitions for the browser renderer (picks up per-ball overrides if present).
+  // Defined early so it's available for both next_match and match_start broadcasts.
   function resolveWeaponDef(ball: typeof ballA): WsWeaponDef {
     const overrideSuffix = `${ball.weaponId}_${ball.id === ballA.id ? "A" : "B"}`;
     // Check if an override weapon exists (runner creates these with _A/_B suffix)
@@ -163,6 +150,27 @@ async function runNextMatch(): Promise<void> {
       ...(raw.bladeWidth  !== undefined && { bladeWidth:  raw.bladeWidth }),
       ...(raw.shaftRadius !== undefined && { shaftRadius: raw.shaftRadius }),
     };
+  }
+
+  // Broadcast upcoming match with weapon defs — gives browser both countdown and
+  // weapon metadata even if it connects during the pre-match announcement window.
+  broadcaster.broadcast({
+    type: "next_match",
+    ballA, ballB,
+    startsInMs: 5000,
+    weaponA: resolveWeaponDef(ballA),
+    weaponB: resolveWeaponDef(ballB),
+  });
+
+  // Pre-match announcement
+  let announcement = "";
+  try {
+    const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
+    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
+    console.log(`\n🎙️  ${announcement}\n`);
+    await telegram.sendAnnouncement(ballA, ballB, announcement);
+  } catch (e: any) {
+    // Commentary/Telegram failure should never block the match
   }
 
   // Broadcast match start with announcement text and weapon definitions

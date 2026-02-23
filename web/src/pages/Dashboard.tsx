@@ -150,6 +150,8 @@ export default function Dashboard() {
               ballBColor={ballB?.color ?? "#ef5350"}
               ballAHp={ballA?.baseHp ?? 500}
               ballBHp={ballB?.baseHp ?? 500}
+              ballARadius={ballA?.radius ?? 42}
+              ballBRadius={ballB?.radius ?? 42}
               weaponA={arena.weaponA}
               weaponB={arena.weaponB}
               width={380}

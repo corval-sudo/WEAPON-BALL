@@ -38,7 +38,7 @@ export interface WsWeaponDef {
 }
 
 export type WsMessage =
-  | { type: "next_match"; ballA: BallEntity; ballB: BallEntity; startsInMs: number }
+  | { type: "next_match"; ballA: BallEntity; ballB: BallEntity; startsInMs: number; weaponA: WsWeaponDef; weaponB: WsWeaponDef }
   | { type: "match_start"; ballA: BallEntity; ballB: BallEntity; matchNumber: number; announcement: string; weaponA: WsWeaponDef; weaponB: WsWeaponDef }
   | { type: "match_tick"; frame: TickFrame }
   | { type: "match_end"; matchNumber: number; winner: "A" | "B"; ballA: BallEntity; ballB: BallEntity; ticks: number; commentary: string };
