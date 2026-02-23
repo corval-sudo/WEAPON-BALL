@@ -24,9 +24,22 @@ export interface TickFrame {
   events: string[];
 }
 
+/**
+ * Weapon definition sent to the browser so it can render accurate hitboxes.
+ * Mirrors the WeaponDef shape from simCore (only visual fields needed).
+ */
+export interface WsWeaponDef {
+  type: "blade" | "point" | "blunt";
+  reach: number;       // arena units (unscaled)
+  tipRadius: number;   // arena units (unscaled)
+  bladeStart?: number; // blade-only: where damage zone begins
+  bladeWidth?: number; // blade-only: capsule half-width
+  shaftRadius?: number;
+}
+
 export type WsMessage =
   | { type: "next_match"; ballA: BallEntity; ballB: BallEntity; startsInMs: number }
-  | { type: "match_start"; ballA: BallEntity; ballB: BallEntity; matchNumber: number; announcement: string }
+  | { type: "match_start"; ballA: BallEntity; ballB: BallEntity; matchNumber: number; announcement: string; weaponA: WsWeaponDef; weaponB: WsWeaponDef }
   | { type: "match_tick"; frame: TickFrame }
   | { type: "match_end"; matchNumber: number; winner: "A" | "B"; ballA: BallEntity; ballB: BallEntity; ticks: number; commentary: string };
 

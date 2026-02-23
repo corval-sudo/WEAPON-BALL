@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
+import type { WeaponDef } from "../hooks/useArenaSocket";
 import { ArenaCanvas } from "../components/ArenaCanvas";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
@@ -149,6 +150,8 @@ export default function Dashboard() {
               ballBColor={ballB?.color ?? "#ef5350"}
               ballAHp={ballA?.baseHp ?? 500}
               ballBHp={ballB?.baseHp ?? 500}
+              weaponA={arena.weaponA}
+              weaponB={arena.weaponB}
               width={380}
               height={665}
             />

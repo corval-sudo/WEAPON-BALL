@@ -23,6 +23,7 @@ import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
 import { TelegramService } from "../services/telegram";
 import { broadcaster } from "../api/ws-broadcaster";
+import type { WsWeaponDef } from "../api/ws-broadcaster";
 import { setNextMatch } from "../api/server";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
@@ -149,8 +150,30 @@ async function runNextMatch(): Promise<void> {
     // Commentary/Telegram failure should never block the match
   }
 
-  // Broadcast match start with announcement text
-  broadcaster.broadcast({ type: "match_start", ballA, ballB, matchNumber: matchCount + 1, announcement });
+  // Build weapon definitions for the browser renderer (picks up per-ball overrides if present).
+  function resolveWeaponDef(ball: typeof ballA): WsWeaponDef {
+    const overrideSuffix = `${ball.weaponId}_${ball.id === ballA.id ? "A" : "B"}`;
+    // Check if an override weapon exists (runner creates these with _A/_B suffix)
+    const raw: any = WEAPONS_CATALOG[overrideSuffix] ?? WEAPONS_CATALOG[ball.weaponId] ?? WEAPONS_CATALOG["short_sword"];
+    return {
+      type: raw.type ?? "point",
+      reach: raw.reach,
+      tipRadius: raw.tipRadius,
+      ...(raw.bladeStart !== undefined && { bladeStart: raw.bladeStart }),
+      ...(raw.bladeWidth  !== undefined && { bladeWidth:  raw.bladeWidth }),
+      ...(raw.shaftRadius !== undefined && { shaftRadius: raw.shaftRadius }),
+    };
+  }
+
+  // Broadcast match start with announcement text and weapon definitions
+  broadcaster.broadcast({
+    type: "match_start",
+    ballA, ballB,
+    matchNumber: matchCount + 1,
+    announcement,
+    weaponA: resolveWeaponDef(ballA),
+    weaponB: resolveWeaponDef(ballB),
+  });
 
   let result;
   try {

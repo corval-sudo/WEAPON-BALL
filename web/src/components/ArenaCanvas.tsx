@@ -1,10 +1,10 @@
 // web/src/components/ArenaCanvas.tsx
 // HTML5 canvas renderer for live and replay arena matches.
-// Accepts a TickFrame (position + HP snapshot) and renders both fighters.
-// Ported from the viewer's rendering approach — rendering only, no physics.
+// Accepts a TickFrame (position + HP snapshot) and renders both fighters
+// with accurate weapon hitboxes matching the physics simulation.
 
 import { useEffect, useRef } from "react";
-import type { TickFrame } from "../hooks/useArenaSocket";
+import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 const ARENA_W = 400;
 const ARENA_H = 700;
@@ -18,6 +18,9 @@ interface ArenaCanvasProps {
   ballBColor?: string;
   ballAHp: number;   // max HP for bar calculation
   ballBHp: number;
+  /** Weapon definition for accurate hitbox rendering (sent in match_start). */
+  weaponA?: WeaponDef | null;
+  weaponB?: WeaponDef | null;
   width?: number;
   height?: number;
 }
@@ -30,6 +33,8 @@ export function ArenaCanvas({
   ballBColor = "#ef5350",
   ballAHp,
   ballBHp,
+  weaponA,
+  weaponB,
   width = 320,
   height = 560,
 }: ArenaCanvasProps) {
@@ -52,8 +57,15 @@ export function ArenaCanvas({
     const scaleX = width / ARENA_W;
     const scaleY = height / ARENA_H;
 
+    // Convert sim-scaled position to screen pixels
     function toScreen(simX: number, simY: number): [number, number] {
       return [(simX / SCALE) * scaleX, (simY / SCALE) * scaleY];
+    }
+
+    // Convert an unscaled arena-unit distance to screen pixels
+    // (reach, tipRadius, bladeWidth are all in arena units)
+    function arenaToScreenLen(arenaUnits: number): number {
+      return arenaUnits * scaleX; // arena is square so scaleX == scaleY
     }
 
     // ─── Background ──────────────────────────────────────────────────────────
@@ -88,29 +100,157 @@ export function ArenaCanvas({
     const [ax, ay] = toScreen(a.x, a.y);
     const [bx, by] = toScreen(b.x, b.y);
     const ballR = 18;
-    const weaponLen = 28;
 
-    // ─── Weapon arms ─────────────────────────────────────────────────────────
-    function drawWeapon(cx: number, cy: number, angle: number, color: string) {
+    // ─── Weapon rendering ─────────────────────────────────────────────────────
+    // Uses real weapon metadata when available, falls back to fixed-length approx.
+    //
+    // Sim formula: tip = center + (reach × cos(θ), reach × sin(θ)) in arena units
+    // where θ = (angle / 65536) × 2π
+
+    function drawWeapon(
+      cx: number, cy: number,
+      angle: number,
+      color: string,
+      wDef?: WeaponDef | null,
+    ) {
       const rad = (angle / 65536) * 2 * Math.PI;
-      const tx = cx + Math.cos(rad) * weaponLen;
-      const ty = cy + Math.sin(rad) * weaponLen;
+      const cosA = Math.cos(rad);
+      const sinA = Math.sin(rad);
+
+      if (!wDef) {
+        // Fallback: fixed 28px line + 4px tip (old behaviour)
+        const tLen = 28;
+        const tx = cx + cosA * tLen;
+        const ty = cy + sinA * tLen;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      const reachPx     = arenaToScreenLen(wDef.reach);
+      const tipRPx      = Math.max(2, arenaToScreenLen(wDef.tipRadius));
+      const tipX        = cx + cosA * reachPx;
+      const tipY        = cy + sinA * reachPx;
+
+      if (wDef.type === "blade") {
+        // ── Blade: shaft + damage-zone capsule (bladeStart → reach) ───────────
+        const bladeStart  = wDef.bladeStart ?? wDef.reach * 0.4;
+        const bladeWidth  = wDef.bladeWidth ?? wDef.tipRadius;
+        const bsStartPx   = arenaToScreenLen(bladeStart);
+        const bsX         = cx + cosA * bsStartPx;
+        const bsY         = cy + sinA * bsStartPx;
+        const bladeWPx    = Math.max(1.5, arenaToScreenLen(bladeWidth));
+
+        // Shaft (ball center → blade start): thin line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(bsX, bsY);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Blade zone: thick capsule (wide stroke from bladeStart to tip)
+        ctx.strokeStyle = color;
+        ctx.lineWidth = bladeWPx * 2; // stroke width = 2× half-width
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(bsX, bsY);
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+
+        // Edge highlight
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(bsX, bsY);
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+      } else if (wDef.type === "blunt") {
+        // ── Blunt (mace): handle + large round head ───────────────────────────
+        const headStart = wDef.reach * 0.7;
+        const hsStartPx = arenaToScreenLen(headStart);
+        const hsX       = cx + cosA * hsStartPx;
+        const hsY       = cy + sinA * hsStartPx;
+
+        // Handle
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(hsX, hsY);
+        ctx.stroke();
+
+        // Mace head: large filled circle at tip
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Spikes hint
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, tipRPx + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+      } else {
+        // ── Point (spear): long narrow shaft + sharp tip ──────────────────────
+        // Shaft: thin line from ball center to near-tip
+        const shaftEndPx = reachPx * 0.85;
+        const sEx = cx + cosA * shaftEndPx;
+        const sEy = cy + sinA * shaftEndPx;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(sEx, sEy);
+        ctx.stroke();
+
+        // Tip: narrowing triangle pointing toward tipX/tipY
+        const perpX = -sinA;
+        const perpY =  cosA;
+        const halfW = Math.max(2.5, tipRPx * 0.6);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(sEx + perpX * halfW, sEy + perpY * halfW);
+        ctx.lineTo(sEx - perpX * halfW, sEy - perpY * halfW);
+        ctx.lineTo(tipX, tipY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Tip hitbox indicator (semi-transparent circle) — shows actual collision radius
       ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.lineCap = "round";
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.25;
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(tx, ty);
+      ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
       ctx.stroke();
-      // Tip
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(tx, ty, 4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.globalAlpha = 1;
     }
 
-    drawWeapon(ax, ay, a.angle, ballAColor);
-    drawWeapon(bx, by, b.angle, ballBColor);
+    drawWeapon(ax, ay, a.angle, ballAColor, weaponA);
+    drawWeapon(bx, by, b.angle, ballBColor, weaponB);
 
     // ─── Ball bodies ─────────────────────────────────────────────────────────
     function drawBall(cx: number, cy: number, hp: number, maxHp: number, color: string, name: string) {
@@ -212,7 +352,7 @@ export function ArenaCanvas({
     ctx.textAlign = "right";
     ctx.fillText(`t:${frame.tick}`, width - 4, height - 4);
 
-  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, width, height]);
+  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, weaponA, weaponB, width, height]);
 
   return (
     <canvas
