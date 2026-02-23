@@ -155,11 +155,51 @@ export function ArenaCanvas({
     drawBall(ax, ay, a.hp, ballAHp, ballAColor, ballAName);
     drawBall(bx, by, b.hp, ballBHp, ballBColor, ballBName);
 
+    // ─── Collision / hit flash rings ──────────────────────────────────────────
+    // Draw a ring around ball(s) when they collide, take a hit, or are eliminated.
+    const hasCollide = frame.events.some(ev => ev.includes("collide"));
+    const hasHit     = frame.events.some(ev => ev.includes(" hits "));
+    const hasElim    = frame.events.some(ev => ev.includes("eliminated"));
+
+    if (hasCollide || hasHit || hasElim) {
+      const flashColor  = hasElim ? "#ff4444" : hasHit ? "#ffcc00" : "#aaddff";
+      const flashRadius = ballR + (hasElim ? 14 : hasHit ? 10 : 7);
+      const flashAlpha  = hasElim ? 0.9 : 0.7;
+
+      ctx.save();
+      ctx.globalAlpha = flashAlpha;
+      ctx.strokeStyle = flashColor;
+      ctx.lineWidth = hasElim ? 3 : 2;
+      ctx.shadowColor = flashColor;
+      ctx.shadowBlur = 18;
+
+      // On body collide: flash both balls. On hit/elim: flash only the target.
+      // event text format: "A hits B for N damage" | "B is eliminated" | "A and B collide"
+      const ringA = hasCollide
+        || frame.events.some(ev => ev.includes("hits A") || ev.startsWith("A is elim"));
+      const ringB = hasCollide
+        || frame.events.some(ev => ev.includes("hits B") || ev.startsWith("B is elim"));
+
+      if (ringA) {
+        ctx.beginPath();
+        ctx.arc(ax, ay, flashRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (ringB) {
+        ctx.beginPath();
+        ctx.arc(bx, by, flashRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // ─── Event flash text ────────────────────────────────────────────────────
     if (frame.events.length > 0) {
       const topEvent = frame.events[0] ?? "";
-      if (topEvent.includes("hits") || topEvent.includes("eliminated")) {
-        ctx.fillStyle = topEvent.includes("eliminated") ? "#ff4444" : "#ffcc00";
+      if (topEvent.includes("hits") || topEvent.includes("eliminated") || topEvent.includes("collide")) {
+        ctx.fillStyle = topEvent.includes("eliminated") ? "#ff4444"
+                      : topEvent.includes("collide")    ? "#ffffff"
+                      : "#ffcc00";
         ctx.font = "bold 11px monospace";
         ctx.textAlign = "center";
         ctx.fillText(topEvent.toUpperCase(), width / 2, height - 16);

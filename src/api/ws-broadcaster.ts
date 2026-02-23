@@ -3,12 +3,12 @@
 // schedule.ts calls this at 4 points per match so connected browsers
 // receive live match events without polling.
 //
-// The physics sim runs in ~1ms, so there are no "real" ticks to stream.
-// replayMatch() drips stored event frames at 33ms intervals (30fps) to
-// simulate a live feed from the pre-computed result.
+// replayMatch() streams real physics frames captured during the sim run
+// at 30fps (≈20 seconds for a typical match), then resolves its Promise
+// so schedule.ts can send match_end only after replay completes.
 
 import WebSocket from "ws";
-import type { BallEntity, EnhancedMatchResult } from "../data/types";
+import type { BallEntity, EnhancedMatchResult, ReplayFrame } from "../data/types";
 import type { Event } from "../simCore";
 
 // ─── Message types ────────────────────────────────────────────────────────────
@@ -66,9 +66,11 @@ export class WsBroadcaster {
 
   /**
    * Replay a completed match as a stream of tick frames at 30fps.
-   * Called by schedule.ts immediately after runner.runMatch() returns.
-   * Uses the in-memory event log to reconstruct positions via a lightweight
-   * state accumulator — no re-running the physics engine.
+   * Uses real physics frames captured during the simulation run.
+   * Returns a Promise that resolves when the last frame has been sent,
+   * so schedule.ts can await it before broadcasting match_end.
+   *
+   * If no clients are connected, resolves immediately.
    */
   replayMatch(
     result: EnhancedMatchResult,
@@ -76,8 +78,9 @@ export class WsBroadcaster {
     ballBHp: number,
     arenaW: number = 400,
     arenaH: number = 700
-  ): void {
-    if (this.clients.size === 0) return;
+  ): Promise<void> {
+    // No clients — nothing to stream, resolve immediately.
+    if (this.clients.size === 0) return Promise.resolve();
 
     // Clear any previous replay that may still be running
     if (this.replayTimer !== null) {
@@ -85,38 +88,44 @@ export class WsBroadcaster {
       this.replayTimer = null;
     }
 
-    const events = result.events;
-    const totalTicks = result.ticks;
-
-    // Build a tick → events lookup for event descriptions
+    // Build a tick → event descriptions lookup
     const eventsByTick = new Map<number, string[]>();
-    for (const ev of events) {
-      const tick = ev.t;
-      if (!eventsByTick.has(tick)) eventsByTick.set(tick, []);
-      eventsByTick.get(tick)!.push(describeEvent(ev));
+    for (const ev of result.events) {
+      if (!eventsByTick.has(ev.t)) eventsByTick.set(ev.t, []);
+      eventsByTick.get(ev.t)!.push(describeEvent(ev));
     }
 
-    // Lightweight state for position interpolation
-    // We use simple linear interpolation between known collision ticks —
-    // this is an approximation, but gives a visually convincing replay.
-    const state = buildReplayState(events, totalTicks, ballAHp, ballBHp, arenaW, arenaH);
+    // Use real captured frames if available; fall back to orbital approximation.
+    const frames: ReplayFrame[] = result.replayFrames && result.replayFrames.length > 0
+      ? result.replayFrames
+      : buildFallbackFrames(result, ballAHp, ballBHp, arenaW, arenaH);
 
-    let currentTick = 0;
-    this.replayTimer = setInterval(() => {
-      if (currentTick > totalTicks) {
-        if (this.replayTimer !== null) {
-          clearInterval(this.replayTimer);
-          this.replayTimer = null;
+    return new Promise<void>((resolve) => {
+      let idx = 0;
+
+      this.replayTimer = setInterval(() => {
+        if (idx >= frames.length) {
+          if (this.replayTimer !== null) {
+            clearInterval(this.replayTimer);
+            this.replayTimer = null;
+          }
+          resolve();
+          return;
         }
-        return;
-      }
 
-      const frame = state[currentTick] ?? buildDefaultFrame(currentTick, ballAHp, ballBHp, arenaW, arenaH);
-      frame.events = eventsByTick.get(currentTick) ?? [];
+        const f = frames[idx];
+        if (!f) { idx++; return; }
+        const tickFrame: TickFrame = {
+          tick: f.tick,
+          a: f.a,
+          b: f.b,
+          events: eventsByTick.get(f.tick) ?? [],
+        };
 
-      this.broadcast({ type: "match_tick", frame });
-      currentTick++;
-    }, 33); // ~30fps
+        this.broadcast({ type: "match_tick", frame: tickFrame });
+        idx++;
+      }, 33); // ~30fps
+    });
   }
 
   stopReplay(): void {
@@ -145,39 +154,30 @@ function describeEvent(ev: Event): string {
 }
 
 /**
- * Build an array of TickFrames by linearly interpolating ball positions
- * between known event ticks. This is a visual approximation — the real
- * physics engine uses integer arithmetic that we don't re-run here.
- *
- * Starting positions match the MatchRunner's hardcoded starting specs
- * (ballA: {120, 200}, ballB: {280, 200} in arena units, scale=1000).
+ * Fallback: approximate positions via circular orbits.
+ * Used when result.replayFrames is missing (e.g. old DB matches loaded via API).
  */
-function buildReplayState(
-  events: Event[],
-  totalTicks: number,
+function buildFallbackFrames(
+  result: EnhancedMatchResult,
   ballAHp: number,
   ballBHp: number,
   arenaW: number,
   arenaH: number
-): TickFrame[] {
+): ReplayFrame[] {
   const SCALE = 1000;
-  const frames: TickFrame[] = [];
+  const totalTicks = result.ticks;
+  const TARGET = 600;
+  const step = Math.max(1, Math.floor(totalTicks / TARGET));
 
-  // Starting positions (unscaled arena units)
-  let ax = 120, ay = 200, aAngle = 0;
-  let bx = 280, by = 200, bAngle = 0;
-  let aHp = ballAHp, bHp = ballBHp;
-
-  // Simple circular motion for both balls (approximation)
   const aCenterX = arenaW / 2 - 80, aCenterY = arenaH / 2;
   const bCenterX = arenaW / 2 + 80, bCenterY = arenaH / 2;
   const radius = 80;
-  const angSpeed = (2 * Math.PI) / 300; // full circle in ~10s
+  const angSpeed = (2 * Math.PI) / 300;
 
   // Track HP changes from hit events
   const hpChanges = new Map<number, { a: number; b: number }>();
   let runningAHp = ballAHp, runningBHp = ballBHp;
-  for (const ev of events) {
+  for (const ev of result.events) {
     if (ev.e === "hit") {
       if (ev.to === "B") runningBHp = Math.max(0, runningBHp - ev.dmg);
       else runningAHp = Math.max(0, runningAHp - ev.dmg);
@@ -185,42 +185,33 @@ function buildReplayState(
     }
   }
 
+  const eventTicks = new Set(result.events.map(ev => ev.t));
+  const frames: ReplayFrame[] = [];
   let currentAHp = ballAHp, currentBHp = ballBHp;
 
   for (let t = 0; t <= totalTicks; t++) {
-    // Update HP at event ticks
     const hpAtTick = hpChanges.get(t);
-    if (hpAtTick) {
-      currentAHp = hpAtTick.a;
-      currentBHp = hpAtTick.b;
+    if (hpAtTick) { currentAHp = hpAtTick.a; currentBHp = hpAtTick.b; }
+
+    if (t % step === 0 || eventTicks.has(t)) {
+      const angle = t * angSpeed;
+      frames.push({
+        tick: t,
+        a: {
+          x: Math.round((aCenterX + Math.round(radius * Math.cos(angle))) * SCALE),
+          y: Math.round((aCenterY + Math.round(radius * Math.sin(angle))) * SCALE),
+          angle: Math.round(((t * 600) % 65536)),
+          hp: currentAHp,
+        },
+        b: {
+          x: Math.round((bCenterX + Math.round(radius * Math.cos(angle + Math.PI))) * SCALE),
+          y: Math.round((bCenterY + Math.round(radius * Math.sin(angle + Math.PI))) * SCALE),
+          angle: Math.round((((t * 600) + 32768) % 65536)),
+          hp: currentBHp,
+        },
+      });
     }
-
-    // Approximate circular orbits around center (visual only)
-    const angle = t * angSpeed;
-    ax = aCenterX + Math.round(radius * Math.cos(angle));
-    ay = aCenterY + Math.round(radius * Math.sin(angle));
-    bx = bCenterX + Math.round(radius * Math.cos(angle + Math.PI));
-    by = bCenterY + Math.round(radius * Math.sin(angle + Math.PI));
-    aAngle = Math.round(((t * 600) % 65536));
-    bAngle = Math.round((((t * 600) + 32768) % 65536));
-
-    frames.push({
-      tick: t,
-      a: { x: ax * SCALE, y: ay * SCALE, angle: aAngle, hp: currentAHp },
-      b: { x: bx * SCALE, y: by * SCALE, angle: bAngle, hp: currentBHp },
-      events: [],
-    });
   }
 
   return frames;
-}
-
-function buildDefaultFrame(tick: number, aHp: number, bHp: number, arenaW: number, arenaH: number): TickFrame {
-  const SCALE = 1000;
-  return {
-    tick,
-    a: { x: 120 * SCALE, y: 200 * SCALE, angle: 0, hp: aHp },
-    b: { x: 280 * SCALE, y: 200 * SCALE, angle: 0, hp: bHp },
-    events: [],
-  };
 }

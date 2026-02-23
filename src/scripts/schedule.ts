@@ -189,20 +189,28 @@ async function runNextMatch(): Promise<void> {
   // Send match result card to Telegram (no AI needed — fires immediately)
   await telegram.sendMatchResult(matchCount, result, freshA, freshB, summary);
 
-  // Replay match ticks to connected WebSocket clients
-  broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp);
-
-  // Post-match Arena Master commentary
+  // Run replay stream and post-match commentary concurrently:
+  // - replayMatch() streams real physics frames at 30fps (~20s) and resolves when done
+  // - generatePostMatch() calls Claude API (~2-3s) and resolves with commentary text
+  // match_end is sent only after BOTH complete so the victory banner appears at
+  // the right moment and includes the commentary text.
   let postMatch = "";
-  try {
-    postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
+  const [, commentaryResult] = await Promise.allSettled([
+    broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp),
+    commentator.generatePostMatch(result, freshA, freshB, summary.highlights),
+  ]);
+
+  if (commentaryResult.status === "fulfilled") {
+    postMatch = commentaryResult.value;
     console.log(`\n🎙️  ${postMatch}\n`);
-    await telegram.sendPostMatchCommentary(postMatch);
-  } catch (e: any) {
-    // Commentary/Telegram failure should never block the scheduler
+    try {
+      await telegram.sendPostMatchCommentary(postMatch);
+    } catch {
+      // Telegram failure should never block the scheduler
+    }
   }
 
-  // Broadcast match end (fires after commentary so it includes the text)
+  // Broadcast match end — fires after replay completes so banner appears last
   broadcaster.broadcast({
     type: "match_end",
     matchNumber: matchCount,
