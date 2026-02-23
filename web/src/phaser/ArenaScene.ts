@@ -133,9 +133,14 @@ export class ArenaScene extends Phaser.Scene {
   // ─── Public API (called from PhaserArena React wrapper) ───────────────────
 
   updateConfig(cfg: ArenaSceneConfig): void {
+    const prevW = this.cfg?.canvasW;
+    const prevH = this.cfg?.canvasH;
     this.cfg = cfg;
     this.updateScales();
-    if (this.bgGfx) this.drawBackground();
+    // Only redraw static background when canvas size actually changes
+    if (this.bgGfx && (cfg.canvasW !== prevW || cfg.canvasH !== prevH)) {
+      this.drawBackground();
+    }
     // Sync tints whenever fighter colours change
     if (this.ballAImg) this.ballAImg.setTint(cfg.ballAColor);
     if (this.ballBImg) this.ballBImg.setTint(cfg.ballBColor);
@@ -177,8 +182,10 @@ export class ArenaScene extends Phaser.Scene {
 
     // ── Weapon Images (SVG, hidden until loaded) ──────────────────────────
     // Pivot at left edge (x=0, y=0.5) so the weapon rotates from its attachment point.
-    this.wpnAImg = this.add.image(0, 0, SVG_BLADE).setOrigin(0, 0.5).setVisible(false);
-    this.wpnBImg = this.add.image(0, 0, SVG_BLADE).setOrigin(0, 0.5).setVisible(false);
+    // Use __DEFAULT (Phaser's built-in white pixel) so Images are always created
+    // with a valid texture â SVG textures are swapped in by renderWeapon() once loaded.
+    this.wpnAImg = this.add.image(0, 0, "__DEFAULT").setOrigin(0, 0.5).setVisible(false);
+    this.wpnBImg = this.add.image(0, 0, "__DEFAULT").setOrigin(0, 0.5).setVisible(false);
 
     // ── Weapon Graphics fallback ──────────────────────────────────────────
     this.wpnAGfx = this.add.graphics();
@@ -186,8 +193,8 @@ export class ArenaScene extends Phaser.Scene {
 
     // ── Ball Images (SVG, hidden until loaded) ────────────────────────────
     // Centered pivot.
-    this.ballAImg = this.add.image(0, 0, SVG_ORB).setOrigin(0.5, 0.5).setVisible(false);
-    this.ballBImg = this.add.image(0, 0, SVG_ORB).setOrigin(0.5, 0.5).setVisible(false);
+    this.ballAImg = this.add.image(0, 0, "__DEFAULT").setOrigin(0.5, 0.5).setVisible(false);
+    this.ballBImg = this.add.image(0, 0, "__DEFAULT").setOrigin(0.5, 0.5).setVisible(false);
 
     // ── Ball Graphics fallback ────────────────────────────────────────────
     this.ballAGfx = this.add.graphics();
