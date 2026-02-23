@@ -5,15 +5,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
-import type { WeaponDef } from "../hooks/useArenaSocket";
-import { ArenaCanvas } from "../components/ArenaCanvas";
+import { PhaserArena } from "../components/PhaserArena";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
 interface Fighter {
   id: string; name: string; weaponId: string;
   wins: number; losses: number; currentStreak: number;
-  baseHp: number; color: string;
+  baseHp: number; color: string; radius: number;
 }
 
 interface RecentMatch {
@@ -140,9 +139,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Canvas */}
+          {/* Canvas — Phaser 3 WebGL renderer */}
           <div style={S.canvasWrap} className="worbz-canvas-wrap">
-            <ArenaCanvas
+            <PhaserArena
               frame={arena.currentFrame}
               ballAName={ballA?.name ?? "Fighter A"}
               ballBName={ballB?.name ?? "Fighter B"}
