@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArenaCanvas } from "../components/ArenaCanvas";
+import { PhaserArena } from "../components/PhaserArena";
 import type { TickFrame } from "../hooks/useArenaSocket";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
@@ -132,7 +132,7 @@ export default function MatchPage() {
       <div style={styles.grid}>
         {/* Canvas + controls */}
         <div style={styles.canvasPanel}>
-          <ArenaCanvas
+          <PhaserArena
             frame={currentFrame}
             ballAName={match.ball_a_name}
             ballBName={match.ball_b_name}
