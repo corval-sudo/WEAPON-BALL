@@ -2,8 +2,12 @@
 import { createSim, stepSim, canonicalEventsString, canonicalInputs, MatchSpec, BallSpec } from "../simCore";
 import { ArenaDatabase } from "../data/database";
 import { calculateMatchStats } from "../analysis/stats";
-import type { BallEntity, EnhancedMatchResult } from "../data/types";
+import type { BallEntity, EnhancedMatchResult, ReplayFrame } from "../data/types";
 import * as crypto from "node:crypto";
+
+// Target ~600 frames for WebSocket replay (≈20 seconds at 30fps).
+// For a 18000-tick match this samples every 30th tick; shorter matches sample more densely.
+const REPLAY_TARGET_FRAMES = 600;
 
 function sha256Hex(s: string): string {
   return crypto.createHash("sha256").update(s).digest("hex");
@@ -34,18 +38,38 @@ export class MatchRunner {
     // 2. Create MatchSpec from entities
     const matchSpec = this.createMatchSpec(ballA, ballB, request);
 
-    // 3. Run simulation (existing engine - UNCHANGED)
+    // 3. Run simulation — capture sampled frames for WebSocket replay.
+    //    We don't know totalTicks upfront, so we collect every tick and
+    //    downsample afterward to REPLAY_TARGET_FRAMES.
     const sim = createSim(matchSpec);
     const MAX_ITERATIONS = matchSpec.sim.maxTicks * 2;
     let iterations = 0;
+    const rawFrames: ReplayFrame[] = [];
 
     while (!sim.done && iterations < MAX_ITERATIONS) {
       stepSim(sim);
       iterations++;
+      // Capture state after each step (positions are in scaled sim units)
+      rawFrames.push({
+        tick: sim.tick,
+        a: { x: sim.A.pos.x, y: sim.A.pos.y, angle: sim.A.theta, hp: sim.A.hp },
+        b: { x: sim.B.pos.x, y: sim.B.pos.y, angle: sim.B.theta, hp: sim.B.hp },
+      });
     }
 
     if (iterations >= MAX_ITERATIONS && !sim.done) {
       throw new Error("Simulation exceeded max iterations");
+    }
+
+    // Downsample to ~REPLAY_TARGET_FRAMES, always keeping event ticks for accuracy.
+    const eventTicks = new Set(sim.events.map(ev => ev.t));
+    const step = Math.max(1, Math.floor(rawFrames.length / REPLAY_TARGET_FRAMES));
+    const replayFrames: ReplayFrame[] = [];
+    for (let i = 0; i < rawFrames.length; i++) {
+      const f = rawFrames[i];
+      if (f && (i % step === 0 || eventTicks.has(f.tick))) {
+        replayFrames.push(f);
+      }
     }
 
     // 4. Calculate statistics
@@ -77,6 +101,7 @@ export class MatchRunner {
       events: sim.events,
       stats,
       timestamp: new Date().toISOString(),
+      replayFrames,
     };
 
     // 6. Save to database

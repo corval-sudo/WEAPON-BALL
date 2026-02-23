@@ -1,17 +1,18 @@
 // web/src/pages/Dashboard.tsx
-// Homepage: live arena match (canvas + countdown), leaderboard, recent results feed.
+// Homepage: live arena (center), leaderboard (right), recent results (below).
+// Fully responsive — stacks to single column on mobile.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
-import { ArenaCanvas } from "../components/ArenaCanvas";
+import { PhaserArena } from "../components/PhaserArena";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
 interface Fighter {
   id: string; name: string; weaponId: string;
   wins: number; losses: number; currentStreak: number;
-  baseHp: number; color: string;
+  baseHp: number; color: string; radius: number;
 }
 
 interface RecentMatch {
@@ -21,68 +22,126 @@ interface RecentMatch {
   ball_a_damage_dealt: number; ball_b_damage_dealt: number;
 }
 
+interface NextMatchInfo {
+  ballA: Fighter;
+  ballB: Fighter;
+  startsAt: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtCountdown(secs: number): string {
+  if (secs <= 0) return "0s";
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s.toString().padStart(2, "0")}s` : `${s}s`;
+}
+
+function fmtWR(wins: number, losses: number): string {
+  const total = wins + losses;
+  return total > 0 ? `${Math.round((wins / total) * 100)}%` : "—";
+}
+
+function timeAgo(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  return `${Math.floor(secs / 3600)}h ago`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const arena = useArenaSocket();
-  const [fighters, setFighters] = useState<Fighter[]>([]);
-  const [matches, setMatches] = useState<RecentMatch[]>([]);
-  const [countdown, setCountdown] = useState(0);
+  const [fighters, setFighters]       = useState<Fighter[]>([]);
+  const [matches, setMatches]         = useState<RecentMatch[]>([]);
+  const [countdown, setCountdown]     = useState(0);
+  const [nextMatch, setNextMatch]     = useState<NextMatchInfo | null>(null);
+  const [showLeaderboard, setShowLB]  = useState(true);
+  const [showResults, setShowResults] = useState(true);
 
+  // Initial data fetch
   useEffect(() => {
     fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
     fetch(`${API}/api/matches`).then(r => r.json()).then(setMatches).catch(() => {});
+    fetch(`${API}/api/next`).then(r => r.json()).then(setNextMatch).catch(() => {});
   }, []);
 
-  // Refresh recent matches after each result
+  // Refresh after each match result
   useEffect(() => {
-    if (arena.phase === "result") {
-      setTimeout(() => {
-        fetch(`${API}/api/matches`).then(r => r.json()).then(setMatches).catch(() => {});
-        fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
-      }, 2000);
-    }
+    if (arena.phase !== "result") return;
+    const t = setTimeout(() => {
+      fetch(`${API}/api/matches`).then(r => r.json()).then(setMatches).catch(() => {});
+      fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
+      fetch(`${API}/api/next`).then(r => r.json()).then(setNextMatch).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(t);
   }, [arena.phase]);
 
-  // Countdown timer
+  // Countdown — WebSocket takes priority, falls back to /api/next startsAt.
+  // Use -1 as sentinel for "startsAt is known but in the past" (scheduler busy/restarting).
   useEffect(() => {
-    if (arena.phase !== "countdown") return;
-    setCountdown(Math.ceil(arena.startsInMs / 1000));
-    const timer = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [arena.phase, arena.startsInMs]);
+    if (arena.phase === "countdown") {
+      setCountdown(Math.ceil(arena.startsInMs / 1000));
+      const t = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+      return () => clearInterval(t);
+    }
+    if ((arena.phase === "idle" || arena.phase === "result") && nextMatch?.startsAt) {
+      const update = () => {
+        const ms = new Date(nextMatch.startsAt).getTime() - Date.now();
+        // If startsAt is in the past the scheduler is mid-match or restarting — use -1 sentinel
+        setCountdown(ms > 0 ? Math.ceil(ms / 1000) : -1);
+      };
+      update();
+      const t = setInterval(update, 1000);
+      return () => clearInterval(t);
+    }
+  }, [arena.phase, arena.startsInMs, nextMatch?.startsAt]);
 
-  // Current fighters for canvas
-  const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA;
-  const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB;
+  // Fighters for canvas — WebSocket > /api/next fallback
+  const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA ?? nextMatch?.ballA ?? null;
+  const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB ?? nextMatch?.ballB ?? null;
+
+  // Arena status label — countdown === -1 means startsAt is known but past (match imminent)
+  const arenaLabel =
+    arena.phase === "live"      ? `⚔️ MATCH #${arena.matchNumber} — LIVE` :
+    arena.phase === "countdown" ? `🔜 STARTING IN ${fmtCountdown(countdown)}` :
+    arena.phase === "result"    ? `🏆 MATCH #${arena.matchNumber} RESULT` :
+    countdown === -1            ? `⏳ NEXT MATCH STARTING SOON` :
+    countdown > 0               ? `🔜 NEXT MATCH IN ${fmtCountdown(countdown)}` :
+    "🎯 WORBZ ARENA";
 
   return (
-    <div style={styles.page}>
-      {/* Header */}
-      <header style={styles.header}>
-        <h1 style={styles.title}>⚔️ WORBZ ARENA</h1>
-        <div style={styles.liveIndicator}>
-          <span style={{ ...styles.dot, background: arena.connected ? "#4caf50" : "#f44336" }} />
-          {arena.connected ? "LIVE" : "CONNECTING..."}
-        </div>
+    <div style={S.page}>
+
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <header style={S.topbar} className="worbz-topbar">
+        <span style={S.logo}>⚔️ WORBZ</span>
+        <span style={S.arenaLabel} className="worbz-arena-label">{arenaLabel}</span>
+        <span style={S.liveChip}>
+          <span style={{ ...S.dot, background: arena.connected ? "#4caf50" : "#f44336" }} />
+          {arena.connected ? "LIVE" : "OFFLINE"}
+        </span>
       </header>
 
-      <div style={styles.grid}>
-        {/* Left: Live Match */}
-        <div style={styles.matchPanel}>
-          <h2 style={styles.sectionTitle}>
-            {arena.phase === "live" ? `⚔️ MATCH #${arena.matchNumber}` :
-             arena.phase === "countdown" ? `🔜 NEXT MATCH IN ${countdown}s` :
-             arena.phase === "result" ? `🏆 MATCH #${arena.matchNumber} RESULT` :
-             "🎯 ARENA"}
-          </h2>
+      {/* ── Main grid: arena | leaderboard ──────────────────────────────── */}
+      <div style={S.mainGrid} className="worbz-main-grid">
 
-          {/* Announcement */}
-          {arena.announcement && arena.phase === "live" && (
-            <p style={styles.announcement}>{arena.announcement}</p>
+        {/* ── Arena panel ─────────────────────────────────────────────── */}
+        <div style={S.arenaPanel}>
+
+          {/* Fighter nameplate row */}
+          {ballA && ballB && (
+            <div style={S.nameplates}>
+              <Nameplate f={ballA} align="left" />
+              <span style={S.vsText}>VS</span>
+              <Nameplate f={ballB} align="right" />
+            </div>
           )}
 
-          {/* Canvas */}
-          <div style={styles.canvasWrapper}>
-            <ArenaCanvas
+          {/* Canvas — Phaser 3 WebGL renderer */}
+          <div style={S.canvasWrap} className="worbz-canvas-wrap">
+            <PhaserArena
               frame={arena.currentFrame}
               ballAName={ballA?.name ?? "Fighter A"}
               ballBName={ballB?.name ?? "Fighter B"}
@@ -90,128 +149,391 @@ export default function Dashboard() {
               ballBColor={ballB?.color ?? "#ef5350"}
               ballAHp={ballA?.baseHp ?? 500}
               ballBHp={ballB?.baseHp ?? 500}
-              width={300}
-              height={525}
+              ballARadius={ballA?.radius ?? 42}
+              ballBRadius={ballB?.radius ?? 42}
+              weaponA={arena.weaponA}
+              weaponB={arena.weaponB}
+              width={380}
+              height={665}
             />
           </div>
 
-          {/* Fighter cards */}
-          {(ballA && ballB) && (
-            <div style={styles.fighterCards}>
-              <FighterCard f={ballA} side="A" />
-              <span style={styles.vs}>VS</span>
-              <FighterCard f={ballB} side="B" />
-            </div>
+          {/* Announcement */}
+          {arena.announcement && arena.phase === "live" && (
+            <p style={S.announcement}>💬 {arena.announcement}</p>
           )}
 
-          {/* Result */}
+          {/* Result card */}
           {arena.phase === "result" && arena.winner && (
-            <div style={styles.resultCard}>
-              <div style={styles.resultWinner}>
-                🏆 {(arena.winner === "A" ? arena.resultBallA : arena.resultBallB)?.name ?? "???"} WINS
+            <div style={S.resultCard}>
+              <div style={S.resultTitle}>
+                🏆 {(arena.winner === "A" ? arena.resultBallA : arena.resultBallB)?.name} WINS
               </div>
-              <div style={styles.resultDuration}>
-                {(arena.ticks / 30).toFixed(1)}s
+              <div style={S.resultMeta}>
+                {(arena.ticks / 30).toFixed(1)}s · {countdown === -1 ? "starting soon" : countdown > 0 ? `${fmtCountdown(countdown)} until next` : "next match soon"}
               </div>
-              {arena.commentary && (
-                <p style={styles.commentary}>{arena.commentary}</p>
-              )}
+              {arena.commentary && <p style={S.commentary}>{arena.commentary}</p>}
             </div>
           )}
         </div>
 
-        {/* Right: Leaderboard + Feed */}
-        <div style={styles.sidePanel}>
-          <div style={styles.leaderboard}>
-            <h2 style={styles.sectionTitle}>🏅 LEADERBOARD</h2>
-            {fighters.slice(0, 10).map((f, i) => (
-              <Link key={f.id} to={`/fighter/${f.id}`} style={styles.leaderRow}>
-                <span style={styles.rank}>#{i + 1}</span>
-                <span style={{ ...styles.dot, background: f.color, width: 10, height: 10, flexShrink: 0 }} />
-                <span style={styles.leaderName}>{f.name}</span>
-                <span style={styles.leaderRecord}>{f.wins}W/{f.losses}L</span>
-                {f.currentStreak > 1 && (
-                  <span style={styles.streak}>🔥{f.currentStreak}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-
-          <div style={styles.feed}>
-            <h2 style={styles.sectionTitle}>📋 RECENT RESULTS</h2>
-            {matches.slice(0, 15).map(m => {
-              const winnerName = m.winner === "A" ? m.ball_a_name : m.ball_b_name;
-              const loserName  = m.winner === "A" ? m.ball_b_name : m.ball_a_name;
-              return (
-                <Link key={m.id} to={`/match/${m.id}`} style={styles.feedRow}>
-                  <span style={styles.matchNum}>#{m.id}</span>
-                  <span style={styles.feedText}>
-                    <strong>{winnerName}</strong> def. {loserName}
-                    <span style={styles.duration}> {(m.ticks / 30).toFixed(0)}s</span>
+        {/* ── Leaderboard sidebar ──────────────────────────────────────── */}
+        <aside style={S.sidebar} className="worbz-sidebar">
+          <div style={S.sideCard}>
+            <button style={S.panelToggle} onClick={() => setShowLB(v => !v)}>
+              <span>🏅 LEADERBOARD</span>
+              <span style={S.chevron}>{showLeaderboard ? "▲" : "▼"}</span>
+            </button>
+            <div style={{ overflow: "hidden", maxHeight: showLeaderboard ? 1200 : 0, transition: "max-height 0.3s ease" }}>
+              {fighters.slice(0, 15).map((f, i) => (
+                <Link key={f.id} to={`/fighter/${f.id}`} style={S.leaderRow}>
+                  <span style={S.rank}>#{i + 1}</span>
+                  <span style={{ ...S.colorDot, background: f.color }} />
+                  <span style={S.leaderName}>{f.name}</span>
+                  <span style={S.leaderStats}>
+                    {f.wins}W {f.losses}L
+                    <span style={S.wr}> {fmtWR(f.wins, f.losses)}</span>
                   </span>
+                  {f.currentStreak >= 2 && (
+                    <span style={S.streak}>🔥{f.currentStreak}</span>
+                  )}
                 </Link>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
+
+      {/* ── Recent results ──────────────────────────────────────────────── */}
+      <section style={S.resultsSection}>
+        <button style={S.panelToggle} onClick={() => setShowResults(v => !v)}>
+          <span>📋 RECENT RESULTS</span>
+          <span style={S.chevron}>{showResults ? "▲" : "▼"}</span>
+        </button>
+        <div style={{ overflow: "hidden", maxHeight: showResults ? 400 : 0, transition: "max-height 0.3s ease" }}>
+        <div style={S.resultsScroll} className="worbz-results-grid">
+          {matches.slice(0, 30).map(m => {
+            const isAWin     = m.winner === "A";
+            const winnerName = isAWin ? m.ball_a_name : m.ball_b_name;
+            const loserName  = isAWin ? m.ball_b_name : m.ball_a_name;
+            const winnerWeap = isAWin ? m.ball_a_weapon : m.ball_b_weapon;
+            const loserWeap  = isAWin ? m.ball_b_weapon : m.ball_a_weapon;
+            const dur = `${(m.ticks / 30).toFixed(0)}s`;
+            const ago = timeAgo(m.timestamp);
+            return (
+              <Link key={m.id} to={`/match/${m.id}`} style={S.resultCard2}>
+                <div style={S.resultCardTop}>
+                  <span style={S.matchId}>#{m.id}</span>
+                  <span style={S.resultMeta2}>{ago}</span>
+                </div>
+                <div style={S.resultCardBody}>
+                  <span style={S.winnerText}>🏆 {winnerName}</span>
+                  <span style={S.weaponBadge}>{winnerWeap}</span>
+                </div>
+                <div style={S.resultCardBody}>
+                  <span style={S.loserText}>💀 {loserName}</span>
+                  <span style={S.weaponBadge}>{loserWeap}</span>
+                </div>
+                <div style={S.resultCardFooter}>
+                  <span style={S.durText}>⏱ {dur}</span>
+                  <span style={S.viewReplay}>▶ replay →</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+        </div>{/* end collapse wrapper */}
+      </section>
     </div>
   );
 }
 
-function FighterCard({ f, side }: { f: Fighter; side: "A" | "B" }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Nameplate({ f, align }: { f: Fighter; align: "left" | "right" }) {
   const total = f.wins + f.losses;
   const wr = total > 0 ? Math.round((f.wins / total) * 100) : 0;
   return (
-    <div style={{ ...styles.fighterCard, borderColor: f.color }}>
-      <div style={{ ...styles.dot, background: f.color, width: 12, height: 12 }} />
-      <Link to={`/fighter/${f.id}`} style={styles.fighterCardName}>{f.name}</Link>
-      <div style={styles.fighterCardSub}>{f.weaponId} · {wr}% WR</div>
-    </div>
+    <Link to={`/fighter/${f.id}`} style={{ ...S.nameplate, textAlign: align }}>
+      <div style={{ ...S.colorDot, background: f.color, margin: align === "left" ? "0 6px 0 0" : "0 0 0 6px", display: "inline-block" }} />
+      <span style={S.nplateName}>{f.name}</span>
+      <div style={S.nplateSub}>{f.weaponId} · {f.wins}W {f.losses}L · {wr}% WR</div>
+    </Link>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const C = {
-  bg: "#0a0a0f",
-  panel: "#12121a",
-  border: "#1e1e2e",
-  text: "#e0e0ff",
-  muted: "#666699",
-  accent: "#7c4dff",
+  bg:      "#07070f",
+  panel:   "#0e0e1a",
+  border:  "#1c1c2e",
+  text:    "#e0e0ff",
+  muted:   "#555588",
+  accent:  "#7c4dff",
+  gold:    "#ffd700",
 };
 
-const styles: Record<string, React.CSSProperties> = {
-  page:         { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "monospace", padding: "12px 16px" },
-  header:       { display: "flex", alignItems: "center", gap: 16, marginBottom: 16, borderBottom: `1px solid ${C.border}`, paddingBottom: 12 },
-  title:        { margin: 0, fontSize: 22, letterSpacing: 3, color: C.accent },
-  liveIndicator:{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.muted },
-  dot:          { display: "inline-block", borderRadius: "50%", width: 8, height: 8 },
-  grid:         { display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 },
-  matchPanel:   { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 },
-  sidePanel:    { display: "flex", flexDirection: "column", gap: 16 },
-  sectionTitle: { margin: "0 0 10px", fontSize: 13, letterSpacing: 2, color: C.muted, textTransform: "uppercase" as const },
-  announcement: { fontSize: 11, color: "#aabb99", fontStyle: "italic", margin: "8px 0", lineHeight: 1.5 },
-  canvasWrapper:{ display: "flex", justifyContent: "center", margin: "8px 0" },
-  fighterCards: { display: "flex", alignItems: "center", gap: 8, marginTop: 10 },
-  fighterCard:  { flex: 1, border: "1px solid", borderRadius: 6, padding: "6px 8px", background: "#0d0d18", display: "flex", flexDirection: "column" as const, gap: 2 },
-  fighterCardName: { fontSize: 11, color: C.text, fontWeight: "bold", textDecoration: "none" },
-  fighterCardSub: { fontSize: 10, color: C.muted },
-  vs:           { color: C.muted, fontSize: 12, fontWeight: "bold" },
-  resultCard:   { background: "#1a1a2e", border: `1px solid ${C.accent}`, borderRadius: 8, padding: 12, marginTop: 12 },
-  resultWinner: { fontSize: 15, fontWeight: "bold", color: "#ffd700", marginBottom: 4 },
-  resultDuration: { fontSize: 11, color: C.muted, marginBottom: 8 },
-  commentary:   { fontSize: 11, color: "#aaaacc", fontStyle: "italic", lineHeight: 1.6, margin: 0 },
-  leaderboard:  { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 },
-  leaderRow:    { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}`, textDecoration: "none", color: C.text, fontSize: 12 },
-  rank:         { color: C.muted, width: 24, textAlign: "right" as const, flexShrink: 0 },
-  leaderName:   { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const },
-  leaderRecord: { color: C.muted, fontSize: 11, flexShrink: 0 },
-  streak:       { color: "#ff9800", fontSize: 11, flexShrink: 0 },
-  feed:         { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14, flex: 1 },
-  feedRow:      { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${C.border}`, textDecoration: "none", color: C.text, fontSize: 11 },
-  matchNum:     { color: C.muted, width: 36, flexShrink: 0 },
-  feedText:     { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const },
-  duration:     { color: C.muted },
+const S: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    background: C.bg,
+    color: C.text,
+    fontFamily: "'Courier New', Courier, monospace",
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+  },
+
+  // Top bar
+  topbar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 20px",
+    borderBottom: `1px solid ${C.border}`,
+    background: C.panel,
+    flexWrap: "wrap" as const,
+  },
+  logo: {
+    fontSize: 18,
+    fontWeight: "bold",
+    letterSpacing: 4,
+    color: C.accent,
+    flexShrink: 0,
+  },
+  arenaLabel: {
+    flex: 1,
+    textAlign: "center" as const,
+    fontSize: 13,
+    letterSpacing: 2,
+    color: "#aaa8cc",
+    minWidth: 120,
+  },
+  liveChip: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    fontSize: 11,
+    color: "#666688",
+    flexShrink: 0,
+  },
+  dot: {
+    display: "inline-block",
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+  },
+
+  // Main grid — arena takes all space, sidebar fixed 280px
+  mainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 280px",
+    gap: 0,
+    flex: 1,
+  },
+
+  // Arena
+  arenaPanel: {
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "center",
+    padding: "16px 12px",
+    borderRight: `1px solid ${C.border}`,
+    gap: 10,
+  },
+  nameplates: {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 460,
+    gap: 8,
+  },
+  nameplate: {
+    flex: 1,
+    textDecoration: "none",
+    color: C.text,
+    display: "flex",
+    flexDirection: "column" as const,
+  },
+  nplateName: {
+    fontSize: 13,
+    fontWeight: "bold",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  nplateSub: {
+    fontSize: 10,
+    color: "#666688",
+    marginTop: 2,
+  },
+  vsText: {
+    fontSize: 11,
+    color: "#444466",
+    fontWeight: "bold",
+    flexShrink: 0,
+  },
+  colorDot: {
+    display: "inline-block",
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  canvasWrap: {
+    borderRadius: 8,
+    overflow: "hidden",
+    border: `1px solid ${C.border}`,
+  },
+  announcement: {
+    fontSize: 11,
+    color: "#99bbaa",
+    fontStyle: "italic",
+    textAlign: "center" as const,
+    maxWidth: 420,
+    lineHeight: 1.6,
+    margin: 0,
+  },
+  resultCard: {
+    background: "#12102a",
+    border: `1px solid ${C.accent}`,
+    borderRadius: 8,
+    padding: "12px 16px",
+    width: "100%",
+    maxWidth: 460,
+    textAlign: "center" as const,
+  },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: C.gold,
+    marginBottom: 4,
+  },
+  resultMeta: {
+    fontSize: 11,
+    color: "#666688",
+    marginBottom: 8,
+  },
+  commentary: {
+    fontSize: 11,
+    color: "#aaaacc",
+    fontStyle: "italic",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  // Sidebar / Leaderboard
+  sidebar: {
+    padding: "16px 12px",
+    overflowY: "auto" as const,
+    maxHeight: "calc(100vh - 52px)",
+    borderLeft: `1px solid ${C.border}`,
+  },
+  sideCard: {
+    background: C.panel,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    padding: "12px 10px",
+  },
+  sideTitle: {
+    margin: "0 0 10px",
+    fontSize: 11,
+    letterSpacing: 2,
+    color: "#666688",
+    textTransform: "uppercase" as const,
+  },
+  // Clickable collapse toggle — looks like the old section header but interactive
+  panelToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    background: "none",
+    border: "none",
+    borderBottom: `1px solid #1c1c2e`,
+    padding: "0 0 8px 0",
+    marginBottom: 10,
+    cursor: "pointer",
+    color: "#666688",
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: "uppercase" as const,
+    fontFamily: "'Courier New', Courier, monospace",
+  },
+  chevron: {
+    fontSize: 9,
+    color: "#444466",
+  },
+  leaderRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 0",
+    borderBottom: `1px solid ${C.border}`,
+    textDecoration: "none",
+    color: C.text,
+    fontSize: 12,
+  },
+  rank: { color: "#444466", width: 22, textAlign: "right" as const, flexShrink: 0 },
+  leaderName: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontSize: 11 },
+  leaderStats: { fontSize: 10, color: "#666688", flexShrink: 0, whiteSpace: "nowrap" as const },
+  wr: { color: "#9977cc" },
+  streak: { fontSize: 10, color: "#ff9800", flexShrink: 0 },
+
+  // Recent results — full-width scrollable card strip below main grid
+  resultsSection: {
+    borderTop: `1px solid ${C.border}`,
+    padding: "14px 16px 0",
+    background: C.panel,
+  },
+  // Horizontal scroll on desktop, wraps on mobile
+  resultsScroll: {
+    display: "flex",
+    flexDirection: "row" as const,
+    gap: 10,
+    overflowX: "auto" as const,
+    paddingBottom: 14,
+    scrollbarWidth: "thin" as const,
+  },
+  resultCard2: {
+    flex: "0 0 200px",
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    padding: "10px 12px",
+    textDecoration: "none",
+    color: C.text,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 5,
+    transition: "border-color 0.15s",
+    cursor: "pointer",
+  },
+  resultCardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  resultCardBody: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 6,
+  },
+  resultCardFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+    borderTop: `1px solid ${C.border}`,
+    paddingTop: 5,
+  },
+  matchId:     { color: "#444466", fontSize: 10 },
+  winnerText:  { fontSize: 12, fontWeight: "bold" as const, color: C.gold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  loserText:   { fontSize: 11, color: "#666688", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  weaponBadge: { fontSize: 9, color: "#555577", background: "#1a1a2e", borderRadius: 3, padding: "1px 4px", flexShrink: 0, whiteSpace: "nowrap" as const },
+  durText:     { fontSize: 10, color: "#555577" },
+  viewReplay:  { fontSize: 10, color: C.accent },
+  resultMeta2: { fontSize: 10, color: "#555577" },
 };

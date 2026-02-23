@@ -1,10 +1,10 @@
 // web/src/components/ArenaCanvas.tsx
 // HTML5 canvas renderer for live and replay arena matches.
-// Accepts a TickFrame (position + HP snapshot) and renders both fighters.
-// Ported from the viewer's rendering approach — rendering only, no physics.
+// Accepts a TickFrame (position + HP snapshot) and renders both fighters
+// with accurate weapon hitboxes matching the physics simulation.
 
 import { useEffect, useRef } from "react";
-import type { TickFrame } from "../hooks/useArenaSocket";
+import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 const ARENA_W = 400;
 const ARENA_H = 700;
@@ -18,6 +18,12 @@ interface ArenaCanvasProps {
   ballBColor?: string;
   ballAHp: number;   // max HP for bar calculation
   ballBHp: number;
+  /** Ball radius in arena units (from BallEntity.radius, typically 40-42). */
+  ballARadius?: number;
+  ballBRadius?: number;
+  /** Weapon definition for accurate hitbox rendering (sent in match_start). */
+  weaponA?: WeaponDef | null;
+  weaponB?: WeaponDef | null;
   width?: number;
   height?: number;
 }
@@ -30,6 +36,10 @@ export function ArenaCanvas({
   ballBColor = "#ef5350",
   ballAHp,
   ballBHp,
+  ballARadius = 42,
+  ballBRadius = 42,
+  weaponA,
+  weaponB,
   width = 320,
   height = 560,
 }: ArenaCanvasProps) {
@@ -38,8 +48,10 @@ export function ArenaCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const ctxOrNull = canvas.getContext("2d");
+    if (!ctxOrNull) return;
+    // Assign to a const that TypeScript knows is non-null inside nested functions
+    const ctx: CanvasRenderingContext2D = ctxOrNull;
 
     // Scale canvas for crisp rendering on high-DPI screens
     const dpr = window.devicePixelRatio || 1;
@@ -50,8 +62,15 @@ export function ArenaCanvas({
     const scaleX = width / ARENA_W;
     const scaleY = height / ARENA_H;
 
+    // Convert sim-scaled position to screen pixels
     function toScreen(simX: number, simY: number): [number, number] {
       return [(simX / SCALE) * scaleX, (simY / SCALE) * scaleY];
+    }
+
+    // Convert an unscaled arena-unit distance to screen pixels
+    // (reach, tipRadius, bladeWidth are all in arena units)
+    function arenaToScreenLen(arenaUnits: number): number {
+      return arenaUnits * scaleX; // arena is square so scaleX == scaleY
     }
 
     // ─── Background ──────────────────────────────────────────────────────────
@@ -85,33 +104,179 @@ export function ArenaCanvas({
     const { a, b } = frame;
     const [ax, ay] = toScreen(a.x, a.y);
     const [bx, by] = toScreen(b.x, b.y);
-    const ballR = 18;
-    const weaponLen = 28;
+    // Ball radius in screen pixels — derived from the actual arena-unit radius
+    // (ballARadius/ballBRadius are in arena units; multiply by scaleX to get pixels).
+    const ballRA = Math.max(8, ballARadius * scaleX);
+    const ballRB = Math.max(8, ballBRadius * scaleX);
 
-    // ─── Weapon arms ─────────────────────────────────────────────────────────
-    function drawWeapon(cx: number, cy: number, angle: number, color: string) {
+    // ─── Weapon rendering ─────────────────────────────────────────────────────
+    // Uses real weapon metadata when available, falls back to fixed-length approx.
+    //
+    // Sim formula: tip = center + (reach × cos(θ), reach × sin(θ)) in arena units
+    // where θ = (angle / 65536) × 2π
+
+    // drawWeapon: ball center (cx,cy), angle, color, weapon def, ball radius in px.
+    // The sim measures weapon reach from the ball CENTER, but visually we want the
+    // shaft to appear to emerge from the ball SURFACE. We clip the shaft start to
+    // the ball edge by offsetting by ballRpx along the weapon direction.
+    function drawWeapon(
+      cx: number, cy: number,
+      angle: number,
+      color: string,
+      ballRpx: number,
+      wDef?: WeaponDef | null,
+    ) {
       const rad = (angle / 65536) * 2 * Math.PI;
-      const tx = cx + Math.cos(rad) * weaponLen;
-      const ty = cy + Math.sin(rad) * weaponLen;
+      const cosA = Math.cos(rad);
+      const sinA = Math.sin(rad);
+
+      // Tip is always at full reach from center (matches sim exactly)
+      if (!wDef) {
+        // Fallback: extend 28px beyond ball edge, 4px tip dot
+        const surfX = cx + cosA * ballRpx;
+        const surfY = cy + sinA * ballRpx;
+        const tx = cx + cosA * (ballRpx + 28);
+        const ty = cy + sinA * (ballRpx + 28);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(surfX, surfY);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      const reachPx  = arenaToScreenLen(wDef.reach);
+      const tipRPx   = Math.max(2, arenaToScreenLen(wDef.tipRadius));
+      const tipX     = cx + cosA * reachPx;   // true physics tip position
+      const tipY     = cy + sinA * reachPx;
+      // Visible shaft starts at ball surface
+      const surfX    = cx + cosA * ballRpx;
+      const surfY    = cy + sinA * ballRpx;
+
+      if (wDef.type === "blade") {
+        // ── Blade: shaft (surface → bladeStart) + damage capsule (bladeStart → tip)
+        const bladeStart = wDef.bladeStart ?? wDef.reach * 0.4;
+        const bladeWidth = wDef.bladeWidth ?? wDef.tipRadius;
+        const bsStartPx  = arenaToScreenLen(bladeStart);
+        const bsX        = cx + cosA * bsStartPx;
+        const bsY        = cy + sinA * bsStartPx;
+        const bladeWPx   = Math.max(2, arenaToScreenLen(bladeWidth));
+
+        // Shaft from ball surface to blade start (only if blade start is outside ball)
+        if (bsStartPx > ballRpx) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.5;
+          ctx.globalAlpha = 0.7;
+          ctx.lineCap = "butt";
+          ctx.beginPath();
+          ctx.moveTo(surfX, surfY);
+          ctx.lineTo(bsX, bsY);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        // Blade zone: thick capsule from bladeStart → tip
+        ctx.strokeStyle = color;
+        ctx.lineWidth = bladeWPx * 2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(bsStartPx > ballRpx ? bsX : surfX, bsStartPx > ballRpx ? bsY : surfY);
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+
+        // Edge highlight on blade zone
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.45;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(bsStartPx > ballRpx ? bsX : surfX, bsStartPx > ballRpx ? bsY : surfY);
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+      } else if (wDef.type === "blunt") {
+        // ── Blunt (mace): handle from surface + large round head at tip ──────
+        const headStartPx = reachPx * 0.72;
+        const hsX = cx + cosA * headStartPx;
+        const hsY = cy + sinA * headStartPx;
+
+        // Handle from ball surface to head start
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(surfX, surfY);
+        ctx.lineTo(hsX, hsY);
+        ctx.stroke();
+
+        // Mace head: large filled circle at physics tip position
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Outer ring hint for the impact zone
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, tipRPx + 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+      } else {
+        // ── Point (spear): shaft from surface + arrowhead tip ─────────────────
+        const arrowBaseX = cx + cosA * (reachPx * 0.82);
+        const arrowBaseY = cy + sinA * (reachPx * 0.82);
+
+        // Shaft from ball surface to arrow base
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(surfX, surfY);
+        ctx.lineTo(arrowBaseX, arrowBaseY);
+        ctx.stroke();
+
+        // Arrowhead: triangle narrowing to the physics tip
+        const perpX = -sinA;
+        const perpY =  cosA;
+        const halfW = Math.max(3, tipRPx * 0.7);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(arrowBaseX + perpX * halfW, arrowBaseY + perpY * halfW);
+        ctx.lineTo(arrowBaseX - perpX * halfW, arrowBaseY - perpY * halfW);
+        ctx.lineTo(tipX, tipY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Semi-transparent tip hitbox circle — shows exact collision radius used by sim
       ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.lineCap = "round";
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3;
+      ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(tx, ty);
+      ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
       ctx.stroke();
-      // Tip
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(tx, ty, 4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
     }
 
-    drawWeapon(ax, ay, a.angle, ballAColor);
-    drawWeapon(bx, by, b.angle, ballBColor);
+    drawWeapon(ax, ay, a.angle, ballAColor, ballRA, weaponA);
+    drawWeapon(bx, by, b.angle, ballBColor, ballRB, weaponB);
 
     // ─── Ball bodies ─────────────────────────────────────────────────────────
-    function drawBall(cx: number, cy: number, hp: number, maxHp: number, color: string, name: string) {
+    function drawBall(cx: number, cy: number, ballR: number, hp: number, maxHp: number, color: string, name: string) {
       const hpFrac = Math.max(0, hp / maxHp);
       // Glow for high HP
       if (hpFrac > 0.5) {
@@ -150,14 +315,54 @@ export function ArenaCanvas({
       ctx.fillText(name.length > 10 ? name.slice(0, 10) + "…" : name, cx, cy - ballR - 14);
     }
 
-    drawBall(ax, ay, a.hp, ballAHp, ballAColor, ballAName);
-    drawBall(bx, by, b.hp, ballBHp, ballBColor, ballBName);
+    drawBall(ax, ay, ballRA, a.hp, ballAHp, ballAColor, ballAName);
+    drawBall(bx, by, ballRB, b.hp, ballBHp, ballBColor, ballBName);
+
+    // ─── Collision / hit flash rings ──────────────────────────────────────────
+    // Draw a ring around ball(s) when they collide, take a hit, or are eliminated.
+    const hasCollide = frame.events.some(ev => ev.includes("collide"));
+    const hasHit     = frame.events.some(ev => ev.includes(" hits "));
+    const hasElim    = frame.events.some(ev => ev.includes("eliminated"));
+
+    if (hasCollide || hasHit || hasElim) {
+      const flashColor = hasElim ? "#ff4444" : hasHit ? "#ffcc00" : "#aaddff";
+      const flashAlpha = hasElim ? 0.9 : 0.7;
+      const flashExtra = hasElim ? 10 : hasHit ? 7 : 5; // extra px beyond ball edge
+
+      ctx.save();
+      ctx.globalAlpha = flashAlpha;
+      ctx.strokeStyle = flashColor;
+      ctx.lineWidth = hasElim ? 3 : 2;
+      ctx.shadowColor = flashColor;
+      ctx.shadowBlur = 18;
+
+      // On body collide: flash both balls. On hit/elim: flash only the target.
+      // event text format: "A hits B for N damage" | "B is eliminated" | "A and B collide"
+      const ringA = hasCollide
+        || frame.events.some(ev => ev.includes("hits A") || ev.startsWith("A is elim"));
+      const ringB = hasCollide
+        || frame.events.some(ev => ev.includes("hits B") || ev.startsWith("B is elim"));
+
+      if (ringA) {
+        ctx.beginPath();
+        ctx.arc(ax, ay, ballRA + flashExtra, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (ringB) {
+        ctx.beginPath();
+        ctx.arc(bx, by, ballRB + flashExtra, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // ─── Event flash text ────────────────────────────────────────────────────
     if (frame.events.length > 0) {
       const topEvent = frame.events[0] ?? "";
-      if (topEvent.includes("hits") || topEvent.includes("eliminated")) {
-        ctx.fillStyle = topEvent.includes("eliminated") ? "#ff4444" : "#ffcc00";
+      if (topEvent.includes("hits") || topEvent.includes("eliminated") || topEvent.includes("collide")) {
+        ctx.fillStyle = topEvent.includes("eliminated") ? "#ff4444"
+                      : topEvent.includes("collide")    ? "#ffffff"
+                      : "#ffcc00";
         ctx.font = "bold 11px monospace";
         ctx.textAlign = "center";
         ctx.fillText(topEvent.toUpperCase(), width / 2, height - 16);
@@ -170,7 +375,7 @@ export function ArenaCanvas({
     ctx.textAlign = "right";
     ctx.fillText(`t:${frame.tick}`, width - 4, height - 4);
 
-  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, width, height]);
+  }, [frame, ballAName, ballBName, ballAColor, ballBColor, ballAHp, ballBHp, ballARadius, ballBRadius, weaponA, weaponB, width, height]);
 
   return (
     <canvas

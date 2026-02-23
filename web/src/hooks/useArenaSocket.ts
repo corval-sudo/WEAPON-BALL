@@ -14,6 +14,16 @@ export interface TickFrame {
   events: string[];
 }
 
+/** Weapon definition sent in match_start for accurate hitbox rendering. */
+export interface WeaponDef {
+  type: "blade" | "point" | "blunt";
+  reach: number;
+  tipRadius: number;
+  bladeStart?: number;
+  bladeWidth?: number;
+  shaftRadius?: number;
+}
+
 export interface Fighter {
   id: string;
   name: string;
@@ -45,6 +55,9 @@ export interface ArenaState {
   liveBallB: Fighter | null;
   announcement: string;
   currentFrame: TickFrame | null;
+  /** Weapon defs received in match_start — used for accurate hitbox rendering. */
+  weaponA: WeaponDef | null;
+  weaponB: WeaponDef | null;
   // result
   winner: "A" | "B" | null;
   resultBallA: Fighter | null;
@@ -64,6 +77,8 @@ const INITIAL_STATE: ArenaState = {
   liveBallB: null,
   announcement: "",
   currentFrame: null,
+  weaponA: null,
+  weaponB: null,
   winner: null,
   resultBallA: null,
   resultBallB: null,
@@ -120,6 +135,10 @@ export function useArenaSocket(): ArenaState {
           nextBallB: msg.ballB,
           startsInMs: msg.startsInMs,
           currentFrame: null,
+          // Pick up weapon defs from next_match so browsers joining during
+          // countdown already know the weapon metadata before match_start.
+          weaponA: msg.weaponA ?? prev.weaponA,
+          weaponB: msg.weaponB ?? prev.weaponB,
         }));
         break;
 
@@ -133,6 +152,8 @@ export function useArenaSocket(): ArenaState {
           announcement: msg.announcement ?? "",
           currentFrame: null,
           winner: null,
+          weaponA: msg.weaponA ?? null,
+          weaponB: msg.weaponB ?? null,
         }));
         break;
 

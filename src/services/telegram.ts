@@ -10,20 +10,20 @@
 // When telegram_enabled is "false" (default), all methods silently no-op.
 // Telegram send errors are caught and logged — they never crash the scheduler.
 
-import TelegramBot from "node-telegram-bot-api";
+import { Bot } from "grammy";
 import type { BallEntity, EnhancedMatchResult } from "../data/types";
 import type { MatchSummary } from "../analysis/summary";
 
 export class TelegramService {
-  private bot: TelegramBot | null;
+  private bot: Bot | null;
   private channelId: string;
   private enabled: boolean;
 
   constructor(token: string, channelId: string, enabled: boolean) {
     this.channelId = channelId;
     this.enabled = enabled && !!token && !!channelId;
-    // No polling — send-only mode
-    this.bot = this.enabled ? new TelegramBot(token) : null;
+    // No polling — send-only mode (grammy Bot without .start() = send-only)
+    this.bot = this.enabled ? new Bot(token) : null;
   }
 
   // ─── Public send methods ─────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ export class TelegramService {
   private async send(text: string): Promise<void> {
     if (!this.bot) return;
     try {
-      await this.bot.sendMessage(this.channelId, text, { parse_mode: "HTML" });
+      await this.bot.api.sendMessage(this.channelId, text, { parse_mode: "HTML" });
     } catch (e: any) {
       // Never crash the scheduler due to Telegram issues
       console.warn(`  ⚠  Telegram send failed: ${e.message}`);

@@ -13,7 +13,8 @@
     "balance": "ts-node src/scripts/balance.ts",
     "schedule": "ts-node src/scripts/schedule.ts",
     "admin": "ts-node src/scripts/admin.ts",
-    "api": "ts-node src/api/server.ts"
+    "api": "ts-node src/api/server.ts",
+    "serve": "ts-node src/main.ts"
   },
   "keywords": [],
   "author": "Corval GPT",
@@ -22,12 +23,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.75.0",
     "@types/express": "^5.0.6",
-    "@types/node-telegram-bot-api": "^0.64.13",
     "@types/ws": "^8.18.1",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "node-telegram-bot-api": "^0.67.0",
+    "grammy": "^1.40.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {

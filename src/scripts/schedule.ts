@@ -23,6 +23,8 @@ import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
 import { TelegramService } from "../services/telegram";
 import { broadcaster } from "../api/ws-broadcaster";
+import type { WsWeaponDef } from "../api/ws-broadcaster";
+import { setNextMatch } from "../api/server";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -134,8 +136,31 @@ async function runNextMatch(): Promise<void> {
   const { ballA, ballB } = matchup;
   const seed = Math.floor(Math.random() * 1_000_000);
 
-  // Broadcast upcoming match (fires before AI commentary, gives browser a countdown)
-  broadcaster.broadcast({ type: "next_match", ballA, ballB, startsInMs: 5000 });
+  // Build weapon definitions for the browser renderer (picks up per-ball overrides if present).
+  // Defined early so it's available for both next_match and match_start broadcasts.
+  function resolveWeaponDef(ball: typeof ballA): WsWeaponDef {
+    const overrideSuffix = `${ball.weaponId}_${ball.id === ballA.id ? "A" : "B"}`;
+    // Check if an override weapon exists (runner creates these with _A/_B suffix)
+    const raw: any = WEAPONS_CATALOG[overrideSuffix] ?? WEAPONS_CATALOG[ball.weaponId] ?? WEAPONS_CATALOG["short_sword"];
+    return {
+      type: raw.type ?? "point",
+      reach: raw.reach,
+      tipRadius: raw.tipRadius,
+      ...(raw.bladeStart !== undefined && { bladeStart: raw.bladeStart }),
+      ...(raw.bladeWidth  !== undefined && { bladeWidth:  raw.bladeWidth }),
+      ...(raw.shaftRadius !== undefined && { shaftRadius: raw.shaftRadius }),
+    };
+  }
+
+  // Broadcast upcoming match with weapon defs — gives browser both countdown and
+  // weapon metadata even if it connects during the pre-match announcement window.
+  broadcaster.broadcast({
+    type: "next_match",
+    ballA, ballB,
+    startsInMs: 5000,
+    weaponA: resolveWeaponDef(ballA),
+    weaponB: resolveWeaponDef(ballB),
+  });
 
   // Pre-match announcement
   let announcement = "";
@@ -148,8 +173,15 @@ async function runNextMatch(): Promise<void> {
     // Commentary/Telegram failure should never block the match
   }
 
-  // Broadcast match start with announcement text
-  broadcaster.broadcast({ type: "match_start", ballA, ballB, matchNumber: matchCount + 1, announcement });
+  // Broadcast match start with announcement text and weapon definitions
+  broadcaster.broadcast({
+    type: "match_start",
+    ballA, ballB,
+    matchNumber: matchCount + 1,
+    announcement,
+    weaponA: resolveWeaponDef(ballA),
+    weaponB: resolveWeaponDef(ballB),
+  });
 
   let result;
   try {
@@ -188,20 +220,28 @@ async function runNextMatch(): Promise<void> {
   // Send match result card to Telegram (no AI needed — fires immediately)
   await telegram.sendMatchResult(matchCount, result, freshA, freshB, summary);
 
-  // Replay match ticks to connected WebSocket clients
-  broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp);
-
-  // Post-match Arena Master commentary
+  // Run replay stream and post-match commentary concurrently:
+  // - replayMatch() streams real physics frames at 30fps (~20s) and resolves when done
+  // - generatePostMatch() calls Claude API (~2-3s) and resolves with commentary text
+  // match_end is sent only after BOTH complete so the victory banner appears at
+  // the right moment and includes the commentary text.
   let postMatch = "";
-  try {
-    postMatch = await commentator.generatePostMatch(result, freshA, freshB, summary.highlights);
+  const [, commentaryResult] = await Promise.allSettled([
+    broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp),
+    commentator.generatePostMatch(result, freshA, freshB, summary.highlights),
+  ]);
+
+  if (commentaryResult.status === "fulfilled") {
+    postMatch = commentaryResult.value;
     console.log(`\n🎙️  ${postMatch}\n`);
-    await telegram.sendPostMatchCommentary(postMatch);
-  } catch (e: any) {
-    // Commentary/Telegram failure should never block the scheduler
+    try {
+      await telegram.sendPostMatchCommentary(postMatch);
+    } catch {
+      // Telegram failure should never block the scheduler
+    }
   }
 
-  // Broadcast match end (fires after commentary so it includes the text)
+  // Broadcast match end — fires after replay completes so banner appears last
   broadcaster.broadcast({
     type: "match_end",
     matchNumber: matchCount,
@@ -216,6 +256,20 @@ async function runNextMatch(): Promise<void> {
   if (matchCount % BALANCE_CHECK_EVERY === 0) {
     await runBalanceCheck();
   }
+}
+
+// ─── Next-match advertisement ─────────────────────────────────────────────────
+
+/**
+ * Picks the best upcoming matchup and tells the API server when it will fire.
+ * This populates /api/next so clients that load the page mid-interval see the
+ * countdown immediately rather than waiting for the WebSocket next_match event.
+ */
+function scheduleNextMatchAd(delayMs: number): void {
+  const roster = db.getActiveBalls();
+  const matchup = findBestMatchup(roster);
+  if (!matchup) return;
+  setNextMatch(matchup.ballA.id, matchup.ballB.id, delayMs);
 }
 
 // ─── Startup & Shutdown ───────────────────────────────────────────────────────
@@ -241,18 +295,25 @@ async function main(): Promise<void> {
 
   const roster = db.getActiveBalls();
   if (roster.length < 2) {
-    console.error("✗ Need at least 2 active balls to schedule matches.");
-    console.error("  Run: npm run init-roster");
-    db.close();
-    process.exit(1);
+    console.warn("⚠  No active fighters found yet — waiting for roster to be initialized.");
+    console.warn("   Run: npm run init-roster (or railway ssh -- npm run init-roster)");
+    console.warn("   Scheduler will start automatically once fighters are added.");
+    console.warn("");
+    // Don't exit — keep the process alive so the container stays healthy.
+    // The setInterval loop will pick up fighters once they are seeded.
+  } else {
+    console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
   }
 
-  console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
-
-  // Run first match immediately, then every MATCH_INTERVAL_MS
+  // Run first match immediately, then every MATCH_INTERVAL_MS.
+  // runNextMatch() handles the empty-roster case gracefully (logs + returns early).
   await runNextMatch();
+  // After the first match, schedule the next one and advertise it via the API.
+  scheduleNextMatchAd(MATCH_INTERVAL_MS);
   timer = setInterval(() => {
-    runNextMatch().catch(e => console.error("Unhandled match error:", e));
+    runNextMatch()
+      .then(() => scheduleNextMatchAd(MATCH_INTERVAL_MS))
+      .catch(e => console.error("Unhandled match error:", e));
   }, MATCH_INTERVAL_MS);
 }
 

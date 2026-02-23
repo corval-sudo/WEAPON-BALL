@@ -25,3 +25,41 @@ button, select {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #0a0a0f; }
 ::-webkit-scrollbar-thumb { background: #333355; border-radius: 3px; }
+
+/* ── Responsive: stack arena + leaderboard on mobile ── */
+@media (max-width: 680px) {
+  /* Main grid becomes single column */
+  .worbz-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Sidebar loses fixed height and scrolls with page */
+  .worbz-sidebar {
+    max-height: none !important;
+    border-top: 1px solid #1c1c2e;
+  }
+
+  /* Arena canvas: shrink to fit viewport */
+  .worbz-canvas-wrap canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Results scroll: allow wrapping on very narrow screens */
+  .worbz-results-grid {
+    flex-wrap: wrap !important;
+  }
+  .worbz-results-grid > a {
+    flex: 1 1 160px !important;
+  }
+
+  /* Topbar: stack vertically if very narrow */
+  .worbz-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .worbz-arena-label {
+    text-align: left !important;
+  }
+}

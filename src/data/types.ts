@@ -28,6 +28,13 @@ export interface BallRoster {
   version: string;               // Schema version for migrations
 }
 
+/** Compact per-tick snapshot captured during the live simulation run. */
+export interface ReplayFrame {
+  tick: number;
+  a: { x: number; y: number; angle: number; hp: number };
+  b: { x: number; y: number; angle: number; hp: number };
+}
+
 export interface EnhancedMatchResult {
   seed: number;
   ticks: number;
@@ -41,6 +48,8 @@ export interface EnhancedMatchResult {
   events: Event[];               // From simCore
   stats: MatchStats;             // NEW - detailed statistics
   timestamp: string;             // ISO date string
+  /** Sampled physics frames for WebSocket replay (real positions, not orbital). */
+  replayFrames?: ReplayFrame[];
 }
 
 export interface MatchStats {
