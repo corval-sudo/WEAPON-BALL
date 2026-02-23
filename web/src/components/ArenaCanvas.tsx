@@ -115,26 +115,33 @@ export function ArenaCanvas({
     // Sim formula: tip = center + (reach × cos(θ), reach × sin(θ)) in arena units
     // where θ = (angle / 65536) × 2π
 
+    // drawWeapon: ball center (cx,cy), angle, color, weapon def, ball radius in px.
+    // The sim measures weapon reach from the ball CENTER, but visually we want the
+    // shaft to appear to emerge from the ball SURFACE. We clip the shaft start to
+    // the ball edge by offsetting by ballRpx along the weapon direction.
     function drawWeapon(
       cx: number, cy: number,
       angle: number,
       color: string,
+      ballRpx: number,
       wDef?: WeaponDef | null,
     ) {
       const rad = (angle / 65536) * 2 * Math.PI;
       const cosA = Math.cos(rad);
       const sinA = Math.sin(rad);
 
+      // Tip is always at full reach from center (matches sim exactly)
       if (!wDef) {
-        // Fallback: fixed 28px line + 4px tip (old behaviour)
-        const tLen = 28;
-        const tx = cx + cosA * tLen;
-        const ty = cy + sinA * tLen;
+        // Fallback: extend 28px beyond ball edge, 4px tip dot
+        const surfX = cx + cosA * ballRpx;
+        const surfY = cy + sinA * ballRpx;
+        const tx = cx + cosA * (ballRpx + 28);
+        const ty = cy + sinA * (ballRpx + 28);
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
+        ctx.moveTo(surfX, surfY);
         ctx.lineTo(tx, ty);
         ctx.stroke();
         ctx.fillStyle = color;
@@ -144,121 +151,129 @@ export function ArenaCanvas({
         return;
       }
 
-      const reachPx     = arenaToScreenLen(wDef.reach);
-      const tipRPx      = Math.max(2, arenaToScreenLen(wDef.tipRadius));
-      const tipX        = cx + cosA * reachPx;
-      const tipY        = cy + sinA * reachPx;
+      const reachPx  = arenaToScreenLen(wDef.reach);
+      const tipRPx   = Math.max(2, arenaToScreenLen(wDef.tipRadius));
+      const tipX     = cx + cosA * reachPx;   // true physics tip position
+      const tipY     = cy + sinA * reachPx;
+      // Visible shaft starts at ball surface
+      const surfX    = cx + cosA * ballRpx;
+      const surfY    = cy + sinA * ballRpx;
 
       if (wDef.type === "blade") {
-        // ── Blade: shaft + damage-zone capsule (bladeStart → reach) ───────────
-        const bladeStart  = wDef.bladeStart ?? wDef.reach * 0.4;
-        const bladeWidth  = wDef.bladeWidth ?? wDef.tipRadius;
-        const bsStartPx   = arenaToScreenLen(bladeStart);
-        const bsX         = cx + cosA * bsStartPx;
-        const bsY         = cy + sinA * bsStartPx;
-        const bladeWPx    = Math.max(1.5, arenaToScreenLen(bladeWidth));
+        // ── Blade: shaft (surface → bladeStart) + damage capsule (bladeStart → tip)
+        const bladeStart = wDef.bladeStart ?? wDef.reach * 0.4;
+        const bladeWidth = wDef.bladeWidth ?? wDef.tipRadius;
+        const bsStartPx  = arenaToScreenLen(bladeStart);
+        const bsX        = cx + cosA * bsStartPx;
+        const bsY        = cy + sinA * bsStartPx;
+        const bladeWPx   = Math.max(2, arenaToScreenLen(bladeWidth));
 
-        // Shaft (ball center → blade start): thin line
+        // Shaft from ball surface to blade start (only if blade start is outside ball)
+        if (bsStartPx > ballRpx) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.5;
+          ctx.globalAlpha = 0.7;
+          ctx.lineCap = "butt";
+          ctx.beginPath();
+          ctx.moveTo(surfX, surfY);
+          ctx.lineTo(bsX, bsY);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        // Blade zone: thick capsule from bladeStart → tip
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = bladeWPx * 2;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(bsX, bsY);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        // Blade zone: thick capsule (wide stroke from bladeStart to tip)
-        ctx.strokeStyle = color;
-        ctx.lineWidth = bladeWPx * 2; // stroke width = 2× half-width
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(bsX, bsY);
+        ctx.moveTo(bsStartPx > ballRpx ? bsX : surfX, bsStartPx > ballRpx ? bsY : surfY);
         ctx.lineTo(tipX, tipY);
         ctx.stroke();
 
-        // Edge highlight
+        // Edge highlight on blade zone
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.45;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(bsX, bsY);
+        ctx.moveTo(bsStartPx > ballRpx ? bsX : surfX, bsStartPx > ballRpx ? bsY : surfY);
         ctx.lineTo(tipX, tipY);
         ctx.stroke();
         ctx.globalAlpha = 1;
 
       } else if (wDef.type === "blunt") {
-        // ── Blunt (mace): handle + large round head ───────────────────────────
-        const headStart = wDef.reach * 0.7;
-        const hsStartPx = arenaToScreenLen(headStart);
-        const hsX       = cx + cosA * hsStartPx;
-        const hsY       = cy + sinA * hsStartPx;
+        // ── Blunt (mace): handle from surface + large round head at tip ──────
+        const headStartPx = reachPx * 0.72;
+        const hsX = cx + cosA * headStartPx;
+        const hsY = cy + sinA * headStartPx;
 
-        // Handle
+        // Handle from ball surface to head start
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
+        ctx.moveTo(surfX, surfY);
         ctx.lineTo(hsX, hsY);
         ctx.stroke();
 
-        // Mace head: large filled circle at tip
+        // Mace head: large filled circle at physics tip position
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.9;
         ctx.beginPath();
         ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Spikes hint
+        // Outer ring hint for the impact zone
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.5;
         ctx.beginPath();
         ctx.arc(tipX, tipY, tipRPx + 3, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.globalAlpha = 1;
 
       } else {
-        // ── Point (spear): long narrow shaft + sharp tip ──────────────────────
-        // Shaft: thin line from ball center to near-tip
-        const shaftEndPx = reachPx * 0.85;
-        const sEx = cx + cosA * shaftEndPx;
-        const sEy = cy + sinA * shaftEndPx;
+        // ── Point (spear): shaft from surface + arrowhead tip ─────────────────
+        const arrowBaseX = cx + cosA * (reachPx * 0.82);
+        const arrowBaseY = cy + sinA * (reachPx * 0.82);
 
+        // Shaft from ball surface to arrow base
         ctx.strokeStyle = color;
         ctx.lineWidth = 2.5;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(sEx, sEy);
+        ctx.moveTo(surfX, surfY);
+        ctx.lineTo(arrowBaseX, arrowBaseY);
         ctx.stroke();
 
-        // Tip: narrowing triangle pointing toward tipX/tipY
+        // Arrowhead: triangle narrowing to the physics tip
         const perpX = -sinA;
         const perpY =  cosA;
-        const halfW = Math.max(2.5, tipRPx * 0.6);
+        const halfW = Math.max(3, tipRPx * 0.7);
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(sEx + perpX * halfW, sEy + perpY * halfW);
-        ctx.lineTo(sEx - perpX * halfW, sEy - perpY * halfW);
+        ctx.moveTo(arrowBaseX + perpX * halfW, arrowBaseY + perpY * halfW);
+        ctx.lineTo(arrowBaseX - perpX * halfW, arrowBaseY - perpY * halfW);
         ctx.lineTo(tipX, tipY);
         ctx.closePath();
         ctx.fill();
       }
 
-      // Tip hitbox indicator (semi-transparent circle) — shows actual collision radius
+      // Semi-transparent tip hitbox circle — shows exact collision radius used by sim
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.25;
+      ctx.globalAlpha = 0.3;
+      ctx.setLineDash([2, 3]);
       ctx.beginPath();
       ctx.arc(tipX, tipY, tipRPx, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
 
-    drawWeapon(ax, ay, a.angle, ballAColor, weaponA);
-    drawWeapon(bx, by, b.angle, ballBColor, weaponB);
+    drawWeapon(ax, ay, a.angle, ballAColor, ballRA, weaponA);
+    drawWeapon(bx, by, b.angle, ballBColor, ballRB, weaponB);
 
     // ─── Ball bodies ─────────────────────────────────────────────────────────
     function drawBall(cx: number, cy: number, ballR: number, hp: number, maxHp: number, color: string, name: string) {
