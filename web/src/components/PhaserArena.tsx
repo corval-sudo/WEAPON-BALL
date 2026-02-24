@@ -87,7 +87,7 @@ export function PhaserArena({
     sceneRef.current = scene;
 
     const game = new Phaser.Game({
-      type: Phaser.WEBGL,        // falls back to CANVAS automatically
+      type: Phaser.AUTO,         // lets Phaser pick WebGL or Canvas per context
       width,
       height,
       backgroundColor: "#0a0a0f",

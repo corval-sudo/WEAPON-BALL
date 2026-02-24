@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { PhaserArena } from "../components/PhaserArena";
-import type { TickFrame } from "../hooks/useArenaSocket";
+import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
@@ -34,6 +34,10 @@ interface ReplayData {
   ballBColor: string;
   ballAHp: number;
   ballBHp: number;
+  ballARadius: number;
+  ballBRadius: number;
+  weaponA: WeaponDef | null;
+  weaponB: WeaponDef | null;
   frames: TickFrame[];
 }
 
@@ -50,6 +54,11 @@ export default function MatchPage() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [weaponA, setWeaponA] = useState<WeaponDef | null>(null);
+  const [weaponB, setWeaponB] = useState<WeaponDef | null>(null);
+  const [ballARadius, setBallARadius] = useState(42);
+  const [ballBRadius, setBallBRadius] = useState(42);
 
   useEffect(() => {
     if (!id) return;
@@ -75,12 +84,24 @@ export default function MatchPage() {
       .then((data: ReplayData) => {
         setFrames(data.frames);
         setCurrentTick(0);
+        setWeaponA(data.weaponA ?? null);
+        setWeaponB(data.weaponB ?? null);
+        setBallARadius(data.ballARadius ?? 42);
+        setBallBRadius(data.ballBRadius ?? 42);
         setReplayLoading(false);
       })
       .catch(() => setReplayLoading(false));
 
     Promise.all([matchPromise, replayPromise]);
   }, [id]);
+
+  // Auto-start replay as soon as frames are available
+  useEffect(() => {
+    if (frames.length > 0) {
+      setCurrentTick(0);
+      setPlaying(true);
+    }
+  }, [frames.length]);
 
   const startReplay = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -140,6 +161,10 @@ export default function MatchPage() {
             ballBColor={ballB?.color ?? "#ef5350"}
             ballAHp={ballA?.baseHp ?? 500}
             ballBHp={ballB?.baseHp ?? 500}
+            ballARadius={ballARadius}
+            ballBRadius={ballBRadius}
+            weaponA={weaponA}
+            weaponB={weaponB}
             width={300}
             height={525}
           />

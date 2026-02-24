@@ -237,6 +237,24 @@ app.get("/api/matches/:id/replay", (req, res) => {
       ballBColor: ballB.color,
       ballAHp: ballA.baseHp,
       ballBHp: ballB.baseHp,
+      ballARadius: ballA.radius,
+      ballBRadius: ballB.radius,
+      weaponA: weapons[weaponIdA] ? {
+        type: weapons[weaponIdA].type,
+        reach: weapons[weaponIdA].reach,
+        tipRadius: weapons[weaponIdA].tipRadius,
+        bladeStart: weapons[weaponIdA].bladeStart,
+        bladeWidth: weapons[weaponIdA].bladeWidth,
+        shaftRadius: weapons[weaponIdA].shaftRadius,
+      } : null,
+      weaponB: weapons[weaponIdB] ? {
+        type: weapons[weaponIdB].type,
+        reach: weapons[weaponIdB].reach,
+        tipRadius: weapons[weaponIdB].tipRadius,
+        bladeStart: weapons[weaponIdB].bladeStart,
+        bladeWidth: weapons[weaponIdB].bladeWidth,
+        shaftRadius: weapons[weaponIdB].shaftRadius,
+      } : null,
       frames,
     });
   } catch (e: any) {
