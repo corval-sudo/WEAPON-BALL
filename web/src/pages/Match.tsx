@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { PhaserArena } from "../components/PhaserArena";
-import type { TickFrame } from "../hooks/useArenaSocket";
+import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
@@ -34,6 +34,10 @@ interface ReplayData {
   ballBColor: string;
   ballAHp: number;
   ballBHp: number;
+  ballARadius: number;
+  ballBRadius: number;
+  weaponA: WeaponDef | null;
+  weaponB: WeaponDef | null;
   frames: TickFrame[];
 }
 
@@ -46,6 +50,9 @@ export default function MatchPage() {
   const [replayLoading, setReplayLoading] = useState(true);
 
   const [frames, setFrames] = useState<TickFrame[]>([]);
+  const [replayMeta, setReplayMeta] = useState<Pick<ReplayData, "ballARadius" | "ballBRadius" | "weaponA" | "weaponB">>({
+    ballARadius: 42, ballBRadius: 42, weaponA: null, weaponB: null,
+  });
   const [currentTick, setCurrentTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -74,6 +81,12 @@ export default function MatchPage() {
       .then(r => r.json())
       .then((data: ReplayData) => {
         setFrames(data.frames);
+        setReplayMeta({
+          ballARadius: data.ballARadius ?? 42,
+          ballBRadius: data.ballBRadius ?? 42,
+          weaponA: data.weaponA ?? null,
+          weaponB: data.weaponB ?? null,
+        });
         setCurrentTick(0);
         setReplayLoading(false);
       })
@@ -140,6 +153,10 @@ export default function MatchPage() {
             ballBColor={ballB?.color ?? "#ef5350"}
             ballAHp={ballA?.baseHp ?? 500}
             ballBHp={ballB?.baseHp ?? 500}
+            ballARadius={replayMeta.ballARadius}
+            ballBRadius={replayMeta.ballBRadius}
+            weaponA={replayMeta.weaponA}
+            weaponB={replayMeta.weaponB}
             width={300}
             height={525}
           />

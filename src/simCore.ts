@@ -55,6 +55,7 @@ export type BallState = {
   weaponReach: number; // scaled
   tipR: number;        // scaled
   tipCooldown: number;
+  hitCooldown: number; // I-frames: ticks of invulnerability after taking damage
   baseDamage: number;
   ramp: number;
   hitCount: number; // never resets
@@ -523,6 +524,7 @@ function doesWeaponHit(attacker: BallState, victim: BallState): boolean {
 
 function checkHit(state: SimState, attacker: BallState, victim: BallState) {
   if (!attacker.alive || !victim.alive) return;
+  if (victim.hitCooldown > 0) return; // I-frames: invulnerable after taking damage
 
   if (!doesWeaponHit(attacker, victim)) return;
 
@@ -531,6 +533,7 @@ function checkHit(state: SimState, attacker: BallState, victim: BallState) {
 
   victim.hp -= dmg;
   attacker.damageDealt += dmg;
+  victim.hitCooldown = 3; // 3-tick invulnerability window
 
   state.events.push({ t: state.tick, e: "hit", from: attacker.id, to: victim.id, dmg });
 
@@ -633,6 +636,7 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     weaponReach: Math.round(reach * SCALE),
     tipR: Math.round(weapon.tipRadius * SCALE),
     tipCooldown: 0,
+    hitCooldown: 0,
     baseDamage: weapon.baseDamage,
     ramp: weapon.ramp,
     hitCount: 0,
@@ -740,6 +744,9 @@ export function stepSim(state: SimState) {
   // Cooldowns (prevents repeated tip-tip clashes while overlapped)
   if (A.tipCooldown > 0) A.tipCooldown -= 1;
   if (B.tipCooldown > 0) B.tipCooldown -= 1;
+  // I-frames: tick down invulnerability after taking damage
+  if (A.hitCooldown > 0) A.hitCooldown -= 1;
+  if (B.hitCooldown > 0) B.hitCooldown -= 1;
   state.tick += 1;
 
   // If someone died this tick, mark done next stepSim call (keeps logic simple)

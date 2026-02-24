@@ -118,8 +118,8 @@ app.get("/api/matches/:id", (req, res) => {
 const WEAPONS_CATALOG: Record<string, any> = {
   short_sword: { type: "blade", reach: 60, tipRadius: 15, bladeStart: 25, bladeWidth: 8,  shaftRadius: 5, omega: 1800, baseDamage: 12, ramp: 3, speedMult: 1000, weight: 800  },
   katana:      { type: "blade", reach: 85, tipRadius: 12, bladeStart: 30, bladeWidth: 10, shaftRadius: 6, omega: 1600, baseDamage: 11, ramp: 3, speedMult: 1050, weight: 850  },
-  spear:       { type: "point", reach: 110, tipRadius: 8,                                 shaftRadius: 5, omega: 1200, baseDamage: 18, ramp: 4, speedMult: 950,  weight: 900  },
-  mace:        { type: "blunt", reach: 70, tipRadius: 35,                                 shaftRadius: 8, omega: 1400, baseDamage: 14, ramp: 2, speedMult: 900,  weight: 1400 },
+  spear:       { type: "point", reach: 110, tipRadius: 6,                                 shaftRadius: 5, omega: 1200, baseDamage: 18, ramp: 4, speedMult: 950,  weight: 900  },
+  mace:        { type: "blunt", reach: 180, tipRadius: 17,                                shaftRadius: 8, omega: 1400, baseDamage: 14, ramp: 2, speedMult: 900,  weight: 1400 },
 };
 const ARENA_CONFIG = { w: 400, h: 700, wallRestitution: 850 };
 const SIM_CONFIG   = { scale: 1000, maxTicks: 18000 };
@@ -225,6 +225,16 @@ app.get("/api/matches/:id/replay", (req, res) => {
       });
     }
 
+    // Extract only the frontend-relevant fields from each weapon definition
+    const toFrontendWeapon = (wd: any) => ({
+      type: wd.type,
+      reach: wd.reach,
+      tipRadius: wd.tipRadius,
+      ...(wd.bladeStart  !== undefined && { bladeStart:  wd.bladeStart  }),
+      ...(wd.bladeWidth  !== undefined && { bladeWidth:  wd.bladeWidth  }),
+      ...(wd.shaftRadius !== undefined && { shaftRadius: wd.shaftRadius }),
+    });
+
     res.json({
       matchId: id,
       totalTicks: sim.tick,
@@ -237,6 +247,10 @@ app.get("/api/matches/:id/replay", (req, res) => {
       ballBColor: ballB.color,
       ballAHp: ballA.baseHp,
       ballBHp: ballB.baseHp,
+      ballARadius: ballA.radius,
+      ballBRadius: ballB.radius,
+      weaponA: toFrontendWeapon(weapons[weaponIdA]),
+      weaponB: toFrontendWeapon(weapons[weaponIdB]),
       frames,
     });
   } catch (e: any) {

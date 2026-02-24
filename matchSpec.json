@@ -36,7 +36,7 @@
     "spear": {
       "type": "point",
       "reach": 110,
-      "tipRadius": 8,
+      "tipRadius": 6,
       "shaftRadius": 5,
       "omega": 1200,
       "baseDamage": 18,
@@ -47,8 +47,8 @@
 
     "mace": {
       "type": "blunt",
-      "reach": 70,
-      "tipRadius": 35,
+      "reach": 180,
+      "tipRadius": 17,
       "shaftRadius": 8,
       "omega": 1400,
       "baseDamage": 14,
