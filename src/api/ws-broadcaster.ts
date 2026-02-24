@@ -49,10 +49,28 @@ export class WsBroadcaster {
   private clients: Set<WebSocket> = new Set();
   private replayTimer: ReturnType<typeof setInterval> | null = null;
 
+  // ── Catch-up cache ───────────────────────────────────────────────────────
+  // Stored so newly-connecting clients receive an immediate snapshot of the
+  // current arena state rather than waiting up to 30s for the next broadcast.
+  private lastMatchContext: WsMessage | null = null; // last next_match or match_start
+  private lastTickFrame:    WsMessage | null = null; // last match_tick frame
+  private lastMatchEnd:     WsMessage | null = null; // last match_end
+
   registerClient(ws: WebSocket): void {
     this.clients.add(ws);
     ws.on("close", () => this.removeClient(ws));
     ws.on("error", () => this.removeClient(ws));
+
+    // Send a welcome snapshot to the new client so it immediately reflects
+    // the current arena state (result card, countdown, or last live frame).
+    const sendToNew = (msg: WsMessage): void => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify(msg)); } catch { /* ignore */ }
+      }
+    };
+    if (this.lastMatchContext) sendToNew(this.lastMatchContext);
+    if (this.lastTickFrame)    sendToNew(this.lastTickFrame);
+    if (this.lastMatchEnd)     sendToNew(this.lastMatchEnd);
   }
 
   removeClient(ws: WebSocket): void {
@@ -64,6 +82,18 @@ export class WsBroadcaster {
   }
 
   broadcast(msg: WsMessage): void {
+    // Update catch-up cache so late-joining clients get an instant snapshot.
+    if (msg.type === "next_match" || msg.type === "match_start") {
+      this.lastMatchContext = msg;
+      this.lastTickFrame    = null; // reset — new match, no frames yet
+      this.lastMatchEnd     = null; // reset — new match, no result yet
+    } else if (msg.type === "match_tick") {
+      this.lastTickFrame = msg;
+    } else if (msg.type === "match_end") {
+      this.lastMatchEnd  = msg;
+      this.lastTickFrame = null;    // no more live frames after match ends
+    }
+
     if (this.clients.size === 0) return;
     const payload = JSON.stringify(msg);
     for (const client of this.clients) {
