@@ -5,13 +5,14 @@
 // Usage:
 //   npm run api
 //
-// REST endpoints (read-only):
-//   GET /api/fighters          — active roster ordered by wins
-//   GET /api/fighters/:id      — fighter profile + recent match history
-//   GET /api/matches           — recent matches (last 20)
-//   GET /api/matches/:id       — single match by row ID
-//   GET /api/next              — next scheduled fighters + countdown
-//   GET /health                — liveness probe for Railway
+// REST endpoints:
+//   GET  /api/fighters          — active roster ordered by wins
+//   GET  /api/fighters/:id      — fighter profile + recent match history
+//   GET  /api/matches           — recent matches (last 20)
+//   GET  /api/matches/:id       — single match by row ID
+//   GET  /api/next              — next scheduled fighters + countdown
+//   GET  /health                — liveness probe for Railway
+//   POST /api/admin/run-match   — trigger one match (manual mode only)
 //
 // WebSocket:
 //   wss://<host>/ws            — subscribe for live match events
@@ -28,6 +29,7 @@ import { ConfigStore } from "../data/config-store";
 import { broadcaster } from "./ws-broadcaster";
 import { createSim, stepSim } from "../simCore";
 import type { TickFrame } from "./ws-broadcaster";
+import { matchTrigger } from "../match/trigger";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -48,7 +50,7 @@ app.use((req, res, next) => {
   if (CORS_ORIGINS.includes(origin) || CORS_ORIGINS.includes("*")) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.sendStatus(204); return; }
   next();
@@ -286,6 +288,18 @@ app.get("/api/next", (_req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── Admin endpoints ──────────────────────────────────────────────────────────
+
+/**
+ * Trigger a single match manually (intended for MANUAL_MATCH=1 mode).
+ * Emits to matchTrigger which schedule.ts listens to.
+ * Safe to call in auto mode too — schedule.ts ignores it there.
+ */
+app.post("/api/admin/run-match", (_req, res) => {
+  matchTrigger.emit("run");
+  res.json({ ok: true, message: "Match triggered" });
 });
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────

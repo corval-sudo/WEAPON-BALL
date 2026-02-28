@@ -38,7 +38,8 @@ export class CommentaryAgent {
   async generateAnnouncement(
     ballA: BallEntity,
     ballB: BallEntity,
-    h2h: HeadToHeadRecord
+    h2h: HeadToHeadRecord,
+    narrativeHooks: string[] = [],
   ): Promise<string> {
     const streakA = formatStreak(ballA.currentStreak);
     const streakB = formatStreak(ballB.currentStreak);
@@ -47,6 +48,10 @@ export class CommentaryAgent {
       h2h.totalMatches === 0
         ? "First time these two have met."
         : `Head-to-head: ${h2h.totalMatches} prior meetings — ${ballA.name} leads ${h2h.aWins}-${h2h.bWins}.`;
+
+    const hooksLine = narrativeHooks.length > 0
+      ? `\nActive storylines:\n${narrativeHooks.map(h => `- ${h}`).join("\n")}\n`
+      : "";
 
     const prompt = `UPCOMING FIGHT IN THE PIT:
 
@@ -59,7 +64,7 @@ ${ballB.name} (${ballB.weaponId}) — ${ballB.wins}W/${ballB.losses}L — ${stre
 Personality: ${ballB.personality}
 
 ${rivalryLine}
-
+${hooksLine}
 Write a fight announcement in your character. 2-4 sentences. Hype the matchup dramatically. Reference streaks, rivalry history, or weapon matchup if interesting. End with something that makes people want to watch.`;
 
     return this.callClaude(prompt, this.config.tokensAnnouncement);
@@ -73,7 +78,8 @@ Write a fight announcement in your character. 2-4 sentences. Hype the matchup dr
     result: EnhancedMatchResult,
     ballA: BallEntity,
     ballB: BallEntity,
-    highlights: string[]
+    highlights: string[],
+    narrativeHooks: string[] = [],
   ): Promise<string> {
     const winner = result.winner === "A" ? ballA : ballB;
     const loser = result.winner === "A" ? ballB : ballA;
@@ -86,6 +92,10 @@ Write a fight announcement in your character. 2-4 sentences. Hype the matchup dr
       highlights.length > 0
         ? highlights.slice(0, 3).join("\n")
         : "A clean, technical fight with no single blowout moment.";
+
+    const hooksLine = narrativeHooks.length > 0
+      ? `\nActive storylines:\n${narrativeHooks.map(h => `- ${h}`).join("\n")}\n`
+      : "";
 
     const prompt = `MATCH JUST FINISHED:
 
@@ -101,7 +111,7 @@ Updated records:
 ${ballA.name}: ${ballA.wins}W/${ballA.losses}L (${formatStreak(ballA.currentStreak)})
 ${ballB.name}: ${ballB.wins}W/${ballB.losses}L (${formatStreak(ballB.currentStreak)})
 
-Write post-match commentary in character. React to the performance, call out the biggest moment, and say something about what this win/loss means for each fighter's story going forward. 3-5 sentences. The winner is on ${winnerStreak}.`;
+${hooksLine}Write post-match commentary in character. React to the performance, call out the biggest moment, and say something about what this win/loss means for each fighter's story going forward. 3-5 sentences. The winner is on ${winnerStreak}.`;
 
     return this.callClaude(prompt, this.config.tokensPostmatch);
   }

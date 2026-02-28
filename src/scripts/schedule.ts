@@ -4,7 +4,9 @@
 // and triggers Arena Master AI balance analysis every 10 matches.
 //
 // Usage:
-//   npm run schedule
+//   npm run schedule               — auto mode (matches every 30s)
+//   MANUAL_MATCH=1 npm run serve   — manual mode (no auto-scheduling)
+//     → trigger via: POST /api/admin/run-match
 //
 // Balance proposals are saved to DB for human review:
 //   npm run balance -- --list
@@ -21,10 +23,13 @@ import { generateMatchSummary } from "../analysis/summary";
 import { buildBalanceReport, formatBalanceReport } from "../agent/balance-analyzer";
 import { ArenaMasterAgent } from "../agent/arena-master";
 import { CommentaryAgent } from "../agent/commentary";
+import { ArenaPlannerAgent } from "../agent/planner";
+import type { PlannerDecision } from "../agent/planner";
 import { TelegramService } from "../services/telegram";
 import { broadcaster } from "../api/ws-broadcaster";
 import type { WsWeaponDef } from "../api/ws-broadcaster";
 import { setNextMatch } from "../api/server";
+import { matchTrigger } from "../match/trigger";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -33,7 +38,9 @@ const configStore = new ConfigStore(db.getRawDb());
 
 const MATCH_INTERVAL_MS   = configStore.getMatchIntervalMs();
 const BALANCE_CHECK_EVERY = configStore.getBalanceCheckEvery();
+const PLANNER_EVERY       = configStore.getPlannerEvery();
 const ARENA_NAME          = configStore.getArenaName();
+const MANUAL_MODE         = process.env["MANUAL_MATCH"] === "1";
 
 // Physics params are not in the config store (changing them without
 // understanding simCore implications can corrupt match physics).
@@ -54,9 +61,11 @@ function timestamp(): string {
 }
 
 function printBanner(): void {
+  const modeStr = MANUAL_MODE ? "MANUAL (POST /api/admin/run-match)" : `every ${MATCH_INTERVAL_MS / 1000}s`;
   console.log("╔══════════════════════════════════════════════╗");
   console.log("║          ARENA SCHEDULER STARTED             ║");
-  console.log(`║   Match every ${MATCH_INTERVAL_MS / 1000}s | Balance every ${BALANCE_CHECK_EVERY} matches  ║`);
+  console.log(`║   Matches: ${modeStr.padEnd(34)}║`);
+  console.log(`║   Balance every ${BALANCE_CHECK_EVERY} | Planner every ${PLANNER_EVERY} matches      ║`);
   console.log(`║   Arena: ${ARENA_NAME.padEnd(36)}║`);
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
@@ -66,6 +75,8 @@ function printBanner(): void {
 
 let matchCount = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
+let plannerDecision: PlannerDecision | null = null;
+
 const runner = new MatchRunner(db);
 const commentator = new CommentaryAgent({
   personality:        loadPersonality(db),
@@ -73,12 +84,48 @@ const commentator = new CommentaryAgent({
   tokensAnnouncement: configStore.getCommentaryTokensAnnouncement(),
   tokensPostmatch:    configStore.getCommentaryTokensPostmatch(),
 });
+const planner = new ArenaPlannerAgent(configStore.getModelPlanner());
 
 const telegram = new TelegramService(
   configStore.getTelegramBotToken(),
   configStore.getTelegramChannelId(),
   configStore.isTelegramEnabled(),
 );
+
+// ─── Planner Tick ─────────────────────────────────────────────────────────────
+
+async function runPlannerTick(): Promise<void> {
+  console.log(`\n${"─".repeat(50)}`);
+  console.log(`  [PLANNER] Running after match #${matchCount}...`);
+  try {
+    const decision = await planner.plan(db, matchCount);
+    plannerDecision = decision;
+
+    console.log(`  [PLANNER] Rationale: ${decision.plannerRationale}`);
+
+    if (decision.matchup) {
+      const a = db.getBallById(decision.matchup.ballAId);
+      const b = db.getBallById(decision.matchup.ballBId);
+      console.log(`  [PLANNER] Next fight: ${a?.name ?? decision.matchup.ballAId} vs ${b?.name ?? decision.matchup.ballBId}`);
+      console.log(`  [PLANNER] Reason:     ${decision.matchup.rationale}`);
+    } else {
+      console.log(`  [PLANNER] Matchup:    deferring to matchmaker`);
+    }
+
+    if (decision.narrativeHooks.length > 0) {
+      console.log(`  [PLANNER] Hooks:      ${decision.narrativeHooks.join(" | ")}`);
+    }
+
+    if (decision.retirementCandidates.length > 0) {
+      const names = decision.retirementCandidates.map(id => db.getBallById(id)?.name ?? id);
+      console.log(`  [PLANNER] ⚠ Retirement candidates (human review): ${names.join(", ")}`);
+    }
+  } catch (e: any) {
+    console.warn(`  [PLANNER] Error: ${e.message}`);
+    plannerDecision = null;
+  }
+  console.log("─".repeat(50) + "\n");
+}
 
 // ─── Balance Check ───────────────────────────────────────────────────────────
 
@@ -127,13 +174,32 @@ async function runNextMatch(): Promise<void> {
   // Get fresh roster each tick (stats may have updated)
   const roster = db.getActiveBalls();
 
-  const matchup = findBestMatchup(roster);
+  // Use planner-chosen matchup if available; otherwise let matchmaker decide.
+  // Consume the decision immediately so subsequent matches don't re-use it.
+  const decision = plannerDecision;
+  plannerDecision = null;
+
+  const plannerMatchup = decision?.matchup
+    ? (() => {
+        const a = roster.find(b => b.id === decision.matchup!.ballAId);
+        const b = roster.find(b => b.id === decision.matchup!.ballBId);
+        if (a && b) return { ballA: a, ballB: b };
+        console.warn("[PLANNER] Chosen fighters no longer on roster — falling back to matchmaker");
+        return null;
+      })()
+    : null;
+
+  const matchup = plannerMatchup
+    ? { ...plannerMatchup, score: 0, factors: { skillGap: 0, streakInterest: 0, weaponDiversity: 0, underdog: 0, freshness: 0 } }
+    : findBestMatchup(roster);
+
   if (!matchup) {
     console.log(`[${timestamp()}] Waiting for more fighters (need ≥2 active balls)...`);
     return;
   }
 
   const { ballA, ballB } = matchup;
+  const narrativeHooks = decision?.narrativeHooks ?? [];
   const seed = Math.floor(Math.random() * 1_000_000);
 
   // Build weapon definitions for the browser renderer (picks up per-ball overrides if present).
@@ -162,11 +228,11 @@ async function runNextMatch(): Promise<void> {
     weaponB: resolveWeaponDef(ballB),
   });
 
-  // Pre-match announcement
+  // Pre-match announcement (passes narrative hooks to commentator)
   let announcement = "";
   try {
     const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
-    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h);
+    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h, narrativeHooks);
     console.log(`\n🎙️  ${announcement}\n`);
     await telegram.sendAnnouncement(ballA, ballB, announcement);
   } catch (e: any) {
@@ -228,7 +294,7 @@ async function runNextMatch(): Promise<void> {
   let postMatch = "";
   const [, commentaryResult] = await Promise.allSettled([
     broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp),
-    commentator.generatePostMatch(result, freshA, freshB, summary.highlights),
+    commentator.generatePostMatch(result, freshA, freshB, summary.highlights, narrativeHooks),
   ]);
 
   if (commentaryResult.status === "fulfilled") {
@@ -255,6 +321,11 @@ async function runNextMatch(): Promise<void> {
   // Trigger balance check every N matches
   if (matchCount % BALANCE_CHECK_EVERY === 0) {
     await runBalanceCheck();
+  }
+
+  // Trigger planner every N matches (non-blocking — runs async after current match)
+  if (matchCount % PLANNER_EVERY === 0) {
+    runPlannerTick().catch(e => console.warn("[PLANNER] Tick error:", e.message));
   }
 }
 
@@ -288,8 +359,8 @@ async function main(): Promise<void> {
   printBanner();
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn("⚠  ANTHROPIC_API_KEY not set — balance checks will fail when they fire.");
-    console.warn("   Set it in your shell, or run: ANTHROPIC_API_KEY=your_key npm run schedule");
+    console.warn("⚠  ANTHROPIC_API_KEY not set — AI features will fail when they fire.");
+    console.warn("   Set it in your shell, or run: ANTHROPIC_API_KEY=your_key npm run serve");
     console.warn("");
   }
 
@@ -299,9 +370,22 @@ async function main(): Promise<void> {
     console.warn("   Run: npm run init-roster (or railway ssh -- npm run init-roster)");
     console.warn("   Scheduler will start automatically once fighters are added.");
     console.warn("");
-    // Don't exit — keep the process alive so the container stays healthy.
-    // The setInterval loop will pick up fighters once they are seeded.
-  } else {
+  }
+
+  if (MANUAL_MODE) {
+    console.log("⏸  Manual mode active — no matches will auto-run.");
+    console.log("   Trigger a match: curl -X POST http://localhost:3001/api/admin/run-match");
+    console.log("");
+    // Listen for manual triggers from the API endpoint
+    matchTrigger.on("run", () => {
+      runNextMatch()
+        .then(() => scheduleNextMatchAd(5000))
+        .catch(e => console.error("Match error:", e));
+    });
+    return; // process stays alive via the HTTP server started in main.ts
+  }
+
+  if (roster.length >= 2) {
     console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
   }
 
