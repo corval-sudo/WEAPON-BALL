@@ -4,201 +4,226 @@
       "name": "Crimson Crusher",
       "personality": "Aggressive brawler who never backs down. Prefers close combat and overwhelming force.",
       "color": "#FF4444",
-      "baseHp": 1000,
+      "baseHp": 2000,
       "radius": 42,
-      "weaponId": "mace"
+      "weaponId": "mace",
+      "attractionMult": 1400
     },
     {
       "name": "Azure Assassin",
       "personality": "Swift and precise duelist. Values finesse over brute force. Waits for perfect strikes.",
       "color": "#4444FF",
-      "baseHp": 950,
+      "baseHp": 1900,
       "radius": 40,
-      "weaponId": "katana"
+      "weaponId": "katana",
+      "attractionMult": 1150
     },
     {
       "name": "Emerald Executioner",
       "personality": "Patient strategist who controls distance. Master of the poke.",
       "color": "#44FF44",
-      "baseHp": 980,
+      "baseHp": 1960,
       "radius": 41,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     },
     {
       "name": "Void Sphere",
       "personality": "Silent and calculated. Fights like a machine with perfect precision.",
       "color": "#1a1a1a",
-      "baseHp": 970,
+      "baseHp": 1940,
       "radius": 40,
-      "weaponId": "short_sword"
+      "weaponId": "short_sword",
+      "attractionMult": 850
     },
     {
       "name": "Neon Ricochet",
       "personality": "Chaotic fighter who thrives on unpredictability. Loves close calls.",
       "color": "#FF00FF",
-      "baseHp": 920,
+      "baseHp": 1840,
       "radius": 38,
-      "weaponId": "katana"
+      "weaponId": "katana",
+      "attractionMult": 1300
     },
     {
       "name": "Phantom Phase",
       "personality": "Defensive specialist. Outlasts opponents through superior positioning.",
       "color": "#9966FF",
-      "baseHp": 1050,
+      "baseHp": 2100,
       "radius": 43,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     },
     {
       "name": "Iron Bulwark",
       "personality": "Tank who absorbs punishment and grinds down opponents.",
       "color": "#808080",
-      "baseHp": 1100,
-      "radius": 44,
-      "weaponId": "mace"
+      "baseHp": 2200,
+      "radius": 46,
+      "weaponId": "mace",
+      "attractionMult": 700
     },
     {
       "name": "Golden Gladiator",
       "personality": "Showboat who fights for glory. Never takes the easy way.",
       "color": "#FFD700",
-      "baseHp": 1000,
+      "baseHp": 2000,
       "radius": 42,
-      "weaponId": "short_sword"
+      "weaponId": "short_sword",
+      "attractionMult": 1000
     },
     {
       "name": "Scarlet Tempest",
       "personality": "Aggressive speedster. All offense, no defense.",
       "color": "#DC143C",
-      "baseHp": 900,
-      "radius": 39,
-      "weaponId": "katana"
+      "baseHp": 1800,
+      "radius": 37,
+      "weaponId": "katana",
+      "attractionMult": 1150
     },
     {
       "name": "Obsidian Edge",
       "personality": "Cold and efficient. Every move calculated for maximum damage.",
       "color": "#2F2F2F",
-      "baseHp": 960,
+      "baseHp": 1920,
       "radius": 41,
-      "weaponId": "katana"
+      "weaponId": "katana",
+      "attractionMult": 1000
     },
     {
       "name": "Thunder Roller",
       "personality": "Explosive brawler. Goes for the knockout early and often.",
       "color": "#FFAA00",
-      "baseHp": 980,
+      "baseHp": 1960,
       "radius": 42,
-      "weaponId": "mace"
+      "weaponId": "mace",
+      "attractionMult": 1400
     },
     {
       "name": "Frost Lancet",
       "personality": "Patient and methodical. Wears down opponents from range.",
       "color": "#88CCFF",
-      "baseHp": 940,
+      "baseHp": 1880,
       "radius": 40,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     },
     {
       "name": "Ruby Ravager",
       "personality": "Fearless attacker. Believes the best defense is a relentless offense.",
       "color": "#E0115F",
-      "baseHp": 950,
+      "baseHp": 1900,
       "radius": 41,
-      "weaponId": "short_sword"
+      "weaponId": "short_sword",
+      "attractionMult": 1400
     },
     {
       "name": "Jade Juggernaut",
       "personality": "Unstoppable force. Slow to start but impossible to stop once rolling.",
       "color": "#00A86B",
-      "baseHp": 1080,
-      "radius": 43,
-      "weaponId": "mace"
+      "baseHp": 2160,
+      "radius": 45,
+      "weaponId": "mace",
+      "attractionMult": 700
     },
     {
       "name": "Silver Striker",
       "personality": "Balanced fighter. Adapts strategy mid-match based on opponent.",
       "color": "#C0C0C0",
-      "baseHp": 1000,
+      "baseHp": 2000,
       "radius": 42,
-      "weaponId": "short_sword"
+      "weaponId": "short_sword",
+      "attractionMult": 1000
     },
     {
       "name": "Violet Vortex",
       "personality": "Unpredictable and erratic. Keeps opponents guessing.",
       "color": "#8B00FF",
-      "baseHp": 930,
+      "baseHp": 1860,
       "radius": 39,
-      "weaponId": "katana"
+      "weaponId": "katana",
+      "attractionMult": 1300
     },
     {
       "name": "Copper Colossus",
       "personality": "Heavy hitter who relies on power over speed.",
       "color": "#B87333",
-      "baseHp": 1060,
-      "radius": 43,
-      "weaponId": "mace"
+      "baseHp": 2120,
+      "radius": 45,
+      "weaponId": "mace",
+      "attractionMult": 700
     },
     {
       "name": "Sapphire Spear",
       "personality": "Tactical genius. Every movement has a purpose.",
       "color": "#0F52BA",
-      "baseHp": 970,
+      "baseHp": 1940,
       "radius": 41,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     },
     {
       "name": "Amber Avenger",
       "personality": "Comeback specialist. Fights best when backed into a corner.",
       "color": "#FFBF00",
-      "baseHp": 990,
+      "baseHp": 1980,
       "radius": 41,
-      "weaponId": "short_sword"
+      "weaponId": "short_sword",
+      "attractionMult": 1000
     },
     {
       "name": "Midnight Reaper",
       "personality": "Ruthless finisher. Shows no mercy to weakened opponents.",
       "color": "#191970",
-      "baseHp": 960,
+      "baseHp": 1920,
       "radius": 40,
-      "weaponId": "katana"
+      "weaponId": "katana",
+      "attractionMult": 1000
     },
     {
       "name": "Titanium Tornado",
       "personality": "Overwhelming pressure fighter. Never gives opponents room to breathe.",
       "color": "#878681",
-      "baseHp": 1020,
+      "baseHp": 2040,
       "radius": 42,
-      "weaponId": "mace"
+      "weaponId": "mace",
+      "attractionMult": 1400
     },
     {
       "name": "Coral Combatant",
       "personality": "Defensive counter-puncher. Waits for openings.",
       "color": "#FF7F50",
-      "baseHp": 1010,
+      "baseHp": 2020,
       "radius": 42,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     },
     {
       "name": "Platinum Phantom",
       "personality": "Elusive speedster. Hard to pin down, harder to hit.",
       "color": "#E5E4E2",
-      "baseHp": 920,
-      "radius": 38,
-      "weaponId": "short_sword"
+      "baseHp": 1840,
+      "radius": 37,
+      "weaponId": "short_sword",
+      "attractionMult": 850
     },
     {
       "name": "Magma Marauder",
       "personality": "Hot-tempered brawler. Fights with pure emotion and rage.",
       "color": "#FF4500",
-      "baseHp": 1000,
+      "baseHp": 2000,
       "radius": 42,
-      "weaponId": "mace"
+      "weaponId": "mace",
+      "attractionMult": 1400
     },
     {
       "name": "Ivory Impaler",
       "personality": "Precision striker. One hit, one kill mentality.",
       "color": "#FFFFF0",
-      "baseHp": 940,
+      "baseHp": 1880,
       "radius": 40,
-      "weaponId": "spear"
+      "weaponId": "spear",
+      "attractionMult": 750
     }
   ]
 }

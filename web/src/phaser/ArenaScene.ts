@@ -2,50 +2,25 @@
 // Phaser 3 Scene — live arena match renderer.
 //
 // Rendering strategy:
-//   • All shapes drawn via Phaser.GameObjects.Graphics (reliable, no texture deps).
-//   • SVG files are loaded in preload(). If they arrive, they are stamped onto
-//     RenderTextures and used in place of the procedural fallback.
-//     Missing files are silently ignored — no crash, no code change needed.
-//
-// ─── SVG asset convention ─────────────────────────────────────────────────────
-//   web/public/orbs/orb.svg          — ball body (design in white/grey; tinted at runtime)
-//   web/public/weapons/blade.svg      — points RIGHT, pivot at LEFT edge
-//   web/public/weapons/spear.svg      — points RIGHT, pivot at LEFT edge
-//   web/public/weapons/mace.svg       — points RIGHT, pivot at LEFT edge
+//   • All shapes drawn via Phaser.GameObjects.Graphics (pure procedural, no texture deps).
+//   • drawBall()   — layered circles: glow ring + gradient body + specular highlight
+//   • drawWeapon() — procedural blade/spear/mace in fighter color
+//   • buildArenaBackground() — hex grid + border, drawn once to bgGfx on create()
 //
 // ─── Coordinate system ────────────────────────────────────────────────────────
-//   Sim units: 1000 per arena unit.  Arena: 400×700 arena units.
-//   Screen: scaleX = canvasW/400, scaleY = canvasH/700.
+//   Sim units: 1000 per arena unit.  Arena: 500×880 arena units.
+//   Screen: scaleX = canvasW/500, scaleY = canvasH/880.
 
 import Phaser from "phaser";
 import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ARENA_W    = 400;
-const ARENA_H    = 700;
+const ARENA_W    = 500;
+const ARENA_H    = 880;
 const SIM_SCALE  = 1000;
 const GRID_STEP  = 40;
 const REPLAY_FPS = 30;
-
-// SVG asset registry — keys used for Phaser texture cache
-const SVG_ORB   = "svg_orb";
-const SVG_BLADE = "svg_blade";
-const SVG_SPEAR = "svg_spear";
-const SVG_MACE  = "svg_mace";
-
-const SVG_ASSETS = [
-  { key: SVG_ORB,   url: "orbs/orb.svg",      svgW: 100, svgH: 100 },
-  { key: SVG_BLADE, url: "weapons/blade.svg",  svgW: 100, svgH: 20  },
-  { key: SVG_SPEAR, url: "weapons/spear.svg",  svgW: 120, svgH: 14  },
-  { key: SVG_MACE,  url: "weapons/mace.svg",   svgW: 90,  svgH: 50  },
-] as const;
-
-function weaponSvgKey(type: WeaponDef["type"] | undefined): string {
-  if (type === "blunt") return SVG_MACE;
-  if (type === "point") return SVG_SPEAR;
-  return SVG_BLADE;
-}
 
 // ─── Public config type ───────────────────────────────────────────────────────
 
@@ -71,8 +46,8 @@ export class ArenaScene extends Phaser.Scene {
   private scaleX = 1;
   private scaleY = 1;
 
-  // Which SVG textures actually loaded successfully
-  private loadedSvgs = new Set<string>();
+  // Static background (drawn once to bgGfx, never cleared)
+  private bgBuilt = false;
 
   // Graphics layers (always present, never crash)
   private bgGfx!:    Phaser.GameObjects.Graphics;
@@ -82,6 +57,7 @@ export class ArenaScene extends Phaser.Scene {
   private ballBGfx!: Phaser.GameObjects.Graphics;
   private flashGfx!: Phaser.GameObjects.Graphics;
   private hpBarGfx!: Phaser.GameObjects.Graphics;
+  private badgeGfx!: Phaser.GameObjects.Graphics;
 
   // Text
   private txtA!:       Phaser.GameObjects.Text;
@@ -89,13 +65,6 @@ export class ArenaScene extends Phaser.Scene {
   private txtEvent!:   Phaser.GameObjects.Text;
   private txtTick!:    Phaser.GameObjects.Text;
   private txtWaiting!: Phaser.GameObjects.Text;
-
-  // SVG sprite containers — created lazily once textures load
-  private wpnASprite!:  Phaser.GameObjects.Image;
-  private wpnBSprite!:  Phaser.GameObjects.Image;
-  private ballASprite!: Phaser.GameObjects.Image;
-  private ballBSprite!: Phaser.GameObjects.Image;
-  private spritesCreated = false;
 
   // Frame state
   private currentFrame: TickFrame | null = null;
@@ -115,13 +84,9 @@ export class ArenaScene extends Phaser.Scene {
     this.cfg = cfg;
     this.updateScales();
     if (this.bgGfx && (cfg.canvasW !== prevW || cfg.canvasH !== prevH)) {
-      this.drawBackground();
+      this.bgBuilt = false;
+      this.buildArenaBackground();
     }
-    // Sync tints on sprites if they exist
-    if (this.ballASprite) this.ballASprite.setTint(cfg.ballAColor);
-    if (this.ballBSprite) this.ballBSprite.setTint(cfg.ballBColor);
-    if (this.wpnASprite)  this.wpnASprite.setTint(cfg.ballAColor);
-    if (this.wpnBSprite)  this.wpnBSprite.setTint(cfg.ballBColor);
   }
 
   updateFrame(frame: TickFrame): void {
@@ -131,16 +96,6 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
-
-  preload(): void {
-    this.load.on("filecomplete", (key: string) => {
-      this.loadedSvgs.add(key);
-    });
-    // loaderror fires for 404s — we just don't add to loadedSvgs, fallback stays
-    for (const { key, url, svgW, svgH } of SVG_ASSETS) {
-      this.load.svg(key, url, { width: svgW, height: svgH });
-    }
-  }
 
   create(): void {
     const { canvasW, canvasH } = this.cfg;
@@ -154,8 +109,9 @@ export class ArenaScene extends Phaser.Scene {
     this.ballBGfx = this.add.graphics();
     this.flashGfx = this.add.graphics();
     this.hpBarGfx = this.add.graphics();
+    this.badgeGfx = this.add.graphics();
 
-    this.drawBackground();
+    this.buildArenaBackground();
 
     // ── Text ──────────────────────────────────────────────────────────────
     const mono = { fontFamily: "monospace", fontSize: "10px", color: "#cccccc" };
@@ -174,17 +130,10 @@ export class ArenaScene extends Phaser.Scene {
     this.txtWaiting = this.add.text(canvasW / 2, canvasH / 2, "WAITING FOR MATCH...", {
       fontFamily: "monospace", fontSize: "16px", color: "#444466", fontStyle: "bold",
     }).setOrigin(0.5, 0.5);
-
-    // SVG sprites created lazily in update() once loadedSvgs is populated
   }
 
   update(_time: number, delta: number): void {
     if (!this.cfg) return;
-
-    // Lazily create SVG sprites on first update after textures load
-    if (!this.spritesCreated && this.loadedSvgs.size > 0) {
-      this.createSvgSprites();
-    }
 
     if (!this.currentFrame) {
       this.txtWaiting.setVisible(true);
@@ -214,52 +163,32 @@ export class ArenaScene extends Phaser.Scene {
     const ballRB = Math.max(8, cfg.ballBRadius * this.scaleX);
 
     // ── Weapons ────────────────────────────────────────────────────────────
-    const hasSvgWpnA = this.spritesCreated && this.loadedSvgs.has(weaponSvgKey(cfg.weaponA?.type));
-    const hasSvgWpnB = this.spritesCreated && this.loadedSvgs.has(weaponSvgKey(cfg.weaponB?.type));
-
-    this.wpnAGfx.setVisible(!hasSvgWpnA);
-    this.wpnBGfx.setVisible(!hasSvgWpnB);
-
-    if (hasSvgWpnA) {
-      this.positionWeaponSprite(this.wpnASprite, ax, ay, radA, ballRA, cfg.weaponA, cfg.ballAColor);
-    } else {
-      this.wpnAGfx.clear();
-      this.drawWeapon(this.wpnAGfx, ax, ay, angleA, cfg.ballAColor, ballRA, cfg.weaponA);
-    }
-
-    if (hasSvgWpnB) {
-      this.positionWeaponSprite(this.wpnBSprite, bx, by, radB, ballRB, cfg.weaponB, cfg.ballBColor);
-    } else {
-      this.wpnBGfx.clear();
-      this.drawWeapon(this.wpnBGfx, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
-    }
+    this.wpnAGfx.clear();
+    this.drawWeapon(this.wpnAGfx, ax, ay, angleA, cfg.ballAColor, ballRA, cfg.weaponA);
+    this.wpnBGfx.clear();
+    this.drawWeapon(this.wpnBGfx, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
 
     // ── Balls ──────────────────────────────────────────────────────────────
-    const hasSvgOrb = this.spritesCreated && this.loadedSvgs.has(SVG_ORB);
-
-    this.ballAGfx.setVisible(!hasSvgOrb);
-    this.ballBGfx.setVisible(!hasSvgOrb);
-
-    if (hasSvgOrb) {
-      this.positionBallSprite(this.ballASprite, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp);
-      this.positionBallSprite(this.ballBSprite, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp);
-    } else {
-      this.ballAGfx.clear();
-      this.ballBGfx.clear();
-      this.drawBall(this.ballAGfx, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp);
-      this.drawBall(this.ballBGfx, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp);
-    }
+    this.ballAGfx.clear();
+    this.ballBGfx.clear();
+    this.drawBall(this.ballAGfx, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp, cfg.weaponA?.type);
+    this.drawBall(this.ballBGfx, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp, cfg.weaponB?.type);
 
     // ── HP bars ────────────────────────────────────────────────────────────
     this.hpBarGfx.clear();
     this.drawHpBar(this.hpBarGfx, ax, ay - ballRA - 10, ballRA * 2.5, 4, frame.a.hp / cfg.ballAHp);
     this.drawHpBar(this.hpBarGfx, bx, by - ballRB - 10, ballRB * 2.5, 4, frame.b.hp / cfg.ballBHp);
 
-    // ── Name labels ────────────────────────────────────────────────────────
+    // ── Name labels + badges ───────────────────────────────────────────────
     const truncA = cfg.ballAName.length > 10 ? cfg.ballAName.slice(0, 10) + "…" : cfg.ballAName;
     const truncB = cfg.ballBName.length > 10 ? cfg.ballBName.slice(0, 10) + "…" : cfg.ballBName;
-    this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14);
-    this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14);
+    this.badgeGfx.clear();
+    this.drawNameBadge(this.badgeGfx, ax, ay - ballRA - 14, truncA, cfg.ballAColor);
+    this.drawNameBadge(this.badgeGfx, bx, by - ballRB - 14, truncB, cfg.ballBColor);
+    this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14)
+      .setColor("#" + cfg.ballAColor.toString(16).padStart(6, "0"));
+    this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14)
+      .setColor("#" + cfg.ballBColor.toString(16).padStart(6, "0"));
 
     // ── Flash rings ────────────────────────────────────────────────────────
     this.flashGfx.clear();
@@ -295,97 +224,51 @@ export class ArenaScene extends Phaser.Scene {
     this.txtTick.setText(`t:${frame.tick}`);
   }
 
-  // ─── SVG sprite management ────────────────────────────────────────────────
-
-  /** Called once on first update() after any SVG textures have loaded. */
-  private createSvgSprites(): void {
-    if (this.spritesCreated) return;
-    this.spritesCreated = true;
-
-    // Ball sprites — centered origin, tinted to fighter color
-    this.ballASprite = this.add.image(0, 0, SVG_ORB)
-      .setOrigin(0.5, 0.5).setVisible(false).setTint(this.cfg.ballAColor);
-    this.ballBSprite = this.add.image(0, 0, SVG_ORB)
-      .setOrigin(0.5, 0.5).setVisible(false).setTint(this.cfg.ballBColor);
-
-    // Weapon sprites — left-edge origin (pivot at ball attachment point)
-    const wpnKeyA = weaponSvgKey(this.cfg.weaponA?.type);
-    const wpnKeyB = weaponSvgKey(this.cfg.weaponB?.type);
-    this.wpnASprite = this.add.image(0, 0, wpnKeyA)
-      .setOrigin(0, 0.5).setVisible(false).setTint(this.cfg.ballAColor);
-    this.wpnBSprite = this.add.image(0, 0, wpnKeyB)
-      .setOrigin(0, 0.5).setVisible(false).setTint(this.cfg.ballBColor);
-
-    // Ensure sprites render above the Graphics layers by re-adding them
-    // (they're already at the top of the display list from add.image)
-  }
-
-  private positionBallSprite(
-    sprite: Phaser.GameObjects.Image,
-    cx: number, cy: number,
-    r: number,
-    color: number,
-    hpFrac: number,
-  ): void {
-    if (!this.loadedSvgs.has(SVG_ORB)) { sprite.setVisible(false); return; }
-    const diameter = r * 2;
-    sprite.setPosition(cx, cy).setDisplaySize(diameter, diameter).setTint(color).setVisible(true);
-    // Glow ring on top via ballGfx when HP is high
-    const g = sprite === this.ballASprite ? this.ballAGfx : this.ballBGfx;
-    g.clear();
-    if (hpFrac > 0.5) {
-      g.setVisible(true);
-      g.fillStyle(color, 0.15 * hpFrac);
-      g.fillCircle(cx, cy, r + 8);
-    } else {
-      g.setVisible(false);
-    }
-  }
-
-  private positionWeaponSprite(
-    sprite: Phaser.GameObjects.Image,
-    cx: number, cy: number,
-    radians: number,
-    ballRpx: number,
-    wDef: WeaponDef | null | undefined,
-    color: number,
-  ): void {
-    const key = weaponSvgKey(wDef?.type);
-    if (!this.loadedSvgs.has(key)) { sprite.setVisible(false); return; }
-
-    // Swap texture if weapon type changed
-    if (sprite.texture.key !== key) sprite.setTexture(key);
-
-    const reachPx  = wDef ? this.au(wDef.reach) : ballRpx + 28;
-    const shaftLen = Math.max(4, reachPx - ballRpx);
-    const pivotX   = cx + Math.cos(radians) * ballRpx;
-    const pivotY   = cy + Math.sin(radians) * ballRpx;
-    const scaleW   = shaftLen / (sprite.width || 100);
-
-    sprite
-      .setPosition(pivotX, pivotY)
-      .setRotation(radians)
-      .setScale(scaleW, scaleW)
-      .setTint(color)
-      .setVisible(true);
-  }
-
-  // ─── Procedural drawing (always-available fallback) ───────────────────────
+  // ─── Procedural drawing ───────────────────────────────────────────────────
 
   private drawBall(
     g: Phaser.GameObjects.Graphics,
     cx: number, cy: number,
     r: number, color: number, hpFrac: number,
+    weaponType?: string,
   ): void {
     const frac = Math.max(0, hpFrac);
-    if (frac > 0.5) {
-      g.fillStyle(color, 0.15 * frac);
-      g.fillCircle(cx, cy, r + 8);
+
+    // 1. Archetype glow ring (weapon-type based)
+    if (weaponType === "blunt") {
+      g.fillStyle(0xff8800, 0.09 * Math.max(frac, 0.2));
+      g.fillCircle(cx, cy, r + 10);
+      g.lineStyle(3, 0xff8800, 0.5);
+      g.strokeCircle(cx, cy, r + 2);
+    } else if (weaponType === "point") {
+      g.fillStyle(0x44aaff, 0.07 * Math.max(frac, 0.2));
+      g.fillCircle(cx, cy, r + 9);
+      g.lineStyle(1.5, 0x44aaff, 0.45);
+      g.strokeCircle(cx, cy, r + 1);
+    } else {
+      // blade — thin bright ring
+      g.lineStyle(1.5, 0xffffff, 0.3);
+      g.strokeCircle(cx, cy, r + 2);
     }
+
+    // 2. Ball body — layered circles for gradient feel
+    const bright = shiftColor(color, 70);
+    g.fillStyle(bright, 0.9);
+    g.fillCircle(cx - r * 0.18, cy - r * 0.22, r * 0.75);
     g.fillStyle(color, 1);
     g.fillCircle(cx, cy, r);
-    g.fillStyle(0x000000, 0.4);
-    g.fillCircle(cx, cy, r * 0.5);
+    g.fillStyle(0x000000, 0.32);
+    g.fillCircle(cx + r * 0.14, cy + r * 0.18, r * 0.52);
+
+    // 3. Specular highlight
+    g.fillStyle(0xffffff, 0.32);
+    g.fillCircle(cx - r * 0.28, cy - r * 0.3, r * 0.18);
+
+    // 4. Damage state ring (hpFrac < 0.35)
+    if (frac < 0.35) {
+      g.lineStyle(2, 0xff2222, 0.55 * (1 - frac));
+      g.strokeCircle(cx, cy, r + 1);
+    }
   }
 
   private drawWeapon(
@@ -461,33 +344,95 @@ export class ArenaScene extends Phaser.Scene {
   ): void {
     frac = Math.max(0, Math.min(1, frac));
     const barX = cx - barW / 2;
-    g.fillStyle(0x222222, 1);
-    g.fillRect(barX, barY, barW, barH);
+    const rad = 2;
+    // Background pill
+    g.fillStyle(0x111111, 0.85);
+    g.fillRoundedRect(barX, barY, barW, barH, rad);
+    // Filled portion
     const col = frac > 0.5 ? 0x4caf50 : frac > 0.25 ? 0xff9800 : 0xf44336;
-    g.fillStyle(col, 1);
-    g.fillRect(barX, barY, barW * frac, barH);
+    if (frac > 0) {
+      g.fillStyle(col, 1);
+      g.fillRoundedRect(barX, barY, barW * frac, barH, rad);
+      // Shine strip at top of fill
+      g.fillStyle(0xffffff, 0.18);
+      g.fillRoundedRect(barX, barY, barW * frac, barH * 0.4, rad);
+    }
   }
 
-  private drawBackground(): void {
-    if (!this.bgGfx || !this.cfg) return;
-    const { canvasW, canvasH } = this.cfg;
+  private buildArenaBackground(): void {
+    if (!this.cfg || this.bgBuilt) return;
+    this.bgBuilt = true;
     const g = this.bgGfx;
+    const { canvasW, canvasH } = this.cfg;
+
     g.clear();
-    g.fillStyle(0x0a0a0f, 1);
-    g.fillRect(0, 0, canvasW, canvasH);
-    g.lineStyle(1, 0x111122, 1);
-    for (let x = 0; x < canvasW; x += GRID_STEP) g.lineBetween(x, 0, x, canvasH);
-    for (let y = 0; y < canvasH; y += GRID_STEP) g.lineBetween(0, y, canvasW, y);
-    g.lineStyle(2, 0x333355, 1);
+
+    // 1. Background — dark navy top, dark purple bottom
+    g.fillStyle(0x050510, 1);
+    g.fillRect(0, 0, canvasW, Math.ceil(canvasH * 0.5));
+    g.fillStyle(0x0a0518, 1);
+    g.fillRect(0, Math.floor(canvasH * 0.5), canvasW, Math.ceil(canvasH * 0.5) + 1);
+
+    // 2. Hexagonal grid
+    g.lineStyle(1, 0x111133, 0.65);
+    const size = 28;
+    const colW  = size * Math.sqrt(3);
+    const rowH  = size * 1.5;
+    for (let row = -1; row * rowH < canvasH + rowH; row++) {
+      for (let col = -1; col * colW < canvasW + colW; col++) {
+        const hx = col * colW + (row % 2 !== 0 ? colW / 2 : 0);
+        const hy = row * rowH;
+        const pts = Array.from({ length: 6 }, (_, i) => {
+          const a = (Math.PI / 3) * i - Math.PI / 6;
+          return { x: hx + size * Math.cos(a), y: hy + size * Math.sin(a) };
+        });
+        g.strokePoints(pts, true);
+      }
+    }
+
+    // 3. Center spotlight glow
+    g.fillStyle(0x2040ff, 0.035);
+    g.fillCircle(canvasW / 2, canvasH / 2, canvasH * 0.42);
+
+    // 4. Double border
+    g.lineStyle(2, 0x2233aa, 0.85);
     g.strokeRect(1, 1, canvasW - 2, canvasH - 2);
+    g.lineStyle(1, 0x5566cc, 0.28);
+    g.strokeRect(5, 5, canvasW - 10, canvasH - 10);
+
+    // 5. Corner L-brackets
+    g.lineStyle(2, 0x4455cc, 1);
+    const L = 18;
+    [[0, 0], [canvasW, 0], [0, canvasH], [canvasW, canvasH]].forEach(([cx, cy]) => {
+      const sx = cx === 0 ? 1 : -1;
+      const sy = cy === 0 ? 1 : -1;
+      g.lineBetween(cx, cy, cx + sx * L, cy);
+      g.lineBetween(cx, cy, cx, cy + sy * L);
+    });
+  }
+
+  private drawNameBadge(
+    g: Phaser.GameObjects.Graphics,
+    cx: number, topY: number,
+    _label: string,
+    color: number,
+  ): void {
+    // Approximate text width at 10px monospace (~6px per char)
+    const charW = 6;
+    const maxChars = 10;
+    const len = Math.min(_label.length, maxChars);
+    const padX = 5, padY = 2;
+    const w = len * charW + padX * 2;
+    const h = 12 + padY * 2;
+    g.fillStyle(color, 0.28);
+    g.fillRoundedRect(cx - w / 2, topY - h, w, h, 4);
   }
 
   private clearDynamic(): void {
     this.wpnAGfx?.clear();     this.wpnBGfx?.clear();
     this.ballAGfx?.clear();    this.ballBGfx?.clear();
     this.flashGfx?.clear();    this.hpBarGfx?.clear();
-    this.wpnASprite?.setVisible(false);  this.wpnBSprite?.setVisible(false);
-    this.ballASprite?.setVisible(false); this.ballBSprite?.setVisible(false);
+    this.badgeGfx?.clear();
     this.txtA?.setText("");    this.txtB?.setText("");
     this.txtEvent?.setVisible(false);
     this.txtTick?.setText("");
@@ -541,6 +486,14 @@ export class ArenaScene extends Phaser.Scene {
 function toScreenX(simX: number, scaleX: number): number { return (simX / SIM_SCALE) * scaleX; }
 function toScreenY(simY: number, scaleY: number): number { return (simY / SIM_SCALE) * scaleY; }
 function lerp(a: number, b: number, t: number): number   { return a + (b - a) * t; }
+
+/** Shift each RGB channel of a packed hex color by `delta` (0–255). */
+function shiftColor(hex: number, delta: number): number {
+  const r = Math.min(255, Math.max(0, ((hex >> 16) & 0xff) + delta));
+  const g = Math.min(255, Math.max(0, ((hex >>  8) & 0xff) + delta));
+  const b = Math.min(255, Math.max(0, ( hex        & 0xff) + delta));
+  return (r << 16) | (g << 8) | b;
+}
 
 function lerpAngle(a: number, b: number, t: number): number {
   let d = b - a;

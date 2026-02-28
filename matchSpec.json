@@ -1,8 +1,8 @@
 {
   "seed": 1651699,
   "weaponSetVersion": "v0.2.0",
-  "sim": { "scale": 1000, "maxTicks": 18000 },
-  "arena": { "w": 400, "h": 700, "wallRestitution": 850 },
+  "sim": { "scale": 1000, "maxTicks": 54000 },
+  "arena": { "w": 500, "h": 880, "wallRestitution": 950 },
 
   "weapons": {
     "short_sword": {
@@ -13,8 +13,8 @@
       "bladeWidth": 8,
       "shaftRadius": 5,
       "omega": 1800,
-      "baseDamage": 12,
-      "ramp": 3,
+      "baseDamage": 9,
+      "ramp": 2,
       "speedMult": 1000,
       "weight": 800
     },
@@ -27,8 +27,8 @@
       "bladeWidth": 10,
       "shaftRadius": 6,
       "omega": 1600,
-      "baseDamage": 11,
-      "ramp": 3,
+      "baseDamage": 8,
+      "ramp": 2,
       "speedMult": 1050,
       "weight": 850
     },
@@ -39,8 +39,8 @@
       "tipRadius": 8,
       "shaftRadius": 5,
       "omega": 1200,
-      "baseDamage": 18,
-      "ramp": 4,
+      "baseDamage": 13,
+      "ramp": 3,
       "speedMult": 950,
       "weight": 900
     },
@@ -51,8 +51,8 @@
       "tipRadius": 35,
       "shaftRadius": 8,
       "omega": 1400,
-      "baseDamage": 14,
-      "ramp": 2,
+      "baseDamage": 10,
+      "ramp": 1,
       "speedMult": 900,
       "weight": 1400
     }
@@ -60,17 +60,17 @@
 
   "ballA": {
     "id": "A",
-    "hp": 1000,
+    "hp": 2000,
     "radius": 42,
-    "pos": { "x": 120, "y": 200 },
+    "pos": { "x": 150, "y": 220 },
     "vel": { "x": 25, "y": 35 },
     "weaponId": "mace"
   },
   "ballB": {
     "id": "B",
-    "hp": 1000,
+    "hp": 2000,
     "radius": 42,
-    "pos": { "x": 280, "y": 200 },
+    "pos": { "x": 350, "y": 220 },
     "vel": { "x": -20, "y": 30 },
     "weaponId": "short_sword"
   }

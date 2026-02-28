@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "arena-api",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npm", "run", "serve"],
+      "port": 3001
+    },
+    {
+      "name": "web-ui",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npm", "--prefix", "web", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "viewer",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npm", "--prefix", "viewer", "run", "dev", "--", "--port", "5174"],
+      "port": 5174
+    }
+  ]
+}

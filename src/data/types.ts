@@ -10,6 +10,7 @@ export interface BallEntity {
   radius: number;                // Ball size (typically 42)
   weaponId: string;              // References weapon in weapons catalog
   restitution?: number;          // Bounce coefficient (1000ths scale)
+  attractionMult?: number;       // Chase aggression (1000ths): 1400=hunts, 1000=neutral, 700=defensive
 
   // Career statistics (updated after each match)
   wins: number;
