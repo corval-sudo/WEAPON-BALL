@@ -44,7 +44,15 @@
       "Bash(npx ts-node -e \":*)",
       "Bash(npx ts-node --skip-project -e \":*)",
       "Bash(curl -s http://localhost:3001/api/leaderboard)",
-      "Bash(ls -la \"C:\\\\Users\\\\borja\\\\.claude-worktrees\\\\arena-sim\\\\elastic-joliot\\\\src\"\" 2>/dev/null | grep -E \"^d \")"
+      "Bash(ls -la \"C:\\\\Users\\\\borja\\\\.claude-worktrees\\\\arena-sim\\\\elastic-joliot\\\\src\"\" 2>/dev/null | grep -E \"^d \")",
+      "Bash(MANUAL_MATCH=1 timeout 6 npx ts-node src/scripts/schedule.ts)",
+      "Bash(MANUAL_MATCH=1 timeout 5 npx ts-node src/main.ts)",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/admin/run-match)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(netstat -ano)",
+      "Bash(xargs -r sh -c 'kill $0 2>/dev/null; echo killed $0')",
+      "Bash(kill -9 53796)"
     ]
   }
 }
