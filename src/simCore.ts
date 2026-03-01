@@ -24,7 +24,8 @@ export type BallSpec = {
   pos: Vec;
   vel: Vec;
   weaponId: string;
-  restitution?: number; // 1000ths
+  restitution?: number;    // 1000ths
+  attractionMult?: number; // 1000ths; 1000 = neutral, 1400 = aggressive, 700 = defensive
 };
 
 export type MatchSpec = {
@@ -59,9 +60,10 @@ export type BallState = {
   ramp: number;
   hitCount: number; // never resets
   alive: boolean;
-  speedMult: number; // 1000ths
+  speedMult: number;    // 1000ths
   damageDealt: number;
-  restitution: number; // 1000ths
+  restitution: number;  // 1000ths
+  attractionMult: number; // 1000ths
   weaponWeight: number; // 1000ths
   weaponType: WeaponType;
   bladeStart: number;  // scaled
@@ -105,7 +107,7 @@ const SIN = new Int32Array(ANGLE_FULL);
 //other constants for some reason
 // --- Collision tuning (all deterministic) ---
 const TIP_BOUNCE_BOOST = 1.12;       // tip-tip bounce multiplies impulse a bit
-const TIP_HIT_KNOCKBACK = 600;       // pixels-per-tick-ish in *scaled* units (we'll scale it)
+const TIP_HIT_KNOCKBACK = 950;       // pixels-per-tick-ish in *scaled* units (we'll scale it)
 const BALL_COLLIDE_DAMP = 0.94;      // ball-ball collision loses a bit of speed
 const TIP_COLLIDE_COOLDOWN_TICKS = 2; // prevents repeated tip-tip collisions every tick
 
@@ -640,6 +642,7 @@ function initBall(spec: MatchSpec, SCALE: number, b: BallSpec, jitter: number): 
     speedMult: weapon.speedMult,
     damageDealt: 0,
     restitution: b.restitution ?? 1000,
+    attractionMult: b.attractionMult ?? 1000,
     weaponWeight: weapon.weight ?? 1000,
     weaponType: wtype,
     bladeStart: Math.round(bladeStartRaw * SCALE),
@@ -706,17 +709,17 @@ export function stepSim(state: SimState) {
   B.pos.y += Math.round((B.vel.y * B.speedMult) / 1000);
 
   // downward gravity (positive Y = down in screen space)
-  const GRAVITY = Math.round(0.15 * state.SCALE);
+  const GRAVITY = Math.round(0.08 * state.SCALE);
   A.vel.y += GRAVITY;
   B.vel.y += GRAVITY;
 
   // mutual attraction so balls collide more often
   const adx = B.pos.x - A.pos.x;
   const ady = B.pos.y - A.pos.y;
-  A.vel.x += Math.round(adx * 0.0008);
-  A.vel.y += Math.round(ady * 0.0008);
-  B.vel.x -= Math.round(adx * 0.0008);
-  B.vel.y -= Math.round(ady * 0.0008);
+  A.vel.x += Math.round(adx * 0.0004 * A.attractionMult / 1000);
+  A.vel.y += Math.round(ady * 0.0004 * A.attractionMult / 1000);
+  B.vel.x -= Math.round(adx * 0.0004 * B.attractionMult / 1000);
+  B.vel.y -= Math.round(ady * 0.0004 * B.attractionMult / 1000);
 
   // 3) wall bounce
   applyWallBounce(state, A);

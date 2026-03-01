@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Base body — white so setTint() renders the fighter color -->
+  <circle cx="50" cy="50" r="48" fill="#ffffff"/>
+  <!-- Inner shadow bottom-right -->
+  <circle cx="56" cy="57" r="32" fill="#cccccc" opacity="0.5"/>
+  <!-- Specular highlight top-left -->
+  <circle cx="36" cy="34" r="14" fill="#ffffff" opacity="0.7"/>
+  <!-- Tiny bright specular dot -->
+  <circle cx="33" cy="31" r="5" fill="#ffffff" opacity="0.9"/>
+</svg>

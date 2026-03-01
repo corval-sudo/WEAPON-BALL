@@ -14,10 +14,12 @@ export const CONFIG_KEYS = [
   "personality",
   "model_commentary",
   "model_balance",
+  "model_planner",
   "commentary_tokens_announcement",
   "commentary_tokens_postmatch",
   "match_interval_ms",
   "balance_check_every",
+  "planner_every",
   "arena_name",
   "telegram_bot_token",
   "telegram_channel_id",
@@ -89,6 +91,10 @@ export class ConfigStore {
     return this.get("model_balance") ?? "claude-opus-4-6";
   }
 
+  getModelPlanner(): string {
+    return this.get("model_planner") ?? "claude-sonnet-4-6";
+  }
+
   getCommentaryTokensAnnouncement(): number {
     return parseInt(this.get("commentary_tokens_announcement") ?? "256", 10);
   }
@@ -103,6 +109,10 @@ export class ConfigStore {
 
   getBalanceCheckEvery(): number {
     return parseInt(this.get("balance_check_every") ?? "10", 10);
+  }
+
+  getPlannerEvery(): number {
+    return parseInt(this.get("planner_every") ?? "5", 10);
   }
 
   getArenaName(): string {

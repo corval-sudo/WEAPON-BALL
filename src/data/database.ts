@@ -50,6 +50,13 @@ export class ArenaDatabase {
       );
       this.db.exec(migration);
     }
+
+    // Idempotent column additions for schema evolution
+    try {
+      this.db.exec("ALTER TABLE balls ADD COLUMN attraction_mult INTEGER DEFAULT 1000");
+    } catch {
+      // Column already exists — ignore
+    }
   }
 
   /** Expose the raw database handle for use by ConfigStore. */
@@ -61,15 +68,16 @@ export class ArenaDatabase {
   insertBall(ball: BallEntity): void {
     const stmt = this.db.prepare(`
       INSERT INTO balls (
-        id, name, personality, color, base_hp, radius, weapon_id, restitution,
+        id, name, personality, color, base_hp, radius, weapon_id, restitution, attraction_mult,
         wins, losses, total_damage_dealt, total_damage_taken,
         longest_win_streak, current_streak, retired, created_at, retired_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       ball.id, ball.name, ball.personality, ball.color,
       ball.baseHp, ball.radius, ball.weaponId, ball.restitution ?? null,
+      ball.attractionMult ?? 1000,
       ball.wins, ball.losses, ball.totalDamageDealt, ball.totalDamageTaken,
       ball.longestWinStreak, ball.currentStreak,
       ball.retired ? 1 : 0,
@@ -351,6 +359,7 @@ export class ArenaDatabase {
       radius: row.radius,
       weaponId: row.weapon_id,
       restitution: row.restitution,
+      attractionMult: row.attraction_mult ?? 1000,
       wins: row.wins,
       losses: row.losses,
       totalDamageDealt: row.total_damage_dealt,

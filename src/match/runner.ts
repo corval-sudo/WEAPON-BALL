@@ -159,20 +159,22 @@ export class MatchRunner {
       id: "A",
       hp: ballA.baseHp,
       radius: ballA.radius,
-      pos: { x: 120, y: 200 },
+      pos: { x: 150, y: 220 },
       vel: { x: 25, y: 35 },
       weaponId: weaponIdA,
       ...(ballA.restitution !== undefined && { restitution: ballA.restitution }),
+      ...(ballA.attractionMult !== undefined && { attractionMult: ballA.attractionMult }),
     };
 
     const ballBSpec: BallSpec = {
       id: "B",
       hp: ballB.baseHp,
       radius: ballB.radius,
-      pos: { x: 280, y: 200 },
+      pos: { x: 350, y: 220 },
       vel: { x: -20, y: 30 },
       weaponId: weaponIdB,
       ...(ballB.restitution !== undefined && { restitution: ballB.restitution }),
+      ...(ballB.attractionMult !== undefined && { attractionMult: ballB.attractionMult }),
     };
 
     const matchSpec: MatchSpec = {

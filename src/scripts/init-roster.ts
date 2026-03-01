@@ -27,6 +27,7 @@ function initializeRoster() {
       radius: template.radius,
       weaponId: template.weaponId,
       restitution: template.restitution ?? 1000,
+      attractionMult: template.attractionMult ?? 1000,
       wins: 0,
       losses: 0,
       totalDamageDealt: 0,

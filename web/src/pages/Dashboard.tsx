@@ -154,7 +154,7 @@ export default function Dashboard() {
               weaponA={arena.weaponA}
               weaponB={arena.weaponB}
               width={380}
-              height={665}
+              height={620}
             />
           </div>
 

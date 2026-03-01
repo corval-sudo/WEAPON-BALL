@@ -56,7 +56,7 @@ export function PhaserArena({
   weaponA,
   weaponB,
   width = 380,
-  height = 665,
+  height = 620,
 }: PhaserArenaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef      = useRef<Phaser.Game | null>(null);

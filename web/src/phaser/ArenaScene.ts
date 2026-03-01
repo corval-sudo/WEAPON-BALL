@@ -1,35 +1,37 @@
 // web/src/phaser/ArenaScene.ts
-// Phaser 3 Scene that renders the live arena match.
-// Receives TickFrame + WeaponDef updates via updateFrame() / updateConfig() calls
-// from the PhaserArena React wrapper.
+// Phaser 3 Scene — live arena match renderer.
 //
-// Coordinate system:
-//   Sim positions are in "sim units" (scale 1000 per arena unit).
-//   Arena is 400×700 arena units.
-//   We map sim units → screen pixels via scaleX = canvasW/400/1000, scaleY = canvasH/700/1000.
+// Rendering strategy:
+//   • All shapes drawn via Phaser.GameObjects.Graphics (pure procedural, no texture deps).
+//   • drawBall()   — layered circles: glow ring + gradient body + specular highlight
+//   • drawWeapon() — procedural blade/spear/mace in fighter color
+//   • buildArenaBackground() — hex grid + border, drawn once to bgGfx on create()
+//
+// ─── Coordinate system ────────────────────────────────────────────────────────
+//   Sim units: 1000 per arena unit.  Arena: 500×880 arena units.
+//   Screen: scaleX = canvasW/500, scaleY = canvasH/880.
 
 import Phaser from "phaser";
 import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const ARENA_W = 400; // arena units
-const ARENA_H = 700;
-const SIM_SCALE = 1000; // sim units per arena unit
+const ARENA_W    = 500;
+const ARENA_H    = 880;
+const SIM_SCALE  = 1000;
+const GRID_STEP  = 40;
+const REPLAY_FPS = 30;
 
-const GRID_STEP = 40; // px between grid lines (in arena units)
-const REPLAY_FPS = 30; // expected frame rate from broadcaster
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Public config type ───────────────────────────────────────────────────────
 
 export interface ArenaSceneConfig {
   ballAName: string;
   ballBName: string;
-  ballAColor: number;  // Phaser hex (0x4fc3f7)
+  ballAColor: number;   // 0xRRGGBB
   ballBColor: number;
   ballAHp: number;
   ballBHp: number;
-  ballARadius: number; // arena units (typically 42)
+  ballARadius: number;  // arena units (typically 42)
   ballBRadius: number;
   weaponA: WeaponDef | null;
   weaponB: WeaponDef | null;
@@ -37,73 +39,69 @@ export interface ArenaSceneConfig {
   canvasH: number;
 }
 
-// ─── Scene ───────────────────────────────────────────────────────────────────
+// ─── Scene ────────────────────────────────────────────────────────────────────
 
 export class ArenaScene extends Phaser.Scene {
-  // Config (updated from React)
   private cfg!: ArenaSceneConfig;
-
-  // Scale helpers
   private scaleX = 1;
   private scaleY = 1;
 
-  // Background & grid (static, only redrawn on resize)
-  private bgGfx!: Phaser.GameObjects.Graphics;
+  // Static background (drawn once to bgGfx, never cleared)
+  private bgBuilt = false;
 
-  // Weapons (redrawn every frame)
-  private wpnAGfx!: Phaser.GameObjects.Graphics;
-  private wpnBGfx!: Phaser.GameObjects.Graphics;
-
-  // Ball bodies
+  // Graphics layers (always present, never crash)
+  private bgGfx!:    Phaser.GameObjects.Graphics;
+  private wpnAGfx!:  Phaser.GameObjects.Graphics;
+  private wpnBGfx!:  Phaser.GameObjects.Graphics;
   private ballAGfx!: Phaser.GameObjects.Graphics;
   private ballBGfx!: Phaser.GameObjects.Graphics;
-
-  // Flash ring on collision/hit/elim
   private flashGfx!: Phaser.GameObjects.Graphics;
+  private hpBarGfx!: Phaser.GameObjects.Graphics;
+  private badgeGfx!: Phaser.GameObjects.Graphics;
 
-  // Text labels
-  private txtA!: Phaser.GameObjects.Text;
-  private txtB!: Phaser.GameObjects.Text;
-  private txtEvent!: Phaser.GameObjects.Text;
-  private txtTick!: Phaser.GameObjects.Text;
+  // Text
+  private txtA!:       Phaser.GameObjects.Text;
+  private txtB!:       Phaser.GameObjects.Text;
+  private txtEvent!:   Phaser.GameObjects.Text;
+  private txtTick!:    Phaser.GameObjects.Text;
   private txtWaiting!: Phaser.GameObjects.Text;
 
-  // HP bar graphics
-  private hpBarGfx!: Phaser.GameObjects.Graphics;
-
-  // Current frame state
+  // Frame state
   private currentFrame: TickFrame | null = null;
-  private prevFrame: TickFrame | null = null;
-  private frameTime = 0;      // ms since last frame arrived
-  private frameInterval = 1000 / REPLAY_FPS; // ~33ms
+  private prevFrame:    TickFrame | null = null;
+  private frameTime    = 0;
+  private frameInterval = 1000 / REPLAY_FPS;
 
   constructor() {
     super({ key: "ArenaScene" });
   }
 
-  // Called by PhaserArena wrapper to pass config before / after creation.
+  // ─── Public API ───────────────────────────────────────────────────────────
+
   updateConfig(cfg: ArenaSceneConfig): void {
+    const prevW = this.cfg?.canvasW;
+    const prevH = this.cfg?.canvasH;
     this.cfg = cfg;
     this.updateScales();
-    // If already created, rebuild the static background
-    if (this.bgGfx) this.drawBackground();
+    if (this.bgGfx && (cfg.canvasW !== prevW || cfg.canvasH !== prevH)) {
+      this.bgBuilt = false;
+      this.buildArenaBackground();
+    }
   }
 
-  // Called by PhaserArena every time a new TickFrame arrives.
   updateFrame(frame: TickFrame): void {
-    this.prevFrame = this.currentFrame;
+    this.prevFrame    = this.currentFrame;
     this.currentFrame = frame;
-    this.frameTime = 0;
+    this.frameTime    = 0;
   }
 
-  // ─── Lifecycle ─────────────────────────────────────────────────────────────
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   create(): void {
     const { canvasW, canvasH } = this.cfg;
-
     this.updateScales();
 
-    // Layer order: bg < weapons < balls < flash < hpbars < text
+    // ── Graphics layers (always safe — no texture deps) ───────────────────
     this.bgGfx    = this.add.graphics();
     this.wpnAGfx  = this.add.graphics();
     this.wpnBGfx  = this.add.graphics();
@@ -111,28 +109,27 @@ export class ArenaScene extends Phaser.Scene {
     this.ballBGfx = this.add.graphics();
     this.flashGfx = this.add.graphics();
     this.hpBarGfx = this.add.graphics();
+    this.badgeGfx = this.add.graphics();
 
-    // Text style defaults
+    this.buildArenaBackground();
+
+    // ── Text ──────────────────────────────────────────────────────────────
     const mono = { fontFamily: "monospace", fontSize: "10px", color: "#cccccc" };
 
-    this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold", fontSize: "10px" })
-      .setOrigin(0.5, 1);
-    this.txtB = this.add.text(0, 0, "", { ...mono, fontStyle: "bold", fontSize: "10px" })
-      .setOrigin(0.5, 1);
+    this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
+    this.txtB = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
 
     this.txtEvent = this.add.text(canvasW / 2, canvasH - 16, "", {
-      ...mono, fontStyle: "bold", fontSize: "11px"
-    }).setOrigin(0.5, 0.5);
+      ...mono, fontStyle: "bold", fontSize: "11px",
+    }).setOrigin(0.5, 0.5).setVisible(false);
 
     this.txtTick = this.add.text(canvasW - 4, canvasH - 4, "", {
-      fontFamily: "monospace", fontSize: "9px", color: "#333355"
+      fontFamily: "monospace", fontSize: "9px", color: "#333355",
     }).setOrigin(1, 1);
 
     this.txtWaiting = this.add.text(canvasW / 2, canvasH / 2, "WAITING FOR MATCH...", {
-      fontFamily: "monospace", fontSize: "16px", color: "#444466", fontStyle: "bold"
+      fontFamily: "monospace", fontSize: "16px", color: "#444466", fontStyle: "bold",
     }).setOrigin(0.5, 0.5);
-
-    this.drawBackground();
   }
 
   update(_time: number, delta: number): void {
@@ -140,53 +137,60 @@ export class ArenaScene extends Phaser.Scene {
 
     if (!this.currentFrame) {
       this.txtWaiting.setVisible(true);
-      this.clearGameObjects();
+      this.clearDynamic();
       return;
     }
     this.txtWaiting.setVisible(false);
 
-    // Interpolate between prevFrame and currentFrame
+    // Interpolate between frames
     this.frameTime += delta;
-    const t = Math.min(1, this.frameTime / this.frameInterval);
+    const t     = Math.min(1, this.frameTime / this.frameInterval);
     const frame = this.currentFrame;
-    const prev = this.prevFrame ?? frame;
+    const prev  = this.prevFrame ?? frame;
 
-    const ax = lerp(simToScreenX(prev.a.x, this.scaleX), simToScreenX(frame.a.x, this.scaleX), t);
-    const ay = lerp(simToScreenY(prev.a.y, this.scaleY), simToScreenY(frame.a.y, this.scaleY), t);
-    const bx = lerp(simToScreenX(prev.b.x, this.scaleX), simToScreenX(frame.b.x, this.scaleX), t);
-    const by = lerp(simToScreenY(prev.b.y, this.scaleY), simToScreenY(frame.b.y, this.scaleY), t);
+    const ax = lerp(toScreenX(prev.a.x, this.scaleX), toScreenX(frame.a.x, this.scaleX), t);
+    const ay = lerp(toScreenY(prev.a.y, this.scaleY), toScreenY(frame.a.y, this.scaleY), t);
+    const bx = lerp(toScreenX(prev.b.x, this.scaleX), toScreenX(frame.b.x, this.scaleX), t);
+    const by = lerp(toScreenY(prev.b.y, this.scaleY), toScreenY(frame.b.y, this.scaleY), t);
 
     const angleA = lerpAngle(prev.a.angle, frame.a.angle, t);
     const angleB = lerpAngle(prev.b.angle, frame.b.angle, t);
+    const radA   = (angleA / 65536) * 2 * Math.PI;
+    const radB   = (angleB / 65536) * 2 * Math.PI;
 
     const { cfg } = this;
     const ballRA = Math.max(8, cfg.ballARadius * this.scaleX);
     const ballRB = Math.max(8, cfg.ballBRadius * this.scaleX);
 
-    // ── Weapons ──────────────────────────────────────────────────────────────
+    // ── Weapons ────────────────────────────────────────────────────────────
     this.wpnAGfx.clear();
-    this.wpnBGfx.clear();
     this.drawWeapon(this.wpnAGfx, ax, ay, angleA, cfg.ballAColor, ballRA, cfg.weaponA);
+    this.wpnBGfx.clear();
     this.drawWeapon(this.wpnBGfx, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
 
-    // ── Ball bodies ──────────────────────────────────────────────────────────
+    // ── Balls ──────────────────────────────────────────────────────────────
     this.ballAGfx.clear();
     this.ballBGfx.clear();
-    this.drawBall(this.ballAGfx, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp);
-    this.drawBall(this.ballBGfx, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp);
+    this.drawBall(this.ballAGfx, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp, cfg.weaponA?.type);
+    this.drawBall(this.ballBGfx, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp, cfg.weaponB?.type);
 
-    // ── HP bars ──────────────────────────────────────────────────────────────
+    // ── HP bars ────────────────────────────────────────────────────────────
     this.hpBarGfx.clear();
     this.drawHpBar(this.hpBarGfx, ax, ay - ballRA - 10, ballRA * 2.5, 4, frame.a.hp / cfg.ballAHp);
     this.drawHpBar(this.hpBarGfx, bx, by - ballRB - 10, ballRB * 2.5, 4, frame.b.hp / cfg.ballBHp);
 
-    // ── Name labels ──────────────────────────────────────────────────────────
+    // ── Name labels + badges ───────────────────────────────────────────────
     const truncA = cfg.ballAName.length > 10 ? cfg.ballAName.slice(0, 10) + "…" : cfg.ballAName;
     const truncB = cfg.ballBName.length > 10 ? cfg.ballBName.slice(0, 10) + "…" : cfg.ballBName;
-    this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14);
-    this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14);
+    this.badgeGfx.clear();
+    this.drawNameBadge(this.badgeGfx, ax, ay - ballRA - 14, truncA, cfg.ballAColor);
+    this.drawNameBadge(this.badgeGfx, bx, by - ballRB - 14, truncB, cfg.ballBColor);
+    this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14)
+      .setColor("#" + cfg.ballAColor.toString(16).padStart(6, "0"));
+    this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14)
+      .setColor("#" + cfg.ballBColor.toString(16).padStart(6, "0"));
 
-    // ── Flash rings ──────────────────────────────────────────────────────────
+    // ── Flash rings ────────────────────────────────────────────────────────
     this.flashGfx.clear();
     const hasCollide = frame.events.some(ev => ev.includes("collide"));
     const hasHit     = frame.events.some(ev => ev.includes(" hits "));
@@ -194,25 +198,19 @@ export class ArenaScene extends Phaser.Scene {
 
     if (hasCollide || hasHit || hasElim) {
       const flashColor = hasElim ? 0xff4444 : hasHit ? 0xffcc00 : 0xaaddff;
-      const flashExtra = hasElim ? 10 : hasHit ? 7 : 5;
       const flashAlpha = hasElim ? 0.9 : 0.7;
-      const lw = hasElim ? 3 : 2;
+      const flashExtra = hasElim ? 10 : hasHit ? 7 : 5;
+      const lw         = hasElim ? 3 : 2;
 
-      const ringA = hasCollide
-        || frame.events.some(ev => ev.includes("hits A") || ev.startsWith("A is elim"));
-      const ringB = hasCollide
-        || frame.events.some(ev => ev.includes("hits B") || ev.startsWith("B is elim"));
+      const ringA = hasCollide || frame.events.some(ev => ev.includes("hits A") || ev.startsWith("A is elim"));
+      const ringB = hasCollide || frame.events.some(ev => ev.includes("hits B") || ev.startsWith("B is elim"));
 
       this.flashGfx.lineStyle(lw, flashColor, flashAlpha);
-      if (ringA) {
-        this.flashGfx.strokeCircle(ax, ay, ballRA + flashExtra);
-      }
-      if (ringB) {
-        this.flashGfx.strokeCircle(bx, by, ballRB + flashExtra);
-      }
+      if (ringA) this.flashGfx.strokeCircle(ax, ay, ballRA + flashExtra);
+      if (ringB) this.flashGfx.strokeCircle(bx, by, ballRB + flashExtra);
     }
 
-    // ── Event flash text ─────────────────────────────────────────────────────
+    // ── Event text ─────────────────────────────────────────────────────────
     const topEvent = frame.events[0] ?? "";
     if (topEvent.includes("hits") || topEvent.includes("eliminated") || topEvent.includes("collide")) {
       const textColor = topEvent.includes("eliminated") ? "#ff4444"
@@ -223,258 +221,253 @@ export class ArenaScene extends Phaser.Scene {
       this.txtEvent.setVisible(false);
     }
 
-    // ── Tick counter ─────────────────────────────────────────────────────────
     this.txtTick.setText(`t:${frame.tick}`);
   }
 
-  // ─── Drawing helpers ───────────────────────────────────────────────────────
-
-  private drawBackground(): void {
-    if (!this.bgGfx) return;
-    const { canvasW, canvasH } = this.cfg;
-    const g = this.bgGfx;
-    g.clear();
-
-    // Fill
-    g.fillStyle(0x0a0a0f, 1);
-    g.fillRect(0, 0, canvasW, canvasH);
-
-    // Grid lines
-    g.lineStyle(1, 0x111122, 1);
-    for (let x = 0; x < canvasW; x += GRID_STEP) {
-      g.lineBetween(x, 0, x, canvasH);
-    }
-    for (let y = 0; y < canvasH; y += GRID_STEP) {
-      g.lineBetween(0, y, canvasW, y);
-    }
-
-    // Arena border
-    g.lineStyle(2, 0x333355, 1);
-    g.strokeRect(1, 1, canvasW - 2, canvasH - 2);
-  }
-
-  private clearGameObjects(): void {
-    this.wpnAGfx?.clear();
-    this.wpnBGfx?.clear();
-    this.ballAGfx?.clear();
-    this.ballBGfx?.clear();
-    this.flashGfx?.clear();
-    this.hpBarGfx?.clear();
-    this.txtA?.setText("");
-    this.txtB?.setText("");
-    this.txtEvent?.setVisible(false);
-    this.txtTick?.setText("");
-  }
+  // ─── Procedural drawing ───────────────────────────────────────────────────
 
   private drawBall(
     g: Phaser.GameObjects.Graphics,
     cx: number, cy: number,
-    r: number,
-    color: number,
-    hpFrac: number,
+    r: number, color: number, hpFrac: number,
+    weaponType?: string,
   ): void {
     const frac = Math.max(0, hpFrac);
 
-    // Outer glow for high HP
-    if (frac > 0.5) {
-      g.fillStyle(color, 0.15 * frac);
-      g.fillCircle(cx, cy, r + 8);
+    // 1. Archetype glow ring (weapon-type based)
+    if (weaponType === "blunt") {
+      g.fillStyle(0xff8800, 0.09 * Math.max(frac, 0.2));
+      g.fillCircle(cx, cy, r + 10);
+      g.lineStyle(3, 0xff8800, 0.5);
+      g.strokeCircle(cx, cy, r + 2);
+    } else if (weaponType === "point") {
+      g.fillStyle(0x44aaff, 0.07 * Math.max(frac, 0.2));
+      g.fillCircle(cx, cy, r + 9);
+      g.lineStyle(1.5, 0x44aaff, 0.45);
+      g.strokeCircle(cx, cy, r + 1);
+    } else {
+      // blade — thin bright ring
+      g.lineStyle(1.5, 0xffffff, 0.3);
+      g.strokeCircle(cx, cy, r + 2);
     }
 
-    // Ball body
+    // 2. Ball body — layered circles for gradient feel
+    const bright = shiftColor(color, 70);
+    g.fillStyle(bright, 0.9);
+    g.fillCircle(cx - r * 0.18, cy - r * 0.22, r * 0.75);
     g.fillStyle(color, 1);
     g.fillCircle(cx, cy, r);
+    g.fillStyle(0x000000, 0.32);
+    g.fillCircle(cx + r * 0.14, cy + r * 0.18, r * 0.52);
 
-    // Dark center
-    g.fillStyle(0x000000, 0.4);
-    g.fillCircle(cx, cy, r * 0.5);
-  }
+    // 3. Specular highlight
+    g.fillStyle(0xffffff, 0.32);
+    g.fillCircle(cx - r * 0.28, cy - r * 0.3, r * 0.18);
 
-  private drawHpBar(
-    g: Phaser.GameObjects.Graphics,
-    cx: number, barTopY: number,
-    barW: number, barH: number,
-    hpFrac: number,
-  ): void {
-    const frac = Math.max(0, Math.min(1, hpFrac));
-    const barX = cx - barW / 2;
-    // Background
-    g.fillStyle(0x222222, 1);
-    g.fillRect(barX, barTopY, barW, barH);
-    // Fill
-    const fillColor = frac > 0.5 ? 0x4caf50 : frac > 0.25 ? 0xff9800 : 0xf44336;
-    g.fillStyle(fillColor, 1);
-    g.fillRect(barX, barTopY, barW * frac, barH);
+    // 4. Damage state ring (hpFrac < 0.35)
+    if (frac < 0.35) {
+      g.lineStyle(2, 0xff2222, 0.55 * (1 - frac));
+      g.strokeCircle(cx, cy, r + 1);
+    }
   }
 
   private drawWeapon(
     g: Phaser.GameObjects.Graphics,
     cx: number, cy: number,
-    angle: number,
+    angle: number,       // sim angle 0..65535
     color: number,
     ballRpx: number,
     wDef: WeaponDef | null | undefined,
   ): void {
-    const rad = (angle / 65536) * 2 * Math.PI;
+    const rad  = (angle / 65536) * 2 * Math.PI;
     const cosA = Math.cos(rad);
     const sinA = Math.sin(rad);
 
     if (!wDef) {
-      // Fallback: simple line + dot extending beyond ball surface
-      const surfX = cx + cosA * ballRpx;
-      const surfY = cy + sinA * ballRpx;
-      const tx = cx + cosA * (ballRpx + 28);
-      const ty = cy + sinA * (ballRpx + 28);
+      const sx = cx + cosA * ballRpx, sy = cy + sinA * ballRpx;
+      const tx = cx + cosA * (ballRpx + 28), ty = cy + sinA * (ballRpx + 28);
       g.lineStyle(3, color, 1);
-      g.lineBetween(surfX, surfY, tx, ty);
+      g.lineBetween(sx, sy, tx, ty);
       g.fillStyle(color, 1);
       g.fillCircle(tx, ty, 4);
       return;
     }
 
-    const reachPx  = this.arenaToScreen(wDef.reach);
-    const tipRPx   = Math.max(2, this.arenaToScreen(wDef.tipRadius));
-    const tipX     = cx + cosA * reachPx;
-    const tipY     = cy + sinA * reachPx;
-    const surfX    = cx + cosA * ballRpx;
-    const surfY    = cy + sinA * ballRpx;
+    const reachPx = this.au(wDef.reach);
+    const tipRPx  = Math.max(2, this.au(wDef.tipRadius));
+    const tipX    = cx + cosA * reachPx, tipY = cy + sinA * reachPx;
+    const surfX   = cx + cosA * ballRpx, surfY = cy + sinA * ballRpx;
 
     if (wDef.type === "blade") {
-      const bladeStart = wDef.bladeStart ?? wDef.reach * 0.4;
-      const bladeWidth = wDef.bladeWidth ?? wDef.tipRadius;
-      const bsStartPx  = this.arenaToScreen(bladeStart);
-      const bsX        = cx + cosA * bsStartPx;
-      const bsY        = cy + sinA * bsStartPx;
-      const bladeWPx   = Math.max(2, this.arenaToScreen(bladeWidth));
+      const bsStart = wDef.bladeStart ?? wDef.reach * 0.4;
+      const bsPx    = this.au(bsStart);
+      const bsX     = cx + cosA * bsPx, bsY = cy + sinA * bsPx;
+      const bladeW  = Math.max(2, this.au(wDef.bladeWidth ?? wDef.tipRadius));
 
-      // Shaft from ball surface to blade start
-      if (bsStartPx > ballRpx) {
+      if (bsPx > ballRpx) {
         g.lineStyle(2.5, color, 0.7);
         g.lineBetween(surfX, surfY, bsX, bsY);
       }
-
-      // Blade capsule
-      const bladeFromX = bsStartPx > ballRpx ? bsX : surfX;
-      const bladeFromY = bsStartPx > ballRpx ? bsY : surfY;
-
-      // Draw a thick line for the blade using fillRect rotated
-      // Phaser 3 doesn't have a strokeCapsule primitive, so we draw a rotated thick rect.
-      const bladeLen = Math.sqrt((tipX - bladeFromX) ** 2 + (tipY - bladeFromY) ** 2);
-      if (bladeLen > 0) {
-        g.fillStyle(color, 0.9);
-        // Draw blade as rotated rect
-        this.drawThickLine(g, bladeFromX, bladeFromY, tipX, tipY, bladeWPx * 2, color, 0.9);
-
-        // Edge highlight
-        this.drawThickLine(g, bladeFromX, bladeFromY, tipX, tipY, 1, 0xffffff, 0.45);
-      }
+      const fx = bsPx > ballRpx ? bsX : surfX;
+      const fy = bsPx > ballRpx ? bsY : surfY;
+      this.thickLine(g, fx, fy, tipX, tipY, bladeW * 2, color, 0.9);
+      this.thickLine(g, fx, fy, tipX, tipY, 1, 0xffffff, 0.45);
 
     } else if (wDef.type === "blunt") {
-      // Handle from ball surface to 72% reach
-      const headStartPx = reachPx * 0.72;
-      const hsX = cx + cosA * headStartPx;
-      const hsY = cy + sinA * headStartPx;
-
+      const hx = cx + cosA * reachPx * 0.72, hy = cy + sinA * reachPx * 0.72;
       g.lineStyle(3, color, 1);
-      g.lineBetween(surfX, surfY, hsX, hsY);
-
-      // Mace head — large filled circle
+      g.lineBetween(surfX, surfY, hx, hy);
       g.fillStyle(color, 0.9);
       g.fillCircle(tipX, tipY, tipRPx);
-
-      // Outer ring
       g.lineStyle(1.5, color, 0.5);
       g.strokeCircle(tipX, tipY, tipRPx + 3);
 
-    } else {
-      // Point / spear
-      const arrowBasePx = reachPx * 0.82;
-      const abX = cx + cosA * arrowBasePx;
-      const abY = cy + sinA * arrowBasePx;
-
+    } else { // point
+      const ax2 = cx + cosA * reachPx * 0.82, ay2 = cy + sinA * reachPx * 0.82;
       g.lineStyle(2.5, color, 1);
-      g.lineBetween(surfX, surfY, abX, abY);
-
-      // Arrowhead
-      const perpX = -sinA;
-      const perpY =  cosA;
+      g.lineBetween(surfX, surfY, ax2, ay2);
       const halfW = Math.max(3, tipRPx * 0.7);
-
       g.fillStyle(color, 1);
       g.fillTriangle(
-        abX + perpX * halfW, abY + perpY * halfW,
-        abX - perpX * halfW, abY - perpY * halfW,
+        ax2 + (-sinA) * halfW, ay2 + cosA * halfW,
+        ax2 - (-sinA) * halfW, ay2 - cosA * halfW,
         tipX, tipY,
       );
     }
 
-    // Dashed hitbox circle at tip — approximate dashes with tiny arcs
-    this.drawDashedCircle(g, tipX, tipY, tipRPx, color, 0.3);
+    this.dashedCircle(g, tipX, tipY, tipRPx, color, 0.3);
   }
 
-  /**
-   * Draw a thick line by filling a rotated rectangle.
-   * Phaser's lineStyle is a stroke, not a fill — this gives a solid capsule appearance.
-   */
-  private drawThickLine(
+  private drawHpBar(
     g: Phaser.GameObjects.Graphics,
-    x1: number, y1: number,
-    x2: number, y2: number,
-    halfW: number,
-    color: number,
-    alpha: number,
+    cx: number, barY: number, barW: number, barH: number, frac: number,
   ): void {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len === 0) return;
-
-    const nx = -dy / len; // normal x
-    const ny =  dx / len; // normal y
-
-    const p1x = x1 + nx * halfW;
-    const p1y = y1 + ny * halfW;
-    const p2x = x1 - nx * halfW;
-    const p2y = y1 - ny * halfW;
-    const p3x = x2 - nx * halfW;
-    const p3y = y2 - ny * halfW;
-    const p4x = x2 + nx * halfW;
-    const p4y = y2 + ny * halfW;
-
-    g.fillStyle(color, alpha);
-    g.fillTriangle(p1x, p1y, p2x, p2y, p3x, p3y);
-    g.fillTriangle(p1x, p1y, p3x, p3y, p4x, p4y);
-  }
-
-  /**
-   * Approximate dashed circle with 12 short arc segments.
-   */
-  private drawDashedCircle(
-    g: Phaser.GameObjects.Graphics,
-    cx: number, cy: number,
-    r: number,
-    color: number,
-    alpha: number,
-  ): void {
-    const segments = 12;
-    const gap = 0.4; // radians gap between dashes
-    const step = (2 * Math.PI) / segments;
-
-    g.lineStyle(1, color, alpha);
-    for (let i = 0; i < segments; i++) {
-      const startAngle = i * step;
-      const endAngle = startAngle + step - gap;
-      if (endAngle <= startAngle) continue;
-
-      const sx = cx + Math.cos(startAngle) * r;
-      const sy = cy + Math.sin(startAngle) * r;
-      const ex = cx + Math.cos(endAngle) * r;
-      const ey = cy + Math.sin(endAngle) * r;
-      g.lineBetween(sx, sy, ex, ey);
+    frac = Math.max(0, Math.min(1, frac));
+    const barX = cx - barW / 2;
+    const rad = 2;
+    // Background pill
+    g.fillStyle(0x111111, 0.85);
+    g.fillRoundedRect(barX, barY, barW, barH, rad);
+    // Filled portion
+    const col = frac > 0.5 ? 0x4caf50 : frac > 0.25 ? 0xff9800 : 0xf44336;
+    if (frac > 0) {
+      g.fillStyle(col, 1);
+      g.fillRoundedRect(barX, barY, barW * frac, barH, rad);
+      // Shine strip at top of fill
+      g.fillStyle(0xffffff, 0.18);
+      g.fillRoundedRect(barX, barY, barW * frac, barH * 0.4, rad);
     }
   }
 
-  // ─── Scale helpers ─────────────────────────────────────────────────────────
+  private buildArenaBackground(): void {
+    if (!this.cfg || this.bgBuilt) return;
+    this.bgBuilt = true;
+    const g = this.bgGfx;
+    const { canvasW, canvasH } = this.cfg;
+
+    g.clear();
+
+    // 1. Background — dark navy top, dark purple bottom
+    g.fillStyle(0x050510, 1);
+    g.fillRect(0, 0, canvasW, Math.ceil(canvasH * 0.5));
+    g.fillStyle(0x0a0518, 1);
+    g.fillRect(0, Math.floor(canvasH * 0.5), canvasW, Math.ceil(canvasH * 0.5) + 1);
+
+    // 2. Hexagonal grid
+    g.lineStyle(1, 0x111133, 0.65);
+    const size = 28;
+    const colW  = size * Math.sqrt(3);
+    const rowH  = size * 1.5;
+    for (let row = -1; row * rowH < canvasH + rowH; row++) {
+      for (let col = -1; col * colW < canvasW + colW; col++) {
+        const hx = col * colW + (row % 2 !== 0 ? colW / 2 : 0);
+        const hy = row * rowH;
+        const pts = Array.from({ length: 6 }, (_, i) => {
+          const a = (Math.PI / 3) * i - Math.PI / 6;
+          return { x: hx + size * Math.cos(a), y: hy + size * Math.sin(a) };
+        });
+        g.strokePoints(pts, true);
+      }
+    }
+
+    // 3. Center spotlight glow
+    g.fillStyle(0x2040ff, 0.035);
+    g.fillCircle(canvasW / 2, canvasH / 2, canvasH * 0.42);
+
+    // 4. Double border
+    g.lineStyle(2, 0x2233aa, 0.85);
+    g.strokeRect(1, 1, canvasW - 2, canvasH - 2);
+    g.lineStyle(1, 0x5566cc, 0.28);
+    g.strokeRect(5, 5, canvasW - 10, canvasH - 10);
+
+    // 5. Corner L-brackets
+    g.lineStyle(2, 0x4455cc, 1);
+    const L = 18;
+    [[0, 0], [canvasW, 0], [0, canvasH], [canvasW, canvasH]].forEach(([cx, cy]) => {
+      const sx = cx === 0 ? 1 : -1;
+      const sy = cy === 0 ? 1 : -1;
+      g.lineBetween(cx, cy, cx + sx * L, cy);
+      g.lineBetween(cx, cy, cx, cy + sy * L);
+    });
+  }
+
+  private drawNameBadge(
+    g: Phaser.GameObjects.Graphics,
+    cx: number, topY: number,
+    _label: string,
+    color: number,
+  ): void {
+    // Approximate text width at 10px monospace (~6px per char)
+    const charW = 6;
+    const maxChars = 10;
+    const len = Math.min(_label.length, maxChars);
+    const padX = 5, padY = 2;
+    const w = len * charW + padX * 2;
+    const h = 12 + padY * 2;
+    g.fillStyle(color, 0.28);
+    g.fillRoundedRect(cx - w / 2, topY - h, w, h, 4);
+  }
+
+  private clearDynamic(): void {
+    this.wpnAGfx?.clear();     this.wpnBGfx?.clear();
+    this.ballAGfx?.clear();    this.ballBGfx?.clear();
+    this.flashGfx?.clear();    this.hpBarGfx?.clear();
+    this.badgeGfx?.clear();
+    this.txtA?.setText("");    this.txtB?.setText("");
+    this.txtEvent?.setVisible(false);
+    this.txtTick?.setText("");
+  }
+
+  // ─── Geometry helpers ─────────────────────────────────────────────────────
+
+  private thickLine(
+    g: Phaser.GameObjects.Graphics,
+    x1: number, y1: number, x2: number, y2: number,
+    halfW: number, color: number, alpha: number,
+  ): void {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return;
+    const nx = -dy / len, ny = dx / len;
+    g.fillStyle(color, alpha);
+    g.fillTriangle(x1 + nx*halfW, y1 + ny*halfW, x1 - nx*halfW, y1 - ny*halfW, x2 - nx*halfW, y2 - ny*halfW);
+    g.fillTriangle(x1 + nx*halfW, y1 + ny*halfW, x2 - nx*halfW, y2 - ny*halfW, x2 + nx*halfW, y2 + ny*halfW);
+  }
+
+  private dashedCircle(
+    g: Phaser.GameObjects.Graphics,
+    cx: number, cy: number, r: number, color: number, alpha: number,
+  ): void {
+    const segs = 12, gap = 0.4, step = (2 * Math.PI) / segs;
+    g.lineStyle(1, color, alpha);
+    for (let i = 0; i < segs; i++) {
+      const s = i * step, e = s + step - gap;
+      if (e <= s) continue;
+      g.lineBetween(cx + Math.cos(s)*r, cy + Math.sin(s)*r, cx + Math.cos(e)*r, cy + Math.sin(e)*r);
+    }
+  }
+
+  // ─── Scale helpers ────────────────────────────────────────────────────────
 
   private updateScales(): void {
     if (!this.cfg) return;
@@ -482,32 +475,29 @@ export class ArenaScene extends Phaser.Scene {
     this.scaleY = this.cfg.canvasH / ARENA_H;
   }
 
-  /** Convert arena-unit distance to screen pixels (for reach, radius, etc.) */
-  private arenaToScreen(arenaUnits: number): number {
+  /** Arena units → screen pixels */
+  private au(arenaUnits: number): number {
     return arenaUnits * this.scaleX;
   }
 }
 
-// ─── Utility ─────────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-function simToScreenX(simX: number, scaleX: number): number {
-  return (simX / SIM_SCALE) * scaleX;
+function toScreenX(simX: number, scaleX: number): number { return (simX / SIM_SCALE) * scaleX; }
+function toScreenY(simY: number, scaleY: number): number { return (simY / SIM_SCALE) * scaleY; }
+function lerp(a: number, b: number, t: number): number   { return a + (b - a) * t; }
+
+/** Shift each RGB channel of a packed hex color by `delta` (0–255). */
+function shiftColor(hex: number, delta: number): number {
+  const r = Math.min(255, Math.max(0, ((hex >> 16) & 0xff) + delta));
+  const g = Math.min(255, Math.max(0, ((hex >>  8) & 0xff) + delta));
+  const b = Math.min(255, Math.max(0, ( hex        & 0xff) + delta));
+  return (r << 16) | (g << 8) | b;
 }
 
-function simToScreenY(simY: number, scaleY: number): number {
-  return (simY / SIM_SCALE) * scaleY;
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-/** Lerp two sim angles (0..65535), handling wraparound. */
 function lerpAngle(a: number, b: number, t: number): number {
-  const diff = b - a;
-  // Sim angle is 0..65535 (full circle); handle wrap
-  let d = diff;
-  if (d > 32768) d -= 65536;
+  let d = b - a;
+  if (d > 32768)  d -= 65536;
   if (d < -32768) d += 65536;
   return a + d * t;
 }
