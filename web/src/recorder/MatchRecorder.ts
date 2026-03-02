@@ -80,12 +80,21 @@ export class MatchRecorder {
       videoBitsPerSecond: RECORDING_BITRATE,
     });
 
+    let chunkCount = 0;
     this.mr.ondataavailable = (e) => {
-      if (e.data.size > 0) this.chunks.push(e.data);
+      chunkCount++;
+      if (e.data.size > 0) {
+        this.chunks.push(e.data);
+        if (chunkCount <= 5 || chunkCount % 30 === 0) {
+          console.log(`[MatchRecorder] chunk #${chunkCount} — ${e.data.size} bytes`);
+        }
+      } else {
+        if (chunkCount <= 5) console.warn(`[MatchRecorder] chunk #${chunkCount} was 0 bytes — canvas may not be rendering`);
+      }
     };
 
     this.mr.start(100); // flush data every 100 ms
-    console.log(`[MatchRecorder] Started — ${mimeType} @ ${RECORDING_BITRATE / 1e6} Mbps`);
+    console.log(`[MatchRecorder] Started — ${mimeType} @ ${RECORDING_BITRATE / 1e6} Mbps, canvas ${canvas.width}×${canvas.height}`);
   }
 
   /** Stop recording and resolve with the completed RuntimeRecording. */

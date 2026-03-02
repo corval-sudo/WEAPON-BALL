@@ -126,6 +126,7 @@ export default function Dashboard() {
   // "countdown" entirely, so a countdown-based effect never fires.
   useEffect(() => {
     if (recordNextMatch || recordAllMatches) {
+      console.log("[REC] Recording armed — mounting hidden arena");
       setShowHiddenArena(true);
     }
   }, [recordNextMatch, recordAllMatches]);
@@ -134,18 +135,27 @@ export default function Dashboard() {
   // Watching hiddenCanvasReady handles the race where the canvas finishes
   // initialising after phase has already changed to "live".
   useEffect(() => {
+    console.log(`[REC] Start effect — phase=${arena.phase} canvasReady=${hiddenCanvasReady} activeRef=${recordingActiveRef.current} isRecording=${recorderRef.current.isRecording} canvas=${!!hiddenCanvasRef.current}`);
     if (arena.phase !== "live") return;
     if (recordingActiveRef.current || recorderRef.current.isRecording) return;
-    if (!hiddenCanvasReady || !hiddenCanvasRef.current) return;
+    if (!hiddenCanvasReady || !hiddenCanvasRef.current) {
+      console.warn("[REC] Phase is live but canvas not ready — recording will be missed");
+      return;
+    }
 
-    recorderRef.current.start(
-      hiddenCanvasRef.current,
-      arena.matchNumber,
-      arena.liveBallA?.name ?? "Fighter A",
-      arena.liveBallB?.name ?? "Fighter B",
-    );
-    recordingActiveRef.current = true;
-    setIsRecording(true);
+    console.log("[REC] Starting recorder");
+    try {
+      recorderRef.current.start(
+        hiddenCanvasRef.current,
+        arena.matchNumber,
+        arena.liveBallA?.name ?? "Fighter A",
+        arena.liveBallB?.name ?? "Fighter B",
+      );
+      recordingActiveRef.current = true;
+      setIsRecording(true);
+    } catch (e: any) {
+      console.error("[REC] start() threw:", e.message);
+    }
 
     // Consume "record next only" flag without clearing "all matches" mode
     if (recordNextMatch && !recordAllMatches) setRecordNextMatch(false);
@@ -370,6 +380,7 @@ export default function Dashboard() {
             height={1080}
             onCanvasReady={canvas => {
               hiddenCanvasRef.current = canvas;
+              console.log(`[REC] onCanvasReady — ${canvas.width}×${canvas.height} arena.phase=${arena.phase}`);
               setHiddenCanvasReady(true);  // triggers recording start if already live
               // Log dimensions to confirm 1920×1080 before recording starts
               console.log(`[MatchRecorder] Hidden canvas ready: ${canvas.width}×${canvas.height}`);
