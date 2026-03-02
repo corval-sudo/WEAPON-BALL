@@ -98,7 +98,9 @@ export function PhaserArena({
     sceneRef.current = scene;
 
     const game = new Phaser.Game({
-      type: Phaser.AUTO,         // lets Phaser pick WebGL or Canvas per context
+      // Recording canvases use Canvas 2D — no double-buffering, captureStream()
+      // always reads the last drawn frame. Visible arenas keep WebGL for quality.
+      type: preserveDrawingBuffer ? Phaser.CANVAS : Phaser.AUTO,
       width,
       height,
       backgroundColor: "#0a0a0f",
