@@ -8,16 +8,16 @@
 //   • buildArenaBackground() — hex grid + border, drawn once to bgGfx on create()
 //
 // ─── Coordinate system ────────────────────────────────────────────────────────
-//   Sim units: 1000 per arena unit.  Arena: 500×880 arena units.
-//   Screen: scaleX = canvasW/500, scaleY = canvasH/880.
+//   Sim units: 1000 per arena unit.  Arena: 400×700 arena units.
+//   Screen: scaleX = canvasW/400, scaleY = canvasH/700.
 
 import Phaser from "phaser";
 import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ARENA_W    = 500;
-const ARENA_H    = 880;
+const ARENA_W    = 400;
+const ARENA_H    = 700;
 const SIM_SCALE  = 1000;
 
 const REPLAY_FPS = 30;
