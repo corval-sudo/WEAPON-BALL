@@ -862,15 +862,17 @@ const S: Record<string, React.CSSProperties> = {
   viewReplay:  { fontSize: 10, color: C.accent },
   resultMeta2: { fontSize: 10, color: "#555577" },
 
-  // Hidden arena — offscreen, invisible, 1920×1080 for recording
+  // Hidden arena — offscreen, 1920×1080 for recording.
+  // Uses transform instead of left/opacity so Chrome's compositor still
+  // renders the WebGL canvas. opacity:0 and z-index:-1 cause Chrome to
+  // skip compositing entirely, producing blank captureStream() frames.
   hiddenArenaWrap: {
     position: "fixed" as const,
-    left: -9999,
     top: 0,
+    left: 0,
+    transform: "translateX(-9999px)",
     width: 1920,
     height: 1080,
     pointerEvents: "none" as const,
-    opacity: 0,
-    zIndex: -1,
   },
 };
