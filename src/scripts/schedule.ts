@@ -30,6 +30,7 @@ import { broadcaster } from "../api/ws-broadcaster";
 import type { WsWeaponDef } from "../api/ws-broadcaster";
 import { setNextMatch } from "../api/server";
 import { matchTrigger } from "../match/trigger";
+import { OracleContentPipeline } from "../services/OracleContentPipeline";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -77,7 +78,8 @@ let matchCount = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 let plannerDecision: PlannerDecision | null = null;
 
-const runner = new MatchRunner(db);
+const runner   = new MatchRunner(db);
+const oracle   = new OracleContentPipeline();
 const commentator = new CommentaryAgent({
   personality:        loadPersonality(db),
   model:              configStore.getModelCommentary(),
@@ -321,6 +323,17 @@ async function runNextMatch(): Promise<void> {
     ticks: result.ticks,
     commentary: postMatch,
   });
+
+  // Oracle content pipeline — non-blocking, fires after broadcast
+  oracle.run({
+    matchId:     matchCount,   // sequential match counter (DB rowId not returned by runner)
+    matchNumber: matchCount,
+    nameA:       freshA.name,
+    nameB:       freshB.name,
+    winner:      result.winner,
+    ticks:       result.ticks,
+    commentary:  postMatch,
+  }).catch(e => console.warn("[Oracle] pipeline error:", e.message));
 
   // Trigger balance check every N matches
   if (matchCount % BALANCE_CHECK_EVERY === 0) {

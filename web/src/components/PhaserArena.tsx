@@ -39,6 +39,8 @@ interface PhaserArenaProps {
   weaponB?: WeaponDef | null;
   width?: number;
   height?: number;
+  /** Called once after Phaser creates its canvas element (synchronous with game init). */
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ export function PhaserArena({
   weaponB,
   width = 380,
   height = 620,
+  onCanvasReady,
 }: PhaserArenaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef      = useRef<Phaser.Game | null>(null);
@@ -102,6 +105,13 @@ export function PhaserArena({
     });
 
     gameRef.current = game;
+
+    // Phaser creates its <canvas> synchronously inside new Phaser.Game().
+    // Notify the parent so it can start a MediaRecorder against the canvas.
+    if (onCanvasReady) {
+      const canvas = containerRef.current?.querySelector("canvas") as HTMLCanvasElement | null;
+      if (canvas) onCanvasReady(canvas);
+    }
 
     return () => {
       game.destroy(true);
