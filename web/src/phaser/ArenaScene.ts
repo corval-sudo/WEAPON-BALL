@@ -19,7 +19,7 @@ import type { TickFrame, WeaponDef } from "../hooks/useArenaSocket";
 const ARENA_W    = 500;
 const ARENA_H    = 880;
 const SIM_SCALE  = 1000;
-const GRID_STEP  = 40;
+
 const REPLAY_FPS = 30;
 
 // ─── Public config type ───────────────────────────────────────────────────────
@@ -155,8 +155,6 @@ export class ArenaScene extends Phaser.Scene {
 
     const angleA = lerpAngle(prev.a.angle, frame.a.angle, t);
     const angleB = lerpAngle(prev.b.angle, frame.b.angle, t);
-    const radA   = (angleA / 65536) * 2 * Math.PI;
-    const radB   = (angleB / 65536) * 2 * Math.PI;
 
     const { cfg } = this;
     const ballRA = Math.max(8, cfg.ballARadius * this.scaleX);
