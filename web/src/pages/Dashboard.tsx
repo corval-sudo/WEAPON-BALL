@@ -70,6 +70,7 @@ export default function Dashboard() {
   const [recordNextMatch, setRecordNextMatch]   = useState(false);
   const [recordAllMatches, setRecordAllMatches] = useState(false);
   const [showHiddenArena, setShowHiddenArena]   = useState(false);
+  const [hiddenCanvasReady, setHiddenCanvasReady] = useState(false);
   const [isRecording, setIsRecording]           = useState(false);
   const [recordings, setRecordings]             = useState<RuntimeRecording[]>([]);
   // Refs — avoid stale closure problems in async callbacks
@@ -118,18 +119,24 @@ export default function Dashboard() {
   // Keep recordAllRef in sync so async stop() callbacks read current state
   useEffect(() => { recordAllRef.current = recordAllMatches; }, [recordAllMatches]);
 
-  // Mount hidden arena during countdown when recording is armed
+  // Mount hidden arena as soon as recording is armed — do NOT wait for the
+  // countdown phase because without an Anthropic key the commentary call
+  // fails instantly, causing next_match + match_start to arrive back-to-back.
+  // React batches those two setState calls into a single render, skipping
+  // "countdown" entirely, so a countdown-based effect never fires.
   useEffect(() => {
-    if (arena.phase === "countdown" && (recordNextMatch || recordAllMatches)) {
+    if (recordNextMatch || recordAllMatches) {
       setShowHiddenArena(true);
     }
-  }, [arena.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recordNextMatch, recordAllMatches]);
 
-  // Start recording when match goes live (requires hidden arena + canvas ready)
+  // Start recording when BOTH the arena is live AND the hidden canvas is ready.
+  // Watching hiddenCanvasReady handles the race where the canvas finishes
+  // initialising after phase has already changed to "live".
   useEffect(() => {
     if (arena.phase !== "live") return;
     if (recordingActiveRef.current || recorderRef.current.isRecording) return;
-    if (!showHiddenArena || !hiddenCanvasRef.current) return;
+    if (!hiddenCanvasReady || !hiddenCanvasRef.current) return;
 
     recorderRef.current.start(
       hiddenCanvasRef.current,
@@ -142,7 +149,7 @@ export default function Dashboard() {
 
     // Consume "record next only" flag without clearing "all matches" mode
     if (recordNextMatch && !recordAllMatches) setRecordNextMatch(false);
-  }, [arena.phase, arena.matchNumber, showHiddenArena]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [arena.phase, arena.matchNumber, hiddenCanvasReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stop recording when match ends and persist metadata
   useEffect(() => {
@@ -154,11 +161,19 @@ export default function Dashboard() {
       setRecordings(prev => [rec, ...prev]);
       setIsRecording(false);
       // Tear down hidden arena if "record all" mode is off
-      if (!recordAllRef.current) setShowHiddenArena(false);
+      if (!recordAllRef.current) {
+        setShowHiddenArena(false);
+        setHiddenCanvasReady(false);
+        hiddenCanvasRef.current = null;
+      }
     }).catch(e => {
       console.warn("[Recording] stop() failed:", e.message);
       setIsRecording(false);
-      if (!recordAllRef.current) setShowHiddenArena(false);
+      if (!recordAllRef.current) {
+        setShowHiddenArena(false);
+        setHiddenCanvasReady(false);
+        hiddenCanvasRef.current = null;
+      }
     });
   }, [arena.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -355,6 +370,7 @@ export default function Dashboard() {
             height={1080}
             onCanvasReady={canvas => {
               hiddenCanvasRef.current = canvas;
+              setHiddenCanvasReady(true);  // triggers recording start if already live
               // Log dimensions to confirm 1920×1080 before recording starts
               console.log(`[MatchRecorder] Hidden canvas ready: ${canvas.width}×${canvas.height}`);
               if (canvas.width !== 1920 || canvas.height !== 1080) {
