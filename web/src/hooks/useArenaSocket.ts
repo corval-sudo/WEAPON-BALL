@@ -14,7 +14,7 @@ export interface TickFrame {
   events: string[];
 }
 
-/** Weapon definition sent in match_start for accurate hitbox rendering. */
+/** Weapon definition sent in match_start for hitbox rendering and stat display. */
 export interface WeaponDef {
   type: "blade" | "point" | "blunt";
   reach: number;
@@ -22,6 +22,11 @@ export interface WeaponDef {
   bladeStart?: number;
   bladeWidth?: number;
   shaftRadius?: number;
+  // Combat stats for fighter card display
+  baseDamage?: number;
+  omega?: number;
+  speedMult?: number;
+  weight?: number;
 }
 
 export interface Fighter {
@@ -31,9 +36,12 @@ export interface Fighter {
   wins: number;
   losses: number;
   currentStreak: number;
+  longestWinStreak: number;
   baseHp: number;
   radius: number;
   color: string;
+  totalDamageDealt: number;
+  totalDamageTaken: number;
 }
 
 export type ArenaPhase =

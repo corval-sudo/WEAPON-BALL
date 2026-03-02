@@ -25,8 +25,9 @@ export interface TickFrame {
 }
 
 /**
- * Weapon definition sent to the browser so it can render accurate hitboxes.
- * Mirrors the WeaponDef shape from simCore (only visual fields needed).
+ * Weapon definition sent to the browser so it can render accurate hitboxes
+ * and display weapon stats in the fighter cards.
+ * Mirrors the WeaponDef shape from simCore.
  */
 export interface WsWeaponDef {
   type: "blade" | "point" | "blunt";
@@ -35,6 +36,11 @@ export interface WsWeaponDef {
   bladeStart?: number; // blade-only: where damage zone begins
   bladeWidth?: number; // blade-only: capsule half-width
   shaftRadius?: number;
+  // Combat stats for UI display
+  baseDamage?: number;
+  omega?: number;      // rotation speed in millidegrees/tick
+  speedMult?: number;  // movement speed multiplier (1000 = 1×)
+  weight?: number;     // weapon weight in arbitrary units
 }
 
 export type WsMessage =

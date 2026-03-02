@@ -1,15 +1,16 @@
 // web/src/pages/Dashboard.tsx
 // Homepage: live arena (center), leaderboard (right), recent results (below).
-// Fully responsive — stacks to single column on mobile.
+// Fighter cards on left/right of the canvas show W/L, weapon stats, ball stats.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
+import type { Fighter as LiveFighter, WeaponDef } from "../hooks/useArenaSocket";
 import { PhaserArena } from "../components/PhaserArena";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
-interface Fighter {
+interface LeaderboardFighter {
   id: string; name: string; weaponId: string;
   wins: number; losses: number; currentStreak: number;
   baseHp: number; color: string; radius: number;
@@ -23,8 +24,8 @@ interface RecentMatch {
 }
 
 interface NextMatchInfo {
-  ballA: Fighter;
-  ballB: Fighter;
+  ballA: LiveFighter;
+  ballB: LiveFighter;
   startsAt: string;
 }
 
@@ -53,7 +54,7 @@ function timeAgo(iso: string): string {
 
 export default function Dashboard() {
   const arena = useArenaSocket();
-  const [fighters, setFighters]       = useState<Fighter[]>([]);
+  const [fighters, setFighters]       = useState<LeaderboardFighter[]>([]);
   const [matches, setMatches]         = useState<RecentMatch[]>([]);
   const [countdown, setCountdown]     = useState(0);
   const [nextMatch, setNextMatch]     = useState<NextMatchInfo | null>(null);
@@ -89,7 +90,6 @@ export default function Dashboard() {
     if ((arena.phase === "idle" || arena.phase === "result") && nextMatch?.startsAt) {
       const update = () => {
         const ms = new Date(nextMatch.startsAt).getTime() - Date.now();
-        // If startsAt is in the past the scheduler is mid-match or restarting — use -1 sentinel
         setCountdown(ms > 0 ? Math.ceil(ms / 1000) : -1);
       };
       update();
@@ -130,32 +130,45 @@ export default function Dashboard() {
         {/* ── Arena panel ─────────────────────────────────────────────── */}
         <div style={S.arenaPanel}>
 
-          {/* Fighter nameplate row */}
-          {ballA && ballB && (
-            <div style={S.nameplates}>
-              <Nameplate f={ballA} align="left" />
-              <span style={S.vsText}>VS</span>
-              <Nameplate f={ballB} align="right" />
-            </div>
-          )}
+          {/* Fighter cards + canvas row */}
+          <div style={S.canvasRow}>
 
-          {/* Canvas — Phaser 3 WebGL renderer */}
-          <div style={S.canvasWrap} className="worbz-canvas-wrap">
-            <PhaserArena
-              frame={arena.currentFrame}
-              ballAName={ballA?.name ?? "Fighter A"}
-              ballBName={ballB?.name ?? "Fighter B"}
-              ballAColor={ballA?.color ?? "#4fc3f7"}
-              ballBColor={ballB?.color ?? "#ef5350"}
-              ballAHp={ballA?.baseHp ?? 500}
-              ballBHp={ballB?.baseHp ?? 500}
-              ballARadius={ballA?.radius ?? 42}
-              ballBRadius={ballB?.radius ?? 42}
-              weaponA={arena.weaponA}
-              weaponB={arena.weaponB}
-              width={380}
-              height={620}
-            />
+            {/* Left fighter card — Ball A */}
+            <FighterCard f={ballA} weapon={arena.weaponA} side="left" />
+
+            {/* Center: VS strip + canvas + controls */}
+            <div style={S.centerCol}>
+              {/* VS strip */}
+              {ballA && ballB && (
+                <div style={S.vsStrip}>
+                  <span style={{ ...S.vsName, color: ballA.color }}>{ballA.name}</span>
+                  <span style={S.vsText}>⚔️</span>
+                  <span style={{ ...S.vsName, color: ballB.color, textAlign: "right" }}>{ballB.name}</span>
+                </div>
+              )}
+
+              {/* Canvas — Phaser 3 WebGL renderer */}
+              <div style={S.canvasWrap} className="worbz-canvas-wrap">
+                <PhaserArena
+                  frame={arena.currentFrame}
+                  ballAName={ballA?.name ?? "Fighter A"}
+                  ballBName={ballB?.name ?? "Fighter B"}
+                  ballAColor={ballA?.color ?? "#4fc3f7"}
+                  ballBColor={ballB?.color ?? "#ef5350"}
+                  ballAHp={ballA?.baseHp ?? 500}
+                  ballBHp={ballB?.baseHp ?? 500}
+                  ballARadius={ballA?.radius ?? 42}
+                  ballBRadius={ballB?.radius ?? 42}
+                  weaponA={arena.weaponA}
+                  weaponB={arena.weaponB}
+                  width={340}
+                  height={595}
+                />
+              </div>
+            </div>
+
+            {/* Right fighter card — Ball B */}
+            <FighterCard f={ballB} weapon={arena.weaponB} side="right" />
           </div>
 
           {/* Announcement */}
@@ -248,16 +261,106 @@ export default function Dashboard() {
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── FighterCard ──────────────────────────────────────────────────────────────
 
-function Nameplate({ f, align }: { f: Fighter; align: "left" | "right" }) {
-  const total = f.wins + f.losses;
-  const wr = total > 0 ? Math.round((f.wins / total) * 100) : 0;
+const WEAPON_TYPE_ICON: Record<string, string> = {
+  blade: "⚔️",
+  point: "🗡️",
+  blunt: "🔨",
+};
+
+function CardRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <Link to={`/fighter/${f.id}`} style={{ ...S.nameplate, textAlign: align }}>
-      <div style={{ ...S.colorDot, background: f.color, margin: align === "left" ? "0 6px 0 0" : "0 0 0 6px", display: "inline-block" }} />
-      <span style={S.nplateName}>{f.name}</span>
-      <div style={S.nplateSub}>{f.weaponId} · {f.wins}W {f.losses}L · {wr}% WR</div>
+    <div style={FC.row}>
+      <span style={FC.rowLabel}>{label}</span>
+      <span style={FC.rowValue}>{value}</span>
+    </div>
+  );
+}
+
+function FighterCard({ f, weapon, side }: { f: LiveFighter | null; weapon: WeaponDef | null; side: "left" | "right" }) {
+  if (!f) return <div style={FC.placeholder} />;
+
+  const total = f.wins + f.losses;
+  const wr    = total > 0 ? Math.round((f.wins / total) * 100) : 0;
+
+  const streak = f.currentStreak > 2
+    ? `🔥 ${f.currentStreak}W`
+    : f.currentStreak < -2
+    ? `❄️ ${Math.abs(f.currentStreak)}L`
+    : f.currentStreak > 0
+    ? `+${f.currentStreak}W`
+    : f.currentStreak < 0
+    ? `${f.currentStreak}L`
+    : "—";
+
+  const accentBorder = side === "left"
+    ? { borderLeft: `3px solid ${f.color}` }
+    : { borderRight: `3px solid ${f.color}` };
+
+  const weaponName = f.weaponId.replace(/_/g, " ");
+  const weaponIcon = weapon ? (WEAPON_TYPE_ICON[weapon.type] ?? "❓") : "❓";
+
+  return (
+    <Link to={`/fighter/${f.id}`} style={{ ...FC.card, ...accentBorder, textDecoration: "none" }}>
+
+      {/* Header: color dot + name */}
+      <div style={FC.header}>
+        <span style={{ ...FC.colorDot, background: f.color }} />
+        <span style={FC.name}>{f.name}</span>
+      </div>
+
+      {/* Win / Loss record */}
+      <div style={FC.section}>
+        <div style={FC.sectionTitle}>RECORD</div>
+        <div style={FC.wlRow}>
+          <span style={FC.wins}>{f.wins}W</span>
+          <span style={FC.losses}>{f.losses}L</span>
+          <span style={FC.winRate}>{wr}%</span>
+        </div>
+        <div style={FC.streakRow}>
+          <span style={FC.streakLabel}>Streak</span>
+          <span style={FC.streakValue}>{streak}</span>
+        </div>
+        {(f.longestWinStreak ?? 0) > 0 && (
+          <div style={FC.streakRow}>
+            <span style={FC.streakLabel}>Best</span>
+            <span style={FC.streakValue}>🏅 {f.longestWinStreak}W</span>
+          </div>
+        )}
+      </div>
+
+      {/* Ball stats */}
+      <div style={FC.section}>
+        <div style={FC.sectionTitle}>BALL</div>
+        <CardRow label="HP" value={f.baseHp} />
+        <CardRow label="Size" value={f.radius} />
+        {(f.totalDamageDealt ?? 0) > 0 && (
+          <CardRow label="Dealt" value={f.totalDamageDealt.toLocaleString()} />
+        )}
+        {(f.totalDamageTaken ?? 0) > 0 && (
+          <CardRow label="Taken" value={f.totalDamageTaken.toLocaleString()} />
+        )}
+      </div>
+
+      {/* Weapon stats */}
+      <div style={FC.section}>
+        <div style={FC.sectionTitle}>WEAPON</div>
+        <div style={FC.weaponName}>{weaponIcon} {weaponName}</div>
+        {weapon && (
+          <>
+            <CardRow label="Type" value={weapon.type} />
+            {weapon.baseDamage !== undefined && <CardRow label="DMG" value={weapon.baseDamage} />}
+            <CardRow label="Reach" value={weapon.reach} />
+            {weapon.omega !== undefined && (
+              <CardRow label="Spin" value={`${Math.round(weapon.omega / 100) / 10}k`} />
+            )}
+            {weapon.weight !== undefined && (
+              <CardRow label="Weight" value={weapon.weight} />
+            )}
+          </>
+        )}
+      </div>
     </Link>
   );
 }
@@ -272,6 +375,118 @@ const C = {
   muted:   "#555588",
   accent:  "#7c4dff",
   gold:    "#ffd700",
+};
+
+/** Fighter card styles */
+const FC: Record<string, React.CSSProperties> = {
+  card: {
+    width: 148,
+    flexShrink: 0,
+    background: C.panel,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    padding: "10px 8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    alignSelf: "flex-start",
+    color: C.text,
+  },
+  placeholder: {
+    width: 148,
+    flexShrink: 0,
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    borderBottom: `1px solid ${C.border}`,
+    paddingBottom: 7,
+  },
+  colorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  name: {
+    fontSize: 11,
+    fontWeight: "bold",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+    color: C.text,
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 3,
+  },
+  sectionTitle: {
+    fontSize: 8,
+    letterSpacing: 2,
+    color: C.muted,
+    marginBottom: 1,
+    textTransform: "uppercase" as const,
+  },
+  // W/L record row
+  wlRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+  },
+  wins: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#4caf50",
+  },
+  losses: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#f44336",
+  },
+  winRate: {
+    fontSize: 10,
+    color: "#9977cc",
+    marginLeft: "auto",
+  },
+  streakRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  streakLabel: {
+    fontSize: 9,
+    color: C.muted,
+  },
+  streakValue: {
+    fontSize: 10,
+    color: C.text,
+  },
+  // Generic stat row
+  row: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  rowLabel: {
+    fontSize: 9,
+    color: C.muted,
+  },
+  rowValue: {
+    fontSize: 10,
+    color: C.text,
+    textAlign: "right" as const,
+  },
+  weaponName: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#aaaaee",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    marginBottom: 2,
+  },
 };
 
 const S: Record<string, React.CSSProperties> = {
@@ -333,7 +548,7 @@ const S: Record<string, React.CSSProperties> = {
     flex: 1,
   },
 
-  // Arena
+  // Arena panel — column, centered
   arenaPanel: {
     display: "flex",
     flexDirection: "column" as const,
@@ -342,45 +557,47 @@ const S: Record<string, React.CSSProperties> = {
     borderRight: `1px solid ${C.border}`,
     gap: 10,
   },
-  nameplates: {
+
+  // Horizontal row: left-card | center-col | right-card
+  canvasRow: {
     display: "flex",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "flex-start",
+    gap: 10,
     width: "100%",
-    maxWidth: 460,
-    gap: 8,
+    justifyContent: "center",
   },
-  nameplate: {
-    flex: 1,
-    textDecoration: "none",
-    color: C.text,
+
+  // Center column: VS strip + canvas
+  centerCol: {
     display: "flex",
     flexDirection: "column" as const,
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
   },
-  nplateName: {
-    fontSize: 13,
+
+  // VS strip above canvas
+  vsStrip: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: 6,
+  },
+  vsName: {
+    fontSize: 10,
     fontWeight: "bold",
-    whiteSpace: "nowrap" as const,
+    flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
-  },
-  nplateSub: {
-    fontSize: 10,
-    color: "#666688",
-    marginTop: 2,
+    whiteSpace: "nowrap" as const,
   },
   vsText: {
-    fontSize: 11,
-    color: "#444466",
-    fontWeight: "bold",
+    fontSize: 13,
     flexShrink: 0,
   },
-  colorDot: {
-    display: "inline-block",
-    width: 10,
-    height: 10,
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
+
   canvasWrap: {
     borderRadius: 8,
     overflow: "hidden",
@@ -391,7 +608,7 @@ const S: Record<string, React.CSSProperties> = {
     color: "#99bbaa",
     fontStyle: "italic",
     textAlign: "center" as const,
-    maxWidth: 420,
+    maxWidth: 660,
     lineHeight: 1.6,
     margin: 0,
   },
@@ -401,7 +618,7 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     padding: "12px 16px",
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 660,
     textAlign: "center" as const,
   },
   resultTitle: {
@@ -436,14 +653,6 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     padding: "12px 10px",
   },
-  sideTitle: {
-    margin: "0 0 10px",
-    fontSize: 11,
-    letterSpacing: 2,
-    color: "#666688",
-    textTransform: "uppercase" as const,
-  },
-  // Clickable collapse toggle — looks like the old section header but interactive
   panelToggle: {
     display: "flex",
     alignItems: "center",
@@ -476,6 +685,13 @@ const S: Record<string, React.CSSProperties> = {
     fontSize: 12,
   },
   rank: { color: "#444466", width: 22, textAlign: "right" as const, flexShrink: 0 },
+  colorDot: {
+    display: "inline-block",
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
   leaderName: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontSize: 11 },
   leaderStats: { fontSize: 10, color: "#666688", flexShrink: 0, whiteSpace: "nowrap" as const },
   wr: { color: "#9977cc" },
@@ -487,7 +703,6 @@ const S: Record<string, React.CSSProperties> = {
     padding: "14px 16px 0",
     background: C.panel,
   },
-  // Horizontal scroll on desktop, wraps on mobile
   resultsScroll: {
     display: "flex",
     flexDirection: "row" as const,
