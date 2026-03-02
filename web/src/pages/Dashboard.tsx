@@ -1,14 +1,19 @@
 // web/src/pages/Dashboard.tsx
 // Homepage: live arena (center), leaderboard (right), recent results (below).
 // Fighter cards on left/right of the canvas show W/L, weapon stats, ball stats.
+// Admin panel (VITE_ADMIN_MODE=true) adds recording controls to the sidebar.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
 import type { Fighter as LiveFighter, WeaponDef } from "../hooks/useArenaSocket";
 import { PhaserArena } from "../components/PhaserArena";
+import { AdminPanel } from "../components/AdminPanel";
+import { MatchRecorder, saveRecordingMeta } from "../recorder/MatchRecorder";
+import type { RuntimeRecording } from "../recorder/MatchRecorder";
 
-const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
+const API        = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
+const ADMIN_MODE = import.meta.env["VITE_ADMIN_MODE"] === "true";
 
 interface LeaderboardFighter {
   id: string; name: string; weaponId: string;
@@ -61,6 +66,18 @@ export default function Dashboard() {
   const [showLeaderboard, setShowLB]  = useState(true);
   const [showResults, setShowResults] = useState(true);
 
+  // ── Recording state ──────────────────────────────────────────────────────
+  const [recordNextMatch, setRecordNextMatch]   = useState(false);
+  const [recordAllMatches, setRecordAllMatches] = useState(false);
+  const [showHiddenArena, setShowHiddenArena]   = useState(false);
+  const [isRecording, setIsRecording]           = useState(false);
+  const [recordings, setRecordings]             = useState<RuntimeRecording[]>([]);
+  // Refs — avoid stale closure problems in async callbacks
+  const recorderRef        = useRef(new MatchRecorder());
+  const hiddenCanvasRef    = useRef<HTMLCanvasElement | null>(null);
+  const recordingActiveRef = useRef(false);
+  const recordAllRef       = useRef(false);
+
   // Initial data fetch
   useEffect(() => {
     fetch(`${API}/api/fighters`).then(r => r.json()).then(setFighters).catch(() => {});
@@ -97,6 +114,53 @@ export default function Dashboard() {
       return () => clearInterval(t);
     }
   }, [arena.phase, arena.startsInMs, nextMatch?.startsAt]);
+
+  // Keep recordAllRef in sync so async stop() callbacks read current state
+  useEffect(() => { recordAllRef.current = recordAllMatches; }, [recordAllMatches]);
+
+  // Mount hidden arena during countdown when recording is armed
+  useEffect(() => {
+    if (arena.phase === "countdown" && (recordNextMatch || recordAllMatches)) {
+      setShowHiddenArena(true);
+    }
+  }, [arena.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start recording when match goes live (requires hidden arena + canvas ready)
+  useEffect(() => {
+    if (arena.phase !== "live") return;
+    if (recordingActiveRef.current || recorderRef.current.isRecording) return;
+    if (!showHiddenArena || !hiddenCanvasRef.current) return;
+
+    recorderRef.current.start(
+      hiddenCanvasRef.current,
+      arena.matchNumber,
+      arena.liveBallA?.name ?? "Fighter A",
+      arena.liveBallB?.name ?? "Fighter B",
+    );
+    recordingActiveRef.current = true;
+    setIsRecording(true);
+
+    // Consume "record next only" flag without clearing "all matches" mode
+    if (recordNextMatch && !recordAllMatches) setRecordNextMatch(false);
+  }, [arena.phase, arena.matchNumber, showHiddenArena]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stop recording when match ends and persist metadata
+  useEffect(() => {
+    if (arena.phase !== "result" || !recordingActiveRef.current) return;
+    recordingActiveRef.current = false;
+
+    recorderRef.current.stop(arena.winner ?? "?").then(rec => {
+      saveRecordingMeta(rec);
+      setRecordings(prev => [rec, ...prev]);
+      setIsRecording(false);
+      // Tear down hidden arena if "record all" mode is off
+      if (!recordAllRef.current) setShowHiddenArena(false);
+    }).catch(e => {
+      console.warn("[Recording] stop() failed:", e.message);
+      setIsRecording(false);
+      if (!recordAllRef.current) setShowHiddenArena(false);
+    });
+  }, [arena.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fighters for canvas — WebSocket > /api/next fallback
   const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA ?? nextMatch?.ballA ?? null;
@@ -190,7 +254,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ── Leaderboard sidebar ──────────────────────────────────────── */}
+        {/* ── Leaderboard + Admin sidebar ──────────────────────────────── */}
         <aside style={S.sidebar} className="worbz-sidebar">
           <div style={S.sideCard}>
             <button style={S.panelToggle} onClick={() => setShowLB(v => !v)}>
@@ -214,6 +278,19 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Admin panel — only visible when VITE_ADMIN_MODE=true */}
+          {ADMIN_MODE && (
+            <AdminPanel
+              recordNextMatch={recordNextMatch}
+              recordAllMatches={recordAllMatches}
+              isRecording={isRecording}
+              recordings={recordings}
+              onToggleNextMatch={setRecordNextMatch}
+              onToggleAllMatches={setRecordAllMatches}
+              onRecordingsChange={setRecordings}
+            />
+          )}
         </aside>
       </div>
 
@@ -257,6 +334,38 @@ export default function Dashboard() {
         </div>
         </div>{/* end collapse wrapper */}
       </section>
+
+      {/* ── Hidden 1920×1080 Phaser instance for high-resolution recording ── */}
+      {showHiddenArena && (
+        <div style={S.hiddenArenaWrap}>
+          <PhaserArena
+            frame={arena.currentFrame}
+            ballAName={ballA?.name ?? "Fighter A"}
+            ballBName={ballB?.name ?? "Fighter B"}
+            ballAColor={ballA?.color ?? "#4fc3f7"}
+            ballBColor={ballB?.color ?? "#ef5350"}
+            ballAHp={ballA?.baseHp ?? 500}
+            ballBHp={ballB?.baseHp ?? 500}
+            ballARadius={ballA?.radius ?? 42}
+            ballBRadius={ballB?.radius ?? 42}
+            weaponA={arena.weaponA}
+            weaponB={arena.weaponB}
+            width={1920}
+            height={1080}
+            onCanvasReady={canvas => {
+              hiddenCanvasRef.current = canvas;
+              // Log dimensions to confirm 1920×1080 before recording starts
+              console.log(`[MatchRecorder] Hidden canvas ready: ${canvas.width}×${canvas.height}`);
+              if (canvas.width !== 1920 || canvas.height !== 1080) {
+                console.warn(
+                  `[MatchRecorder] ⚠ Canvas is ${canvas.width}×${canvas.height}, ` +
+                  `not 1920×1080 — recording will be low resolution.`,
+                );
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -751,4 +860,16 @@ const S: Record<string, React.CSSProperties> = {
   durText:     { fontSize: 10, color: "#555577" },
   viewReplay:  { fontSize: 10, color: C.accent },
   resultMeta2: { fontSize: 10, color: "#555577" },
+
+  // Hidden arena — offscreen, invisible, 1920×1080 for recording
+  hiddenArenaWrap: {
+    position: "fixed" as const,
+    left: -9999,
+    top: 0,
+    width: 1920,
+    height: 1080,
+    pointerEvents: "none" as const,
+    opacity: 0,
+    zIndex: -1,
+  },
 };
