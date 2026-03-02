@@ -339,6 +339,7 @@ export default function Dashboard() {
       {showHiddenArena && (
         <div style={S.hiddenArenaWrap}>
           <PhaserArena
+            preserveDrawingBuffer={true}
             frame={arena.currentFrame}
             ballAName={ballA?.name ?? "Fighter A"}
             ballBName={ballB?.name ?? "Fighter B"}

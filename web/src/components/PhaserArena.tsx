@@ -41,6 +41,13 @@ interface PhaserArenaProps {
   height?: number;
   /** Called once after Phaser creates its canvas element (synchronous with game init). */
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+  /**
+   * Set true for recording canvases.
+   * WebGL swaps its drawing buffer after each frame by default, which causes
+   * captureStream() to capture blank frames. preserveDrawingBuffer keeps the
+   * last rendered frame in the buffer so every captured frame has content.
+   */
+  preserveDrawingBuffer?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -60,6 +67,7 @@ export function PhaserArena({
   width = 380,
   height = 620,
   onCanvasReady,
+  preserveDrawingBuffer = false,
 }: PhaserArenaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef      = useRef<Phaser.Game | null>(null);
@@ -99,6 +107,12 @@ export function PhaserArena({
       scale: {
         mode: Phaser.Scale.NONE, // We control sizing via CSS
         autoCenter: Phaser.Scale.NO_CENTER,
+      },
+      render: {
+        // Required for captureStream() to work on WebGL canvases.
+        // Without this, WebGL swaps the drawing buffer after each frame and
+        // captureStream() reads an already-cleared buffer → blank video.
+        preserveDrawingBuffer,
       },
       // Disable Phaser's default banner in console
       banner: false,
