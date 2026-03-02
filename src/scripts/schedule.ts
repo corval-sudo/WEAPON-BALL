@@ -212,9 +212,13 @@ async function runNextMatch(): Promise<void> {
       type: raw.type ?? "point",
       reach: raw.reach,
       tipRadius: raw.tipRadius,
-      ...(raw.bladeStart !== undefined && { bladeStart: raw.bladeStart }),
+      ...(raw.bladeStart  !== undefined && { bladeStart:  raw.bladeStart }),
       ...(raw.bladeWidth  !== undefined && { bladeWidth:  raw.bladeWidth }),
       ...(raw.shaftRadius !== undefined && { shaftRadius: raw.shaftRadius }),
+      ...(raw.baseDamage  !== undefined && { baseDamage:  raw.baseDamage }),
+      ...(raw.omega       !== undefined && { omega:       raw.omega }),
+      ...(raw.speedMult   !== undefined && { speedMult:   raw.speedMult }),
+      ...(raw.weight      !== undefined && { weight:      raw.weight }),
     };
   }
 
