@@ -7,6 +7,8 @@ import { Link } from "react-router-dom";
 import { useArenaSocket } from "../hooks/useArenaSocket";
 import type { Fighter as LiveFighter, WeaponDef } from "../hooks/useArenaSocket";
 import { PhaserArena } from "../components/PhaserArena";
+import { WalletButton } from "../components/WalletButton";
+import { useAccount } from "wagmi";
 
 const API = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
 
@@ -50,10 +52,16 @@ function timeAgo(iso: string): string {
   return `${Math.floor(secs / 3600)}h ago`;
 }
 
+function fillerPool(f: LiveFighter | null): number {
+  if (!f) return 0;
+  return ((f.wins * 47 + f.losses * 23 + f.baseHp) % 900) + 150;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const arena = useArenaSocket();
+  const { isConnected: walletConnected } = useAccount();
   const [fighters, setFighters]       = useState<LeaderboardFighter[]>([]);
   const [matches, setMatches]         = useState<RecentMatch[]>([]);
   const [countdown, setCountdown]     = useState(0);
@@ -102,6 +110,10 @@ export default function Dashboard() {
   const ballA = arena.liveBallA ?? arena.resultBallA ?? arena.nextBallA ?? nextMatch?.ballA ?? null;
   const ballB = arena.liveBallB ?? arena.resultBallB ?? arena.nextBallB ?? nextMatch?.ballB ?? null;
 
+  // Filler bet pools (stable per fighter, replaced by real contract data in Phase 3)
+  const poolA = fillerPool(ballA);
+  const poolB = fillerPool(ballB);
+
   // Arena status label — countdown === -1 means startsAt is known but past (match imminent)
   const arenaLabel =
     arena.phase === "live"      ? `⚔️ MATCH #${arena.matchNumber} — LIVE` :
@@ -122,6 +134,7 @@ export default function Dashboard() {
           <span style={{ ...S.dot, background: arena.connected ? "#4caf50" : "#f44336" }} />
           {arena.connected ? "LIVE" : "OFFLINE"}
         </span>
+        <WalletButton />
       </header>
 
       {/* ── Main grid: arena | leaderboard ──────────────────────────────── */}
@@ -134,7 +147,7 @@ export default function Dashboard() {
           <div style={S.canvasRow}>
 
             {/* Left fighter card — Ball A */}
-            <FighterCard f={ballA} weapon={arena.weaponA} side="left" />
+            <FighterCard f={ballA} weapon={arena.weaponA} side="left" betSelf={poolA} betOpponent={poolB} walletConnected={walletConnected} />
 
             {/* Center: VS strip + canvas + controls */}
             <div style={S.centerCol}>
@@ -168,7 +181,7 @@ export default function Dashboard() {
             </div>
 
             {/* Right fighter card — Ball B */}
-            <FighterCard f={ballB} weapon={arena.weaponB} side="right" />
+            <FighterCard f={ballB} weapon={arena.weaponB} side="right" betSelf={poolB} betOpponent={poolA} walletConnected={walletConnected} />
           </div>
 
           {/* Announcement */}
@@ -269,6 +282,28 @@ const WEAPON_TYPE_ICON: Record<string, string> = {
   blunt: "🔨",
 };
 
+function BetRow({ disabled }: { disabled: boolean }) {
+  const [amount, setAmount] = useState("0.01");
+  return (
+    <div style={FC.betRow}>
+      <input
+        style={{ ...FC.betInput, opacity: disabled ? 0.4 : 1 }}
+        value={amount}
+        onChange={e => setAmount(e.target.value)}
+        disabled={disabled}
+        placeholder="ETH"
+      />
+      <button
+        style={{ ...FC.betBtn, opacity: disabled ? 0.4 : 1 }}
+        disabled={disabled}
+        onClick={() => {/* Phase 3: wire to contract */}}
+      >
+        BET
+      </button>
+    </div>
+  );
+}
+
 function CardRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={FC.row}>
@@ -278,7 +313,14 @@ function CardRow({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function FighterCard({ f, weapon, side }: { f: LiveFighter | null; weapon: WeaponDef | null; side: "left" | "right" }) {
+function FighterCard({ f, weapon, side, betSelf, betOpponent, walletConnected }: {
+  f: LiveFighter | null;
+  weapon: WeaponDef | null;
+  side: "left" | "right";
+  betSelf: number;
+  betOpponent: number;
+  walletConnected: boolean;
+}) {
   if (!f) return <div style={FC.placeholder} />;
 
   const total = f.wins + f.losses;
@@ -304,10 +346,18 @@ function FighterCard({ f, weapon, side }: { f: LiveFighter | null; weapon: Weapo
   return (
     <Link to={`/fighter/${f.id}`} style={{ ...FC.card, ...accentBorder, textDecoration: "none" }}>
 
-      {/* Header: color dot + name */}
+      {/* Header: color dot + name, pool row below */}
       <div style={FC.header}>
-        <span style={{ ...FC.colorDot, background: f.color }} />
-        <span style={FC.name}>{f.name}</span>
+        <div style={FC.nameRow}>
+          <span style={{ ...FC.colorDot, background: f.color }} />
+          <span style={FC.name}>{f.name}</span>
+        </div>
+        <div style={FC.poolRow}>
+          <span style={FC.poolSelf}>{betSelf.toLocaleString()}</span>
+          <span style={FC.poolSep}> · </span>
+          <span style={FC.poolOpponent}>{betOpponent.toLocaleString()}</span>
+          <span style={FC.poolUnit}> WRBZ</span>
+        </div>
       </div>
 
       {/* Win / Loss record */}
@@ -361,6 +411,14 @@ function FighterCard({ f, weapon, side }: { f: LiveFighter | null; weapon: Weapo
           </>
         )}
       </div>
+
+      {/* Bets section */}
+      <div style={FC.section} onClick={e => e.preventDefault()}>
+        <div style={FC.sectionTitle}>BETS</div>
+        <CardRow label="Pool" value={`${(betSelf + betOpponent).toLocaleString()} WRBZ`} />
+        <CardRow label="Odds" value={`${((betSelf + betOpponent) / Math.max(betSelf, 1)).toFixed(1)}x`} />
+        <BetRow disabled={!walletConnected} />
+      </div>
     </Link>
   );
 }
@@ -398,10 +456,39 @@ const FC: Record<string, React.CSSProperties> = {
   },
   header: {
     display: "flex",
-    alignItems: "center",
-    gap: 6,
+    flexDirection: "column" as const,
+    gap: 3,
     borderBottom: `1px solid ${C.border}`,
     paddingBottom: 7,
+  },
+  nameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  poolRow: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 2,
+    flexWrap: "wrap" as const,
+  },
+  poolSelf: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#ffd700",
+  },
+  poolSep: {
+    fontSize: 9,
+    color: "#555588",
+  },
+  poolOpponent: {
+    fontSize: 9,
+    color: "#555588",
+  },
+  poolUnit: {
+    fontSize: 8,
+    color: "#555588",
+    letterSpacing: 1,
   },
   colorDot: {
     width: 10,
@@ -486,6 +573,35 @@ const FC: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     marginBottom: 2,
+  },
+  betRow: {
+    display: "flex",
+    gap: 5,
+    marginTop: 5,
+  },
+  betInput: {
+    flex: 1,
+    background: "rgba(124,77,255,0.08)",
+    border: `1px solid ${C.accent}`,
+    borderRadius: 3,
+    padding: "5px 7px",
+    color: C.text,
+    fontFamily: "'Courier New', Courier, monospace",
+    fontSize: 10,
+    minWidth: 0,
+  },
+  betBtn: {
+    background: C.accent,
+    border: `1px solid ${C.accent}`,
+    borderRadius: 3,
+    padding: "5px 8px",
+    color: "#fff",
+    fontFamily: "'Courier New', Courier, monospace",
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 1,
+    cursor: "pointer",
+    flexShrink: 0,
   },
 };
 
