@@ -2,7 +2,7 @@
 // Captures a hidden 1920×1080 Phaser canvas to a WebM blob via MediaRecorder.
 // Used by the admin panel to produce social-ready match recordings.
 
-const RECORDING_BITRATE = 8_000_000; // 8 Mbps
+const RECORDING_BITRATE = 1_000_000; // 1 Mbps — plenty for simple 2D procedural content
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,10 +42,10 @@ export class MatchRecorder {
       console.log(
         `[MatchRecorder] Canvas dimensions: ${canvas.width}×${canvas.height}`,
       );
-      if (canvas.width !== 1920 || canvas.height !== 1080) {
+      if (canvas.width !== 1080 || canvas.height !== 1890) {
         console.warn(
           `[MatchRecorder] ⚠ Canvas is ${canvas.width}×${canvas.height}, ` +
-          `not 1920×1080 — recording will be low resolution.`,
+          `not 1080×1890 — recording may be distorted.`,
         );
       }
     }
@@ -69,7 +69,7 @@ export class MatchRecorder {
       winner: "",
     };
 
-    const stream = canvas.captureStream(60);
+    const stream = canvas.captureStream(30);
 
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
       ? "video/webm;codecs=vp9"
