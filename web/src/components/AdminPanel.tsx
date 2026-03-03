@@ -76,9 +76,12 @@ export function AdminPanel({
       }
 
       const { mp4Url } = await res.json() as { mp4Url: string };
+      // mp4Url is a relative path ("/recordings/...") — prepend the API origin
+      // so the link points at the backend, not the Vite dev server.
+      const fullMp4Url = `${API}${mp4Url}`;
 
       const updated = recordings.map(rec =>
-        recKey(rec) === key ? { ...rec, mp4Url } : rec
+        recKey(rec) === key ? { ...rec, mp4Url: fullMp4Url } : rec
       );
       onRecordingsChange(updated);
     } catch (e: any) {

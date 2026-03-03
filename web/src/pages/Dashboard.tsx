@@ -74,10 +74,10 @@ export default function Dashboard() {
   const [isRecording, setIsRecording]           = useState(false);
   const [recordings, setRecordings]             = useState<RuntimeRecording[]>([]);
   // Refs — avoid stale closure problems in async callbacks
-  const recorderRef        = useRef(new MatchRecorder());
-  const hiddenCanvasRef    = useRef<HTMLCanvasElement | null>(null);
-  const recordingActiveRef = useRef(false);
-  const recordAllRef       = useRef(false);
+  const recorderRef           = useRef(new MatchRecorder());
+  const hiddenContainerRef    = useRef<HTMLDivElement>(null);
+  const recordingActiveRef    = useRef(false);
+  const recordAllRef          = useRef(false);
 
   // Initial data fetch
   useEffect(() => {
@@ -119,11 +119,8 @@ export default function Dashboard() {
   // Keep recordAllRef in sync so async stop() callbacks read current state
   useEffect(() => { recordAllRef.current = recordAllMatches; }, [recordAllMatches]);
 
-  // Mount hidden arena as soon as recording is armed — do NOT wait for the
-  // countdown phase because without an Anthropic key the commentary call
-  // fails instantly, causing next_match + match_start to arrive back-to-back.
-  // React batches those two setState calls into a single render, skipping
-  // "countdown" entirely, so a countdown-based effect never fires.
+  // Mount hidden arena immediately when recording is armed (don't wait for countdown —
+  // React 18 batches next_match+match_start so "countdown" phase can be skipped entirely).
   useEffect(() => {
     if (recordNextMatch || recordAllMatches) {
       console.log("[REC] Recording armed — mounting hidden arena");
@@ -131,60 +128,72 @@ export default function Dashboard() {
     }
   }, [recordNextMatch, recordAllMatches]);
 
-  // Start recording when BOTH the arena is live AND the hidden canvas is ready.
-  // Watching hiddenCanvasReady handles the race where the canvas finishes
-  // initialising after phase has already changed to "live".
+  // Reset canvas-ready flag when the hidden arena is torn down
   useEffect(() => {
-    console.log(`[REC] Start effect — phase=${arena.phase} canvasReady=${hiddenCanvasReady} activeRef=${recordingActiveRef.current} isRecording=${recorderRef.current.isRecording} canvas=${!!hiddenCanvasRef.current}`);
+    if (!showHiddenArena) {
+      setHiddenCanvasReady(false);
+    }
+  }, [showHiddenArena]);
+
+  // Start recording when match goes live AND hidden canvas is initialised.
+  // hiddenCanvasReady in the deps list means this also fires if the canvas
+  // becomes ready *after* phase already flipped to "live" (arm-while-live scenario).
+  useEffect(() => {
     if (arena.phase !== "live") return;
     if (recordingActiveRef.current || recorderRef.current.isRecording) return;
-    if (!hiddenCanvasReady || !hiddenCanvasRef.current) {
-      console.warn("[REC] Phase is live but canvas not ready — recording will be missed");
+    if (!hiddenCanvasReady) {
+      console.warn("[REC] Phase is live but canvas not ready yet");
       return;
     }
 
-    console.log("[REC] Starting recorder");
-    try {
-      recorderRef.current.start(
-        hiddenCanvasRef.current,
-        arena.matchNumber,
-        arena.liveBallA?.name ?? "Fighter A",
-        arena.liveBallB?.name ?? "Fighter B",
-      );
-      recordingActiveRef.current = true;
-      setIsRecording(true);
-    } catch (e: any) {
-      console.error("[REC] start() threw:", e.message);
+    // Always re-query the canvas from the container at start time.
+    // This avoids stale-ref bugs caused by React StrictMode's cleanup cycle
+    // (game.destroy resets canvas.width/height to 1 via Phaser's CanvasPool).
+    const canvas = hiddenContainerRef.current?.querySelector("canvas") as HTMLCanvasElement | null;
+    if (!canvas) {
+      console.warn("[REC] No canvas found in hidden container");
+      return;
     }
+    if (canvas.width !== 1080 || canvas.height !== 1890) {
+      console.warn(`[REC] Canvas wrong size: ${canvas.width}×${canvas.height} — not starting recorder`);
+      return;
+    }
+
+    console.log(`[REC] Starting recorder — canvas ${canvas.width}×${canvas.height}`);
+    recorderRef.current.start(
+      canvas,
+      arena.matchNumber,
+      arena.liveBallA?.name ?? "Fighter A",
+      arena.liveBallB?.name ?? "Fighter B",
+    );
+    recordingActiveRef.current = true;
+    setIsRecording(true);
 
     // Consume "record next only" flag without clearing "all matches" mode
     if (recordNextMatch && !recordAllMatches) setRecordNextMatch(false);
   }, [arena.phase, arena.matchNumber, hiddenCanvasReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Stop recording when match ends and persist metadata
+  // Stop recording when match ends — delay 3s so the winner overlay is visible in the recording.
   useEffect(() => {
     if (arena.phase !== "result" || !recordingActiveRef.current) return;
-    recordingActiveRef.current = false;
 
-    recorderRef.current.stop(arena.winner ?? "?").then(rec => {
-      saveRecordingMeta(rec);
-      setRecordings(prev => [rec, ...prev]);
-      setIsRecording(false);
-      // Tear down hidden arena if "record all" mode is off
-      if (!recordAllRef.current) {
-        setShowHiddenArena(false);
-        setHiddenCanvasReady(false);
-        hiddenCanvasRef.current = null;
-      }
-    }).catch(e => {
-      console.warn("[Recording] stop() failed:", e.message);
-      setIsRecording(false);
-      if (!recordAllRef.current) {
-        setShowHiddenArena(false);
-        setHiddenCanvasReady(false);
-        hiddenCanvasRef.current = null;
-      }
-    });
+    const timer = setTimeout(() => {
+      recordingActiveRef.current = false;
+
+      recorderRef.current.stop(arena.winner ?? "?").then(rec => {
+        saveRecordingMeta(rec);
+        setRecordings(prev => [rec, ...prev]);
+        setIsRecording(false);
+        // Tear down hidden arena if "record all" mode is off
+        if (!recordAllRef.current) setShowHiddenArena(false);
+      }).catch(e => {
+        console.warn("[Recording] stop() failed:", e.message);
+        setIsRecording(false);
+        if (!recordAllRef.current) setShowHiddenArena(false);
+      });
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, [arena.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fighters for canvas — WebSocket > /api/next fallback
@@ -360,11 +369,12 @@ export default function Dashboard() {
         </div>{/* end collapse wrapper */}
       </section>
 
-      {/* ── Hidden 1920×1080 Phaser instance for high-resolution recording ── */}
+      {/* ── Hidden 1080×1890 Phaser instance for high-resolution recording ── */}
+      {/* Dimensions preserve the simulation's 4:7 aspect ratio (400×700 arena) */}
+      {/* so scaleX === scaleY (2.7×) — no distortion, faithful to live render. */}
       {showHiddenArena && (
-        <div style={S.hiddenArenaWrap}>
+        <div ref={hiddenContainerRef} style={S.hiddenArenaWrap}>
           <PhaserArena
-            preserveDrawingBuffer={true}
             frame={arena.currentFrame}
             ballAName={ballA?.name ?? "Fighter A"}
             ballBName={ballB?.name ?? "Fighter B"}
@@ -376,20 +386,18 @@ export default function Dashboard() {
             ballBRadius={ballB?.radius ?? 42}
             weaponA={arena.weaponA}
             weaponB={arena.weaponB}
-            width={1920}
-            height={1080}
+            ballAWins={ballA?.wins}
+            ballALosses={ballA?.losses}
+            ballBWins={ballB?.wins}
+            ballBLosses={ballB?.losses}
+            width={1080}
+            height={1890}
+            recordingMode={true}
+            winner={arena.phase === "result" ? (arena.winner as "A" | "B" | null) : null}
+            preserveDrawingBuffer={true}
             onCanvasReady={canvas => {
-              hiddenCanvasRef.current = canvas;
-              console.log(`[REC] onCanvasReady — ${canvas.width}×${canvas.height} arena.phase=${arena.phase}`);
-              setHiddenCanvasReady(true);  // triggers recording start if already live
-              // Log dimensions to confirm 1920×1080 before recording starts
-              console.log(`[MatchRecorder] Hidden canvas ready: ${canvas.width}×${canvas.height}`);
-              if (canvas.width !== 1920 || canvas.height !== 1080) {
-                console.warn(
-                  `[MatchRecorder] ⚠ Canvas is ${canvas.width}×${canvas.height}, ` +
-                  `not 1920×1080 — recording will be low resolution.`,
-                );
-              }
+              console.log(`[REC] onCanvasReady — ${canvas.width}×${canvas.height}`);
+              setHiddenCanvasReady(true);
             }}
           />
         </div>
@@ -889,17 +897,18 @@ const S: Record<string, React.CSSProperties> = {
   viewReplay:  { fontSize: 10, color: C.accent },
   resultMeta2: { fontSize: 10, color: "#555577" },
 
-  // Hidden arena — offscreen, 1920×1080 for recording.
-  // Uses transform instead of left/opacity so Chrome's compositor still
-  // renders the WebGL canvas. opacity:0 and z-index:-1 cause Chrome to
-  // skip compositing entirely, producing blank captureStream() frames.
+  // Hidden arena — offscreen 1080×1890 canvas for recording (4:7 portrait).
+  // IMPORTANT: do NOT use opacity:0 or z-index:-1 — Chrome's compositor skips
+  // rendering layers with those properties, producing blank captureStream() frames.
+  // transform:translateX(-9999px) keeps the element fully off-screen while
+  // remaining in the normal compositor render path.
   hiddenArenaWrap: {
     position: "fixed" as const,
     top: 0,
     left: 0,
     transform: "translateX(-9999px)",
-    width: 1920,
-    height: 1080,
+    width: 1080,
+    height: 1890,
     pointerEvents: "none" as const,
   },
 };

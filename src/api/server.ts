@@ -399,11 +399,13 @@ app.post(
     ffmpeg(webmPath)
       .outputOptions([
         "-c:v libx264",
-        "-crf 18",
-        "-preset fast",
+        "-crf 28",                  // good quality for flat 2D content; much smaller than CRF 18
+        "-preset medium",           // better compression ratio than "fast"
         "-pix_fmt yuv420p",
+        "-vf scale=720:-2",         // downscale to 720px wide; height auto (divisible by 2)
+        "-r 30",                    // cap at 30 fps
         "-movflags +faststart",
-        "-an",              // arena has no audio
+        "-an",                      // arena has no audio
       ])
       .output(mp4Path)
       .on("end", () => {

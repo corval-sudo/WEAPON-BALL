@@ -37,6 +37,15 @@ export interface ArenaSceneConfig {
   weaponB: WeaponDef | null;
   canvasW: number;
   canvasH: number;
+  /** When true, renders recording-only overlays (side cards + winner banner). */
+  recordingMode?: boolean;
+  /** Set to "A" or "B" when the match ends — triggers the winner overlay. */
+  winner?: "A" | "B" | null;
+  /** Fighter W/L record — displayed on recording side cards. */
+  ballAWins?: number;
+  ballALosses?: number;
+  ballBWins?: number;
+  ballBLosses?: number;
 }
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
@@ -65,6 +74,16 @@ export class ArenaScene extends Phaser.Scene {
   private txtEvent!:   Phaser.GameObjects.Text;
   private txtTick!:    Phaser.GameObjects.Text;
   private txtWaiting!: Phaser.GameObjects.Text;
+
+  // Recording overlay objects (only visible when cfg.recordingMode === true)
+  private cardAGfx!:     Phaser.GameObjects.Graphics;
+  private cardBGfx!:     Phaser.GameObjects.Graphics;
+  private txtCardAName!: Phaser.GameObjects.Text;
+  private txtCardBName!: Phaser.GameObjects.Text;
+  private txtCardAInfo!: Phaser.GameObjects.Text;   // multiline: record + HP + weapon
+  private txtCardBInfo!: Phaser.GameObjects.Text;
+  private resultGfx!:    Phaser.GameObjects.Graphics;
+  private txtResult!:    Phaser.GameObjects.Text;
 
   // Frame state
   private currentFrame: TickFrame | null = null;
@@ -130,6 +149,27 @@ export class ArenaScene extends Phaser.Scene {
     this.txtWaiting = this.add.text(canvasW / 2, canvasH / 2, "WAITING FOR MATCH...", {
       fontFamily: "monospace", fontSize: "16px", color: "#444466", fontStyle: "bold",
     }).setOrigin(0.5, 0.5);
+
+    // ── Recording overlays (side cards + winner banner) ─────────────────
+    // Created last + depth-sorted so they always render on top of all arena content.
+    this.cardAGfx = this.add.graphics().setDepth(100);
+    this.cardBGfx = this.add.graphics().setDepth(100);
+    this.txtCardAName = this.add.text(0, 0, "", {
+      fontFamily: "monospace", fontSize: "60px", fontStyle: "bold",
+    }).setOrigin(0, 0).setDepth(101);
+    this.txtCardBName = this.add.text(0, 0, "", {
+      fontFamily: "monospace", fontSize: "60px", fontStyle: "bold",
+    }).setOrigin(0, 0).setDepth(101);
+    this.txtCardAInfo = this.add.text(0, 0, "", {
+      fontFamily: "monospace", fontSize: "48px", color: "#cccccc", lineSpacing: 16,
+    }).setOrigin(0, 0).setDepth(101);
+    this.txtCardBInfo = this.add.text(0, 0, "", {
+      fontFamily: "monospace", fontSize: "48px", color: "#cccccc", lineSpacing: 16,
+    }).setOrigin(0, 0).setDepth(101);
+    this.resultGfx = this.add.graphics().setDepth(200);
+    this.txtResult = this.add.text(canvasW / 2, canvasH * 0.4, "", {
+      fontFamily: "monospace", fontSize: "32px", fontStyle: "bold", color: "#ffd700",
+    }).setOrigin(0.5, 0.5).setDepth(201);
   }
 
   update(_time: number, delta: number): void {
@@ -138,6 +178,7 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.currentFrame) {
       this.txtWaiting.setVisible(true);
       this.clearDynamic();
+      this.renderRecordingOverlays();
       return;
     }
     this.txtWaiting.setVisible(false);
@@ -177,16 +218,22 @@ export class ArenaScene extends Phaser.Scene {
     this.drawHpBar(this.hpBarGfx, ax, ay - ballRA - 10, ballRA * 2.5, 4, frame.a.hp / cfg.ballAHp);
     this.drawHpBar(this.hpBarGfx, bx, by - ballRB - 10, ballRB * 2.5, 4, frame.b.hp / cfg.ballBHp);
 
-    // ── Name labels + badges ───────────────────────────────────────────────
-    const truncA = cfg.ballAName.length > 10 ? cfg.ballAName.slice(0, 10) + "…" : cfg.ballAName;
-    const truncB = cfg.ballBName.length > 10 ? cfg.ballBName.slice(0, 10) + "…" : cfg.ballBName;
-    this.badgeGfx.clear();
-    this.drawNameBadge(this.badgeGfx, ax, ay - ballRA - 14, truncA, cfg.ballAColor);
-    this.drawNameBadge(this.badgeGfx, bx, by - ballRB - 14, truncB, cfg.ballBColor);
-    this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14)
-      .setColor("#" + cfg.ballAColor.toString(16).padStart(6, "0"));
-    this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14)
-      .setColor("#" + cfg.ballBColor.toString(16).padStart(6, "0"));
+    // ── Name labels + badges (hidden in recording mode — side cards show names) ──
+    if (!cfg.recordingMode) {
+      const truncA = cfg.ballAName.length > 10 ? cfg.ballAName.slice(0, 10) + "…" : cfg.ballAName;
+      const truncB = cfg.ballBName.length > 10 ? cfg.ballBName.slice(0, 10) + "…" : cfg.ballBName;
+      this.badgeGfx.clear();
+      this.drawNameBadge(this.badgeGfx, ax, ay - ballRA - 14, truncA, cfg.ballAColor);
+      this.drawNameBadge(this.badgeGfx, bx, by - ballRB - 14, truncB, cfg.ballBColor);
+      this.txtA.setText(truncA).setPosition(ax, ay - ballRA - 14)
+        .setColor("#" + cfg.ballAColor.toString(16).padStart(6, "0"));
+      this.txtB.setText(truncB).setPosition(bx, by - ballRB - 14)
+        .setColor("#" + cfg.ballBColor.toString(16).padStart(6, "0"));
+    } else {
+      this.badgeGfx.clear();
+      this.txtA.setText("");
+      this.txtB.setText("");
+    }
 
     // ── Flash rings ────────────────────────────────────────────────────────
     this.flashGfx.clear();
@@ -220,6 +267,141 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     this.txtTick.setText(`t:${frame.tick}`);
+
+    // ── Recording overlays ───────────────────────────────────────────────
+    this.renderRecordingOverlays();
+  }
+
+  // ─── Recording overlays ──────────────────────────────────────────────────
+
+  private renderRecordingOverlays(): void {
+    const { cfg } = this;
+    if (!cfg?.recordingMode) {
+      this.cardAGfx?.setVisible(false);
+      this.cardBGfx?.setVisible(false);
+      this.txtCardAName?.setVisible(false);
+      this.txtCardBName?.setVisible(false);
+      this.txtCardAInfo?.setVisible(false);
+      this.txtCardBInfo?.setVisible(false);
+      this.resultGfx?.setVisible(false);
+      this.txtResult?.setVisible(false);
+      // Restore base font sizes for live viewer
+      this.txtEvent?.setFontSize(11);
+      this.txtTick?.setFontSize(9);
+      this.txtWaiting?.setFontSize(16);
+      return;
+    }
+
+    const { canvasW, canvasH } = cfg;
+
+    // ── Scale arena text up for recording legibility ───────────────────
+    this.txtEvent?.setFontSize(28);
+    this.txtTick?.setFontSize(16);
+    this.txtWaiting?.setFontSize(32);
+
+    // ── Fighter info cards ──────────────────────────────────────────────
+    const cardW   = 500;
+    const cardH   = 280;
+    const margin  = 20;
+    const pad     = 24;      // inner padding
+    const accent  = 6;       // colored border width
+    const corner  = 14;      // rounded corner radius
+
+    // Live HP (fall back to max HP if no frame yet)
+    const hpA = this.currentFrame?.a.hp ?? cfg.ballAHp;
+    const hpB = this.currentFrame?.b.hp ?? cfg.ballBHp;
+
+    // ── Draw card helper ──────────────────────────────────────────────
+    const drawCard = (
+      gfx: Phaser.GameObjects.Graphics,
+      txtName: Phaser.GameObjects.Text,
+      txtInfo: Phaser.GameObjects.Text,
+      x: number, color: number, name: string,
+      hp: number, maxHp: number,
+      wpnType: string, wpnDmg: number,
+      side: "left" | "right",
+    ) => {
+      const hex = "#" + color.toString(16).padStart(6, "0");
+
+      // Background
+      gfx.clear();
+      gfx.setVisible(true);
+      gfx.fillStyle(0x000000, 0.6);
+      gfx.fillRoundedRect(x, margin, cardW, cardH, corner);
+
+      // Colored accent border on the inner edge
+      gfx.fillStyle(color, 1);
+      if (side === "left") {
+        gfx.fillRect(x, margin + corner, accent, cardH - corner * 2);
+      } else {
+        gfx.fillRect(x + cardW - accent, margin + corner, accent, cardH - corner * 2);
+      }
+
+      // Separator line under name
+      const sepY = margin + 80;
+      gfx.lineStyle(1, 0x444466, 0.6);
+      gfx.lineBetween(x + pad, sepY, x + cardW - pad, sepY);
+
+      // Name (bold, fighter color)
+      const textX = x + pad + (side === "left" ? accent + 2 : 0);
+      txtName.setVisible(true);
+      txtName.setText(name.toUpperCase());
+      txtName.setColor(hex);
+      txtName.setPosition(textX, margin + 12);
+
+      // Stats (multiline: HP + weapon only)
+      txtInfo.setVisible(true);
+      txtInfo.setText(
+        `HP: ${Math.round(hp)} / ${maxHp}\n` +
+        `${wpnType} · DMG ${wpnDmg}`,
+      );
+      txtInfo.setPosition(textX, sepY + 10);
+    };
+
+    // ── Left card (Fighter A) ─────────────────────────────────────────
+    drawCard(
+      this.cardAGfx, this.txtCardAName, this.txtCardAInfo,
+      margin, cfg.ballAColor, cfg.ballAName,
+      hpA, cfg.ballAHp,
+      cfg.weaponA?.type ?? "???", cfg.weaponA?.baseDamage ?? 0,
+      "left",
+    );
+
+    // ── Right card (Fighter B) ────────────────────────────────────────
+    drawCard(
+      this.cardBGfx, this.txtCardBName, this.txtCardBInfo,
+      canvasW - margin - cardW, cfg.ballBColor, cfg.ballBName,
+      hpB, cfg.ballBHp,
+      cfg.weaponB?.type ?? "???", cfg.weaponB?.baseDamage ?? 0,
+      "right",
+    );
+
+    // ── Winner overlay ─────────────────────────────────────────────────
+    if (cfg.winner) {
+      const winnerName = cfg.winner === "A" ? cfg.ballAName : cfg.ballBName;
+      const text = `🏆 ${winnerName.toUpperCase()} WINS!`;
+
+      this.txtResult.setFontSize(42);
+      this.txtResult.setVisible(true);
+      this.txtResult.setText(text);
+      this.txtResult.setPosition(canvasW / 2, canvasH * 0.4);
+
+      // Dark rounded backdrop behind the text
+      const bounds = this.txtResult.getBounds();
+      const padR = 24;
+      this.resultGfx.clear();
+      this.resultGfx.setVisible(true);
+      this.resultGfx.fillStyle(0x000000, 0.7);
+      this.resultGfx.fillRoundedRect(
+        bounds.x - padR, bounds.y - padR,
+        bounds.width + padR * 2, bounds.height + padR * 2,
+        12,
+      );
+    } else {
+      this.resultGfx.clear();
+      this.resultGfx.setVisible(false);
+      this.txtResult.setVisible(false);
+    }
   }
 
   // ─── Procedural drawing ───────────────────────────────────────────────────
