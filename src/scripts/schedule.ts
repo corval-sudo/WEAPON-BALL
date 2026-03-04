@@ -172,7 +172,8 @@ async function runBalanceCheck(): Promise<void> {
 
 // ─── Match Loop ──────────────────────────────────────────────────────────────
 
-async function runNextMatch(): Promise<void> {
+async function runNextMatch(opts?: { test?: boolean }): Promise<void> {
+  const isTest = opts?.test ?? false;
   // Get fresh roster each tick (stats may have updated)
   const roster = db.getActiveBalls();
 
@@ -235,14 +236,17 @@ async function runNextMatch(): Promise<void> {
   });
 
   // Pre-match announcement (passes narrative hooks to commentator)
+  // Skipped for test matches — no commentary or Telegram needed.
   let announcement = "";
-  try {
-    const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
-    announcement = await commentator.generateAnnouncement(ballA, ballB, h2h, narrativeHooks);
-    console.log(`\n🎙️  ${announcement}\n`);
-    await telegram.sendAnnouncement(ballA, ballB, announcement);
-  } catch (e: any) {
-    // Commentary/Telegram failure should never block the match
+  if (!isTest) {
+    try {
+      const h2h = db.getHeadToHeadRecord(ballA.id, ballB.id);
+      announcement = await commentator.generateAnnouncement(ballA, ballB, h2h, narrativeHooks);
+      console.log(`\n🎙️  ${announcement}\n`);
+      await telegram.sendAnnouncement(ballA, ballB, announcement);
+    } catch (e: any) {
+      // Commentary/Telegram failure should never block the match
+    }
   }
 
   // Broadcast match start with announcement text and weapon definitions
@@ -265,22 +269,27 @@ async function runNextMatch(): Promise<void> {
       weapons: WEAPONS_CATALOG,
       arenaConfig: ARENA_CONFIG,
       simConfig: SIM_CONFIG,
+      isTest,
     });
   } catch (e: any) {
     console.error(`[${timestamp()}] Match error: ${e.message}`);
     return;
   }
 
-  matchCount++;
+  // Test matches don't increment the official match counter
+  if (!isTest) {
+    matchCount++;
+  }
 
-  // Reload fresh ball entities from DB (stats updated by runner)
+  // Reload fresh ball entities from DB (stats updated by runner for official matches)
   const freshA = db.getBallById(ballA.id) ?? ballA;
   const freshB = db.getBallById(ballB.id) ?? ballB;
 
   const summary = generateMatchSummary(result, freshA, freshB);
   const duration = (result.ticks / 30).toFixed(1);
 
-  console.log(`[${timestamp()}] Match #${matchCount}: ${ballA.name} vs ${ballB.name}`);
+  const testTag = isTest ? " [TEST]" : "";
+  console.log(`[${timestamp()}] Match${testTag} #${matchCount}: ${ballA.name} vs ${ballB.name}`);
   console.log(`  → ${summary.title} in ${duration}s`);
   if (summary.highlights.length > 0) {
     console.log("  → Highlights:");
@@ -288,6 +297,24 @@ async function runNextMatch(): Promise<void> {
       console.log(`      ${h}`);
     }
   }
+
+  // For test matches: still replay via WebSocket so admin can watch,
+  // but skip commentary, Telegram, Oracle, balance, and planner.
+  if (isTest) {
+    await broadcaster.replayMatch(result, freshA.baseHp, freshB.baseHp);
+    broadcaster.broadcast({
+      type: "match_end",
+      matchNumber: matchCount,
+      winner: result.winner,
+      ballA: freshA,
+      ballB: freshB,
+      ticks: result.ticks,
+      commentary: "🧪 Test match — results not recorded to leaderboard.",
+    });
+    return;
+  }
+
+  // ── Official match post-processing below ──
 
   // Send match result card to Telegram (no AI needed — fires immediately)
   await telegram.sendMatchResult(matchCount, result, freshA, freshB, summary);
@@ -394,9 +421,9 @@ async function main(): Promise<void> {
     console.log("   Trigger a match: curl -X POST http://localhost:3001/api/admin/run-match");
     console.log("");
     // Listen for manual triggers from the API endpoint
-    matchTrigger.on("run", () => {
-      runNextMatch()
-        .then(() => scheduleNextMatchAd(5000))
+    matchTrigger.on("run", (opts?: { test?: boolean }) => {
+      runNextMatch(opts)
+        .then(() => { if (!opts?.test) scheduleNextMatchAd(5000); })
         .catch(e => console.error("Match error:", e));
     });
     return; // process stays alive via the HTTP server started in main.ts
