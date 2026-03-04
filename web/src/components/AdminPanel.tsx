@@ -40,6 +40,23 @@ export function AdminPanel({
   onRecordingsChange,
 }: AdminPanelProps) {
   const [uploading, setUploading] = useState<Set<string>>(new Set());
+  const [triggering, setTriggering] = useState<"test" | "official" | null>(null);
+
+  async function handleRunMatch(test: boolean): Promise<void> {
+    setTriggering(test ? "test" : "official");
+    try {
+      const url = test ? `${API}/api/admin/run-match?test=true` : `${API}/api/admin/run-match`;
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error ?? res.statusText);
+      }
+    } catch (e: any) {
+      alert(`Failed to trigger match: ${e.message}`);
+    } finally {
+      setTriggering(null);
+    }
+  }
 
   function recKey(r: RuntimeRecording): string {
     return `${r.matchId}-${r.timestamp}`;
@@ -103,6 +120,30 @@ export function AdminPanel({
       <div style={P.header}>
         <span style={P.title}>🎬 ADMIN</span>
         {isRecording && <span style={P.recDot}>● REC</span>}
+      </div>
+
+      {/* Match trigger buttons */}
+      <div style={P.matchSection}>
+        <div style={P.listHeader}>RUN MATCH</div>
+        <div style={P.matchButtons}>
+          <button
+            style={{ ...P.btn, ...P.btnTest }}
+            onClick={() => handleRunMatch(true)}
+            disabled={triggering !== null}
+          >
+            {triggering === "test" ? "…" : "Test Match"}
+          </button>
+          <button
+            style={{ ...P.btn, ...P.btnOfficial }}
+            onClick={() => handleRunMatch(false)}
+            disabled={triggering !== null}
+          >
+            {triggering === "official" ? "…" : "Official Match"}
+          </button>
+        </div>
+        <div style={P.matchHint}>
+          Test = no leaderboard impact. Official = live results.
+        </div>
       </div>
 
       {/* Recording toggles */}
@@ -326,6 +367,34 @@ const P: Record<string, React.CSSProperties> = {
   noBlobNote: {
     fontSize: 9,
     color: C.muted,
+    fontStyle: "italic",
+  },
+  matchSection: {
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottom: `1px solid ${C.border}`,
+  },
+  matchButtons: {
+    display: "flex",
+    gap: 6,
+    marginTop: 4,
+  },
+  btnTest: {
+    flex: 1,
+    color: "#ff9800",
+    borderColor: "#5a3a00",
+    textAlign: "center" as const,
+  },
+  btnOfficial: {
+    flex: 1,
+    color: "#4caf50",
+    borderColor: "#1e3a1e",
+    textAlign: "center" as const,
+  },
+  matchHint: {
+    fontSize: 8,
+    color: C.muted,
+    marginTop: 4,
     fontStyle: "italic",
   },
 };

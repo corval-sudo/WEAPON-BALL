@@ -132,10 +132,11 @@ app.get("/api/fighters/:id", (req, res) => {
   }
 });
 
-/** Recent matches with joined fighter names. */
-app.get("/api/matches", (_req, res) => {
+/** Recent matches with joined fighter names. Excludes test matches by default. */
+app.get("/api/matches", (req, res) => {
   try {
-    const matches = db.getRecentMatches(20);
+    const includeTest = req.query["include_test"] === "true";
+    const matches = db.getRecentMatches(20, includeTest);
     res.json(matches);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -355,10 +356,14 @@ app.get("/api/next", (_req, res) => {
  * Trigger a single match manually (intended for MANUAL_MATCH=1 mode).
  * Emits to matchTrigger which schedule.ts listens to.
  * Safe to call in auto mode too — schedule.ts ignores it there.
+ *
+ * Query params:
+ *   ?test=true  — run as a test match (no career updates, hidden from public match feed)
  */
-app.post("/api/admin/run-match", (_req, res) => {
-  matchTrigger.emit("run");
-  res.json({ ok: true, message: "Match triggered" });
+app.post("/api/admin/run-match", (req, res) => {
+  const isTest = req.query["test"] === "true";
+  matchTrigger.emit("run", { test: isTest });
+  res.json({ ok: true, message: isTest ? "Test match triggered" : "Match triggered" });
 });
 
 // ─── Recordings upload ────────────────────────────────────────────────────────

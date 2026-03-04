@@ -22,6 +22,8 @@ export interface MatchRequest {
   arenaConfig: { w: number; h: number; wallRestitution: number };
   simConfig: { scale: number; maxTicks: number };
   weaponSetVersion?: string;
+  /** When true, the match is stored with is_test=1 and career stats are NOT updated. */
+  isTest?: boolean;
 }
 
 export class MatchRunner {
@@ -104,11 +106,13 @@ export class MatchRunner {
       replayFrames,
     };
 
-    // 6. Save to database
-    this.db.insertMatch(result);
+    // 6. Save to database (with test flag if applicable)
+    this.db.insertMatch(result, request.isTest ?? false);
 
-    // 7. Update ball careers
-    this.updateBallCareers(ballA, ballB, result);
+    // 7. Update ball careers (skip for test matches — no leaderboard impact)
+    if (!request.isTest) {
+      this.updateBallCareers(ballA, ballB, result);
+    }
 
     return result;
   }
