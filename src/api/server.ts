@@ -156,6 +156,48 @@ app.get("/api/matches/:id", (req, res) => {
   }
 });
 
+// ─── Tournament endpoints ─────────────────────────────────────────────────────
+
+import { TournamentEngine } from "../tournament/engine";
+
+/** List recent tournaments. */
+app.get("/api/tournaments", (_req, res) => {
+  try {
+    const tournaments = db.getRecentTournaments(20);
+    res.json(tournaments);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Current in-progress tournament bracket. */
+app.get("/api/tournaments/active", (_req, res) => {
+  try {
+    const tournament = db.getActiveTournament();
+    if (!tournament) { res.json(null); return; }
+    const engine = new TournamentEngine(db);
+    const bracket = engine.getBracketState(tournament.id);
+    res.json(bracket);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Single tournament bracket + matches. */
+app.get("/api/tournaments/:id", (req, res) => {
+  try {
+    const id = parseInt(req.params["id"] ?? "", 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+    const tournament = db.getTournamentById(id);
+    if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+    const engine = new TournamentEngine(db);
+    const bracket = engine.getBracketState(id);
+    res.json(bracket);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Weapons catalog (must stay in sync with schedule.ts) ────────────────────
 // These are the baseline stats used for every match. The runner applies
 // per-ball DB overrides on top of these, just like schedule.ts does.
@@ -299,6 +341,7 @@ app.get("/api/matches/:id/replay", (req, res) => {
         bladeWidth: weapons[weaponIdB].bladeWidth,
         shaftRadius: weapons[weaponIdB].shaftRadius,
       } : null,
+      winner: (match as any).winner,
       frames,
     });
   } catch (e: any) {

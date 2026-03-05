@@ -131,3 +131,38 @@ export interface WeaponBalance {
   avgDamageDealt: number;
   dominanceScore: number;        // >60 = overpowered, <40 = underpowered
 }
+
+// --- Tournament Types ---
+
+export interface Tournament {
+  id: number;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  bracketSize: number;           // Power of 2 (8, 16, 32)
+  fighterCount: number;          // Actual fighters entered
+  currentRound: number;
+  totalRounds: number;           // log2(bracketSize)
+  championId: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface TournamentEntry {
+  id: number;
+  tournamentId: number;
+  ballId: string;
+  seed: number;                  // 1 = top seed
+  eliminatedInRound: number | null;
+}
+
+export interface TournamentMatch {
+  id: number;
+  tournamentId: number;
+  round: number;                 // 1 = first round, increasing
+  bracketPosition: number;       // Position within the round (0-indexed)
+  matchId: number | null;        // FK to matches table (NULL until played)
+  ballAId: string | null;        // NULL for TBD slots
+  ballBId: string | null;        // NULL for TBD or bye
+  winnerId: string | null;
+  isBye: boolean;
+}

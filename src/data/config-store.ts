@@ -24,6 +24,14 @@ export const CONFIG_KEYS = [
   "telegram_bot_token",
   "telegram_channel_id",
   "telegram_enabled",
+  "tournament_match_delay_ms",
+  "tournament_enabled",
+  "x_api_key",
+  "x_api_secret",
+  "x_access_token",
+  "x_access_token_secret",
+  "x_enabled",
+  "x_last_post_date",
 ] as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
@@ -129,5 +137,34 @@ export class ConfigStore {
 
   isTelegramEnabled(): boolean {
     return (this.get("telegram_enabled") ?? "false") === "true";
+  }
+
+  // ─── Tournament Config ────────────────────────────────────────────────────
+
+  getTournamentMatchDelay(): number {
+    return parseInt(this.get("tournament_match_delay_ms") ?? "15000", 10);
+  }
+
+  isTournamentEnabled(): boolean {
+    return (this.get("tournament_enabled") ?? "true") === "true";
+  }
+
+  // ─── X/Twitter Config ─────────────────────────────────────────────────────
+
+  getXApiKey(): string { return this.get("x_api_key") ?? ""; }
+  getXApiSecret(): string { return this.get("x_api_secret") ?? ""; }
+  getXAccessToken(): string { return this.get("x_access_token") ?? ""; }
+  getXAccessTokenSecret(): string { return this.get("x_access_token_secret") ?? ""; }
+
+  isXEnabled(): boolean {
+    return (this.get("x_enabled") ?? "false") === "true";
+  }
+
+  getXLastPostDate(): string {
+    return this.get("x_last_post_date") ?? "";
+  }
+
+  setXLastPostDate(date: string): void {
+    this.set("x_last_post_date", date);
   }
 }

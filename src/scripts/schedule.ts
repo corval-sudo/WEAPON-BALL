@@ -31,6 +31,10 @@ import type { WsWeaponDef } from "../api/ws-broadcaster";
 import { setNextMatch } from "../api/server";
 import { matchTrigger } from "../match/trigger";
 import { OracleContentPipeline } from "../services/OracleContentPipeline";
+import { TournamentScheduler } from "../tournament/scheduler";
+import { TwitterService } from "../services/twitter";
+import { RecordingService } from "../services/recording";
+import type { Tournament } from "../data/types";
 
 // ─── DB + Config (loaded once at startup) ────────────────────────────────────
 
@@ -93,6 +97,154 @@ const telegram = new TelegramService(
   configStore.getTelegramChannelId(),
   configStore.isTelegramEnabled(),
 );
+
+const twitter = new TwitterService(
+  process.env["X_API_KEY"]             || configStore.getXApiKey(),
+  process.env["X_API_SECRET"]          || configStore.getXApiSecret(),
+  process.env["X_ACCESS_TOKEN"]        || configStore.getXAccessToken(),
+  process.env["X_ACCESS_TOKEN_SECRET"] || configStore.getXAccessTokenSecret(),
+  process.env["X_ENABLED"] === "true"  || configStore.isXEnabled(),
+);
+
+// ─── Tournament State ────────────────────────────────────────────────────────
+
+let tournamentInProgress = false;
+const TOURNAMENT_HOURS_UTC = [0, 8, 16];
+
+/** Resolve weapon definition for a ball (used by both continuous and tournament matches). */
+function resolveWeaponDef(ball: { weaponId: string; id: string }, side: "A" | "B"): WsWeaponDef {
+  const overrideSuffix = `${ball.weaponId}_${side}`;
+  const raw: any = WEAPONS_CATALOG[overrideSuffix] ?? WEAPONS_CATALOG[ball.weaponId] ?? WEAPONS_CATALOG["short_sword"];
+  return {
+    type: raw.type ?? "point",
+    reach: raw.reach,
+    tipRadius: raw.tipRadius,
+    ...(raw.bladeStart  !== undefined && { bladeStart:  raw.bladeStart }),
+    ...(raw.bladeWidth  !== undefined && { bladeWidth:  raw.bladeWidth }),
+    ...(raw.shaftRadius !== undefined && { shaftRadius: raw.shaftRadius }),
+    ...(raw.baseDamage  !== undefined && { baseDamage:  raw.baseDamage }),
+    ...(raw.omega       !== undefined && { omega:       raw.omega }),
+    ...(raw.speedMult   !== undefined && { speedMult:   raw.speedMult }),
+    ...(raw.weight      !== undefined && { weight:      raw.weight }),
+  };
+}
+
+const tournamentScheduler = new TournamentScheduler(
+  db, configStore, runner, commentator, telegram, broadcaster,
+  { arenaName: ARENA_NAME, weapons: WEAPONS_CATALOG, arenaConfig: ARENA_CONFIG, simConfig: SIM_CONFIG },
+  resolveWeaponDef,
+);
+
+/**
+ * Check if a tournament should start now based on the 3x/day schedule.
+ * Returns true if current UTC hour is a tournament hour, we're within the
+ * first 2 minutes, and no tournament already ran in this hour today.
+ */
+function shouldStartTournament(): boolean {
+  if (tournamentInProgress) return false;
+  if (!configStore.isTournamentEnabled()) return false;
+
+  const now = new Date();
+  const hour = now.getUTCHours();
+  const minute = now.getUTCMinutes();
+
+  if (!TOURNAMENT_HOURS_UTC.includes(hour) || minute >= 2) return false;
+
+  // Check if a tournament already ran in this hour today
+  const lastTournament = db.getLatestCompletedTournament();
+  if (lastTournament?.startedAt) {
+    const lastStart = new Date(lastTournament.startedAt);
+    const lastHour = lastStart.getUTCHours();
+    const lastDate = lastStart.toISOString().slice(0, 10);
+    const today = now.toISOString().slice(0, 10);
+    if (lastDate === today && lastHour === hour) return false;
+  }
+
+  // Also check in-progress tournaments (avoid starting if one is stuck)
+  const active = db.getActiveTournament();
+  if (active) return false;
+
+  const roster = db.getActiveBalls();
+  if (roster.length < 2) return false;
+
+  return true;
+}
+
+/**
+ * After a tournament completes, attempt to record the final and post to X.
+ * Only posts once per day (first tournament of the day).
+ * Errors are caught — never crashes the scheduler.
+ */
+async function handlePostTournament(tournament: Tournament): Promise<void> {
+  if (tournament.status !== "completed" || !tournament.championId) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const lastPostDate = configStore.getXLastPostDate();
+
+  if (lastPostDate === today) {
+    console.log("[POST-TOURNAMENT] Already posted to X today, skipping.");
+    return;
+  }
+
+  if (!configStore.isXEnabled()) {
+    console.log("[POST-TOURNAMENT] X posting disabled, skipping.");
+    return;
+  }
+
+  const finalMatch = db.getTournamentFinalMatch(tournament.id);
+  if (!finalMatch?.matchId) {
+    console.warn("[POST-TOURNAMENT] No final match found, skipping X post.");
+    return;
+  }
+
+  try {
+    // Generate caption
+    const matchDetails = db.getMatchById(finalMatch.matchId);
+    if (!matchDetails) {
+      console.warn("[POST-TOURNAMENT] Final match details not found.");
+      return;
+    }
+
+    const caption = await oracle.generateTournamentCaption(
+      tournament,
+      {
+        nameA: matchDetails.ball_a_name,
+        nameB: matchDetails.ball_b_name,
+        winner: matchDetails.winner,
+        ticks: matchDetails.ticks,
+      },
+      configStore.getPersonality("You are the Arena Master, a dramatic combat sports commentator."),
+    );
+
+    // Try headless recording → X post with video
+    let posted = false;
+    try {
+      const frontendUrl = process.env["VITE_API_URL"]?.replace(/:\d+$/, ":5173") ?? "http://localhost:5173";
+      const recordingService = new RecordingService(frontendUrl);
+      const mp4Path = await recordingService.recordMatch(finalMatch.matchId);
+
+      const tweetId = await twitter.postTournamentFinal(mp4Path, caption, tournament);
+      if (tweetId) {
+        posted = true;
+        configStore.setXLastPostDate(today);
+        console.log(`[POST-TOURNAMENT] Posted to X with video: tweet ${tweetId}`);
+      }
+    } catch (recordErr: any) {
+      console.warn(`[POST-TOURNAMENT] Recording failed: ${recordErr.message} — trying text-only post`);
+    }
+
+    // Fall back to text-only post if video failed
+    if (!posted) {
+      const tweetId = await twitter.postText(caption);
+      if (tweetId) {
+        configStore.setXLastPostDate(today);
+        console.log(`[POST-TOURNAMENT] Posted text-only to X: tweet ${tweetId}`);
+      }
+    }
+  } catch (e: any) {
+    console.warn(`[POST-TOURNAMENT] Pipeline error: ${e.message}`);
+  }
+}
 
 // ─── Planner Tick ─────────────────────────────────────────────────────────────
 
@@ -438,10 +590,32 @@ async function main(): Promise<void> {
   await runNextMatch();
   // After the first match, schedule the next one and advertise it via the API.
   scheduleNextMatchAd(MATCH_INTERVAL_MS);
-  timer = setInterval(() => {
-    runNextMatch()
-      .then(() => scheduleNextMatchAd(MATCH_INTERVAL_MS))
-      .catch(e => console.error("Unhandled match error:", e));
+  timer = setInterval(async () => {
+    // Tournament check — pause continuous matches while a tournament runs
+    if (tournamentInProgress) return;
+
+    if (shouldStartTournament()) {
+      tournamentInProgress = true;
+      try {
+        const tournament = await tournamentScheduler.runTournament();
+        await handlePostTournament(tournament);
+      } catch (e: any) {
+        console.error("[TOURNAMENT] Fatal error:", e.message);
+      } finally {
+        tournamentInProgress = false;
+        // Advertise next continuous match
+        scheduleNextMatchAd(MATCH_INTERVAL_MS);
+      }
+      return;
+    }
+
+    // Normal continuous match
+    try {
+      await runNextMatch();
+      scheduleNextMatchAd(MATCH_INTERVAL_MS);
+    } catch (e) {
+      console.error("Unhandled match error:", e);
+    }
   }, MATCH_INTERVAL_MS);
 }
 
