@@ -22,8 +22,12 @@ import * as dotenv from "dotenv";
 dotenv.config({ override: true });
 
 import * as http from "node:http";
+import * as path from "node:path";
+import * as fs from "node:fs";
 import express from "express";
 import { WebSocketServer } from "ws";
+import multer from "multer";
+import ffmpeg from "fluent-ffmpeg";
 import { ArenaDatabase } from "../data/database";
 import { ConfigStore } from "../data/config-store";
 import { broadcaster } from "./ws-broadcaster";
@@ -34,6 +38,10 @@ import { matchTrigger } from "../match/trigger";
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
+
+// Directory where WebM uploads and converted MP4s are stored.
+// Created at startup if it doesn't exist.
+const RECORDINGS_DIR = path.resolve(process.cwd(), "recordings");
 // Comma-separated list of allowed origins (set on Railway/Vercel)
 const CORS_ORIGINS = (process.env["CORS_ORIGINS"] ?? "http://localhost:5174,http://localhost:5173")
   .split(",")
@@ -43,6 +51,36 @@ const CORS_ORIGINS = (process.env["CORS_ORIGINS"] ?? "http://localhost:5174,http
 
 const app = express();
 const server = http.createServer(app);
+
+// ─── Recordings directory + ffmpeg check ──────────────────────────────────────
+
+fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+
+// Warn early if ffmpeg is unavailable — conversion will fail gracefully at runtime.
+ffmpeg.getAvailableCodecs((err) => {
+  if (err) {
+    console.warn("⚠  ffmpeg not found on PATH — /recordings/upload conversion will fail.");
+    console.warn("   Install ffmpeg: https://ffmpeg.org/download.html");
+  }
+});
+
+// ─── Multer — accept WebM uploads into /recordings ────────────────────────────
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, RECORDINGS_DIR),
+    filename: (_req, file, cb) => {
+      // Sanitise original filename, prefix with timestamp to avoid collisions
+      const safe = file.originalname.replace(/[^a-z0-9._-]/gi, "_");
+      cb(null, `${Date.now()}-${safe}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB ceiling
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("video/")) cb(null, true);
+    else cb(new Error("Only video files are accepted"));
+  },
+});
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -57,6 +95,9 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+// Serve converted mp4 files publicly so the admin panel can link to them.
+app.use("/recordings", express.static(RECORDINGS_DIR));
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 
@@ -91,10 +132,11 @@ app.get("/api/fighters/:id", (req, res) => {
   }
 });
 
-/** Recent matches with joined fighter names. */
-app.get("/api/matches", (_req, res) => {
+/** Recent matches with joined fighter names. Excludes test matches by default. */
+app.get("/api/matches", (req, res) => {
   try {
-    const matches = db.getRecentMatches(20);
+    const includeTest = req.query["include_test"] === "true";
+    const matches = db.getRecentMatches(20, includeTest);
     res.json(matches);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -314,11 +356,76 @@ app.get("/api/next", (_req, res) => {
  * Trigger a single match manually (intended for MANUAL_MATCH=1 mode).
  * Emits to matchTrigger which schedule.ts listens to.
  * Safe to call in auto mode too — schedule.ts ignores it there.
+ *
+ * Query params:
+ *   ?test=true  — run as a test match (no career updates, hidden from public match feed)
  */
-app.post("/api/admin/run-match", (_req, res) => {
-  matchTrigger.emit("run");
-  res.json({ ok: true, message: "Match triggered" });
+app.post("/api/admin/run-match", (req, res) => {
+  const isTest = req.query["test"] === "true";
+  matchTrigger.emit("run", { test: isTest });
+  res.json({ ok: true, message: isTest ? "Test match triggered" : "Match triggered" });
 });
+
+// ─── Recordings upload ────────────────────────────────────────────────────────
+
+/**
+ * POST /recordings/upload
+ *
+ * Accepts a WebM recording from the admin panel, saves it to disk, then
+ * converts it to MP4 (H.264 / libx264, crf 18, yuv420p, faststart) via
+ * fluent-ffmpeg and returns the public URL to the converted file.
+ *
+ * Multipart fields:
+ *   recording  — WebM video blob (required)
+ *   matchId    — integer match ID (optional metadata)
+ *   nameA      — fighter A name  (optional metadata)
+ *   nameB      — fighter B name  (optional metadata)
+ *   winner     — "A" | "B"       (optional metadata)
+ *
+ * Response: { mp4Url: string }
+ */
+app.post(
+  "/recordings/upload",
+  upload.single("recording"),
+  (req: express.Request, res: express.Response) => {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) {
+      res.status(400).json({ error: "No recording file received" });
+      return;
+    }
+
+    const webmPath = file.path;
+    const mp4Name  = file.filename.replace(/\.webm$/i, "") + ".mp4";
+    const mp4Path  = path.join(RECORDINGS_DIR, mp4Name);
+    const mp4Url   = `/recordings/${mp4Name}`;
+
+    console.log(`[recordings] Converting ${file.filename} → ${mp4Name}…`);
+
+    ffmpeg(webmPath)
+      .outputOptions([
+        "-c:v libx264",
+        "-crf 28",                  // good quality for flat 2D content; much smaller than CRF 18
+        "-preset medium",           // better compression ratio than "fast"
+        "-pix_fmt yuv420p",
+        "-vf scale=720:-2",         // downscale to 720px wide; height auto (divisible by 2)
+        "-r 30",                    // cap at 30 fps
+        "-movflags +faststart",
+        "-an",                      // arena has no audio
+      ])
+      .output(mp4Path)
+      .on("end", () => {
+        console.log(`[recordings] ✓ ${mp4Name} ready`);
+        // Clean up the source WebM to save disk space
+        fs.unlink(webmPath, () => {});
+        res.json({ mp4Url });
+      })
+      .on("error", (err: Error) => {
+        console.error(`[recordings] ffmpeg error: ${err.message}`);
+        res.status(500).json({ error: `Conversion failed: ${err.message}` });
+      })
+      .run();
+  },
+);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 

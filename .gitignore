@@ -4,3 +4,4 @@ dist
 .viewer-cache
 .env
 DEVELOPMENT_LOG.md
+recordings/

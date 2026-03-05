@@ -37,8 +37,26 @@ interface PhaserArenaProps {
   ballBRadius?: number;
   weaponA?: WeaponDef | null;
   weaponB?: WeaponDef | null;
+  ballAWins?: number;
+  ballALosses?: number;
+  ballBWins?: number;
+  ballBLosses?: number;
   width?: number;
   height?: number;
+  /** When true, renders recording-only overlays (header bar + winner banner). */
+  recordingMode?: boolean;
+  /** Set to "A" or "B" when the match ends — triggers the winner overlay. */
+  winner?: "A" | "B" | null;
+  /** Called once the Phaser canvas is ready and at its correct pixel dimensions. */
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+  /**
+   * Set true for recording canvases.
+   * WebGL swaps its drawing buffer after each frame by default, which causes
+   * captureStream() to capture blank frames. preserveDrawingBuffer keeps the
+   * last rendered frame in the buffer so every captured frame has content.
+   * When true, forces Canvas 2D renderer (no double-buffering at all).
+   */
+  preserveDrawingBuffer?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -55,8 +73,16 @@ export function PhaserArena({
   ballBRadius = 42,
   weaponA,
   weaponB,
+  ballAWins,
+  ballALosses,
+  ballBWins,
+  ballBLosses,
   width = 380,
   height = 620,
+  recordingMode = false,
+  winner = null,
+  onCanvasReady,
+  preserveDrawingBuffer = false,
 }: PhaserArenaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef      = useRef<Phaser.Game | null>(null);
@@ -76,6 +102,12 @@ export function PhaserArena({
     weaponB: weaponB ?? null,
     canvasW: width,
     canvasH: height,
+    recordingMode,
+    winner,
+    ballAWins,
+    ballALosses,
+    ballBWins,
+    ballBLosses,
   };
 
   // ── Mount Phaser once ──────────────────────────────────────────────────────
@@ -87,7 +119,9 @@ export function PhaserArena({
     sceneRef.current = scene;
 
     const game = new Phaser.Game({
-      type: Phaser.AUTO,         // lets Phaser pick WebGL or Canvas per context
+      // Recording canvases use Canvas 2D — no double-buffering, captureStream()
+      // always reads the last drawn frame. Visible arenas keep WebGL for quality.
+      type: preserveDrawingBuffer ? Phaser.CANVAS : Phaser.AUTO,
       width,
       height,
       backgroundColor: "#0a0a0f",
@@ -97,13 +131,45 @@ export function PhaserArena({
         mode: Phaser.Scale.NONE, // We control sizing via CSS
         autoCenter: Phaser.Scale.NO_CENTER,
       },
+      render: {
+        // Required for captureStream() to work on WebGL canvases.
+        // Without this, WebGL swaps the drawing buffer after each frame and
+        // captureStream() reads an already-cleared buffer → blank video.
+        // (Has no effect in Canvas 2D mode.)
+        preserveDrawingBuffer,
+      },
       // Disable Phaser's default banner in console
       banner: false,
     });
 
     gameRef.current = game;
 
+    // ── onCanvasReady timing ─────────────────────────────────────────────────
+    // We delay the callback by one setTimeout(0) turn to survive React StrictMode.
+    //
+    // In development, StrictMode deliberately runs every effect twice:
+    //   effect → cleanup (game.destroy → canvas.width=1) → effect again
+    //
+    // All three steps happen SYNCHRONOUSLY before the browser yields. By
+    // scheduling the callback via setTimeout the callback fires after the
+    // full mount+destroy+remount cycle, so the canvas is at its final correct
+    // size (e.g. 1920×1080) when onCanvasReady is called.
+    //
+    // The timer is cancelled in the cleanup so only the LAST effect's timer
+    // fires (i.e. onCanvasReady is called exactly once per actual mount).
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    if (onCanvasReady) {
+      timerId = setTimeout(() => {
+        const canvas = containerRef.current?.querySelector("canvas") as HTMLCanvasElement | null;
+        if (canvas) {
+          console.log(`[PhaserArena] onCanvasReady — ${canvas.width}×${canvas.height}`);
+          onCanvasReady(canvas);
+        }
+      }, 0);
+    }
+
     return () => {
+      clearTimeout(timerId); // Cancel pending callback before game.destroy resets canvas
       game.destroy(true);
       gameRef.current = null;
       sceneRef.current = null;

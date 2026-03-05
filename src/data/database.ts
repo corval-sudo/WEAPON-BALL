@@ -57,6 +57,13 @@ export class ArenaDatabase {
     } catch {
       // Column already exists — ignore
     }
+
+    // Add is_test flag to matches table for selective isolation
+    try {
+      this.db.exec("ALTER TABLE matches ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0");
+    } catch {
+      // Column already exists — ignore
+    }
   }
 
   /** Expose the raw database handle for use by ConfigStore. */
@@ -144,14 +151,15 @@ export class ArenaDatabase {
   }
 
   // Match operations
-  insertMatch(match: EnhancedMatchResult): number {
+  insertMatch(match: EnhancedMatchResult, isTest: boolean = false): number {
     const stmt = this.db.prepare(`
       INSERT INTO matches (
         seed, ball_a_id, ball_b_id, arena_name, winner, ticks,
         inputs_hash, events_hash, result_hash, timestamp,
         ball_a_damage_dealt, ball_a_damage_taken, ball_a_accuracy,
-        ball_b_damage_dealt, ball_b_damage_taken, ball_b_accuracy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ball_b_damage_dealt, ball_b_damage_taken, ball_b_accuracy,
+        is_test
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -160,7 +168,8 @@ export class ArenaDatabase {
       match.inputsHash, match.eventsHash, match.resultHash,
       match.timestamp,
       match.stats.ballA.damageDealt, match.stats.ballA.damageTaken, match.stats.ballA.accuracy,
-      match.stats.ballB.damageDealt, match.stats.ballB.damageTaken, match.stats.ballB.accuracy
+      match.stats.ballB.damageDealt, match.stats.ballB.damageTaken, match.stats.ballB.accuracy,
+      isTest ? 1 : 0
     );
 
     return result.lastInsertRowid as number;
@@ -169,7 +178,7 @@ export class ArenaDatabase {
   getMatchHistory(ballId: string, limit: number = 10): any[] {
     return this.db.prepare(`
       SELECT * FROM matches
-      WHERE ball_a_id = ? OR ball_b_id = ?
+      WHERE (ball_a_id = ? OR ball_b_id = ?) AND is_test = 0
       ORDER BY timestamp DESC
       LIMIT ?
     `).all(ballId, ballId, limit);
@@ -204,13 +213,15 @@ export class ArenaDatabase {
   }
 
   // Balance analysis queries
-  getRecentMatches(limit: number = 50): any[] {
+  getRecentMatches(limit: number = 50, includeTest: boolean = false): any[] {
+    const testFilter = includeTest ? "" : "WHERE m.is_test = 0";
     return this.db.prepare(`
       SELECT m.*, ba.name AS ball_a_name, bb.name AS ball_b_name,
              ba.weapon_id AS ball_a_weapon, bb.weapon_id AS ball_b_weapon
       FROM matches m
       JOIN balls ba ON m.ball_a_id = ba.id
       JOIN balls bb ON m.ball_b_id = bb.id
+      ${testFilter}
       ORDER BY m.timestamp DESC
       LIMIT ?
     `).all(limit);
