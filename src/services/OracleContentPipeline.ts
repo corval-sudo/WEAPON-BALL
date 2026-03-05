@@ -15,6 +15,9 @@
 //   Only the selectMatchForRecording() gate needs to return true for a
 //   recording to be queued — the rest of the pipeline fires automatically.
 
+import Anthropic from "@anthropic-ai/sdk";
+import type { Tournament } from "../data/types";
+
 export interface MatchSummaryForOracle {
   matchId: number;
   matchNumber: number;
@@ -94,6 +97,46 @@ export class OracleContentPipeline {
     void mp4Url;
     void caption;
     void match;
+  }
+
+  /**
+   * Generate a punchy caption for a tournament final using Claude.
+   * Falls back to a template caption if the LLM call fails.
+   */
+  async generateTournamentCaption(
+    tournament: Tournament,
+    finalMatch: { nameA: string; nameB: string; winner: string; ticks: number },
+    personality: string,
+  ): Promise<string> {
+    const winnerName = finalMatch.winner === "A" ? finalMatch.nameA : finalMatch.nameB;
+    const loserName  = finalMatch.winner === "A" ? finalMatch.nameB : finalMatch.nameA;
+    const duration   = (finalMatch.ticks / 30).toFixed(1);
+
+    try {
+      const client = new Anthropic();
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 100,
+        system: personality,
+        messages: [{
+          role: "user",
+          content: `TOURNAMENT FINAL JUST ENDED:\n\n${finalMatch.nameA} vs ${finalMatch.nameB}\nWinner: ${winnerName} in ${duration} seconds\n\nThis was the championship match of a ${tournament.fighterCount}-fighter single elimination tournament.\n\nWrite a short, punchy social media caption for this championship video.\nRules:\n- Maximum 240 characters (leave room for hashtags)\n- Dramatic and exciting tone\n- Include the winner's name\n- End with #WORBZ\n- No emojis in the first line`,
+        }],
+      });
+
+      const text = message.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map(b => b.text)
+        .join("")
+        .trim();
+
+      if (text) return text;
+    } catch (e: any) {
+      console.warn(`[OracleContentPipeline] LLM caption failed: ${e.message}`);
+    }
+
+    // Fallback template
+    return `${winnerName} defeats ${loserName} in ${duration}s to claim the tournament crown! #WORBZ`;
   }
 
   /**

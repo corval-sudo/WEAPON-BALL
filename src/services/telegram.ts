@@ -11,8 +11,9 @@
 // Telegram send errors are caught and logged — they never crash the scheduler.
 
 import { Bot } from "grammy";
-import type { BallEntity, EnhancedMatchResult } from "../data/types";
+import type { BallEntity, EnhancedMatchResult, Tournament } from "../data/types";
 import type { MatchSummary } from "../analysis/summary";
+import type { BracketState } from "../tournament/engine";
 
 export class TelegramService {
   private bot: Bot | null;
@@ -105,6 +106,52 @@ export class TelegramService {
   async sendPostMatchCommentary(commentary: string): Promise<void> {
     if (!this.enabled) return;
     await this.send(`🎙️ ${commentary}`);
+  }
+
+  // ─── Tournament messages ──────────────────────────────────────────────────
+
+  /**
+   * Tournament start announcement with bracket overview.
+   */
+  async sendTournamentStart(tournament: Tournament, bracket: BracketState): Promise<void> {
+    if (!this.enabled) return;
+
+    const seedLines = bracket.seeds.slice(0, 8).map(
+      (s, i) => `  #${i + 1} ${escapeHtml(s.name)}`
+    );
+    if (bracket.fighterCount > 8) {
+      seedLines.push(`  ... and ${bracket.fighterCount - 8} more`);
+    }
+
+    const text = [
+      `🏆 <b>TOURNAMENT #${tournament.id} — SINGLE ELIMINATION</b>`,
+      ``,
+      `${tournament.fighterCount} fighters. ${tournament.totalRounds} rounds. One champion.`,
+      ``,
+      `Seedings:`,
+      ...seedLines,
+      ``,
+      `⚔️ LET THE TOURNAMENT BEGIN!`,
+    ].join("\n");
+
+    await this.send(text);
+  }
+
+  /**
+   * Tournament result announcement.
+   */
+  async sendTournamentResult(tournament: Tournament, championName: string): Promise<void> {
+    if (!this.enabled) return;
+
+    const text = [
+      `🏆 <b>TOURNAMENT #${tournament.id} CHAMPION</b>`,
+      ``,
+      `👑 <b>${escapeHtml(championName)}</b> has conquered the bracket!`,
+      ``,
+      `${tournament.fighterCount} fighters entered. One emerged victorious.`,
+    ].join("\n");
+
+    await this.send(text);
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────────

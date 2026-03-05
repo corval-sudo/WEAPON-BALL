@@ -2,7 +2,7 @@
 import Database from "better-sqlite3";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { BallEntity, EnhancedMatchResult, WeaponOverride, StatProposal } from "./types";
+import type { BallEntity, EnhancedMatchResult, WeaponOverride, StatProposal, Tournament, TournamentEntry, TournamentMatch } from "./types";
 
 const DB_PATH = path.join(__dirname, "../../data/arena.db");
 
@@ -61,6 +61,22 @@ export class ArenaDatabase {
     // Add is_test flag to matches table for selective isolation
     try {
       this.db.exec("ALTER TABLE matches ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0");
+    } catch {
+      // Column already exists — ignore
+    }
+
+    // Tournament tables
+    if (!tableNames.includes("tournaments")) {
+      const migration = fs.readFileSync(
+        path.join(__dirname, "migrations/004_tournaments.sql"),
+        "utf-8"
+      );
+      this.db.exec(migration);
+    }
+
+    // Add tournament_match_id to matches table for linking
+    try {
+      this.db.exec("ALTER TABLE matches ADD COLUMN tournament_match_id INTEGER REFERENCES tournament_matches(id)");
     } catch {
       // Column already exists — ignore
     }
@@ -413,6 +429,175 @@ export class ArenaDatabase {
     ).length;
 
     return { totalMatches: rows.length, aWins, bWins: rows.length - aWins };
+  }
+
+  // ─── Tournament operations ──────────────────────────────────────────────────
+
+  createTournament(bracketSize: number, fighterCount: number, totalRounds: number): number {
+    const result = this.db.prepare(`
+      INSERT INTO tournaments (status, bracket_size, fighter_count, total_rounds, created_at, started_at)
+      VALUES ('in_progress', ?, ?, ?, datetime('now'), datetime('now'))
+    `).run(bracketSize, fighterCount, totalRounds);
+    return result.lastInsertRowid as number;
+  }
+
+  getTournamentById(id: number): Tournament | undefined {
+    const row = this.db.prepare("SELECT * FROM tournaments WHERE id = ?").get(id) as any;
+    if (!row) return undefined;
+    return this.rowToTournament(row);
+  }
+
+  getActiveTournament(): Tournament | undefined {
+    const row = this.db.prepare(
+      "SELECT * FROM tournaments WHERE status = 'in_progress' ORDER BY id DESC LIMIT 1"
+    ).get() as any;
+    if (!row) return undefined;
+    return this.rowToTournament(row);
+  }
+
+  getLatestCompletedTournament(): Tournament | undefined {
+    const row = this.db.prepare(
+      "SELECT * FROM tournaments WHERE status = 'completed' ORDER BY completed_at DESC LIMIT 1"
+    ).get() as any;
+    if (!row) return undefined;
+    return this.rowToTournament(row);
+  }
+
+  updateTournamentStatus(id: number, status: string, extra?: Partial<Tournament>): void {
+    const sets = ["status = ?"];
+    const vals: any[] = [status];
+    if (extra?.championId !== undefined) { sets.push("champion_id = ?"); vals.push(extra.championId); }
+    if (extra?.completedAt !== undefined) { sets.push("completed_at = ?"); vals.push(extra.completedAt); }
+    if (extra?.currentRound !== undefined) { sets.push("current_round = ?"); vals.push(extra.currentRound); }
+    vals.push(id);
+    this.db.prepare(`UPDATE tournaments SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  }
+
+  // Tournament entries
+  addTournamentEntry(tournamentId: number, ballId: string, seed: number): void {
+    this.db.prepare(
+      "INSERT INTO tournament_entries (tournament_id, ball_id, seed) VALUES (?, ?, ?)"
+    ).run(tournamentId, ballId, seed);
+  }
+
+  getTournamentEntries(tournamentId: number): TournamentEntry[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM tournament_entries WHERE tournament_id = ? ORDER BY seed ASC"
+    ).all(tournamentId) as any[];
+    return rows.map(r => ({
+      id: r.id,
+      tournamentId: r.tournament_id,
+      ballId: r.ball_id,
+      seed: r.seed,
+      eliminatedInRound: r.eliminated_in_round,
+    }));
+  }
+
+  eliminateEntry(tournamentId: number, ballId: string, round: number): void {
+    this.db.prepare(
+      "UPDATE tournament_entries SET eliminated_in_round = ? WHERE tournament_id = ? AND ball_id = ?"
+    ).run(round, tournamentId, ballId);
+  }
+
+  // Tournament match slots
+  addTournamentMatch(tm: Omit<TournamentMatch, "id">): number {
+    const result = this.db.prepare(`
+      INSERT INTO tournament_matches (tournament_id, round, bracket_position, match_id, ball_a_id, ball_b_id, winner_id, is_bye)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      tm.tournamentId, tm.round, tm.bracketPosition,
+      tm.matchId, tm.ballAId, tm.ballBId, tm.winnerId, tm.isBye ? 1 : 0
+    );
+    return result.lastInsertRowid as number;
+  }
+
+  getTournamentMatches(tournamentId: number, round?: number): TournamentMatch[] {
+    const sql = round !== undefined
+      ? "SELECT * FROM tournament_matches WHERE tournament_id = ? AND round = ? ORDER BY bracket_position"
+      : "SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round, bracket_position";
+    const rows = (round !== undefined
+      ? this.db.prepare(sql).all(tournamentId, round)
+      : this.db.prepare(sql).all(tournamentId)) as any[];
+    return rows.map(r => this.rowToTournamentMatch(r));
+  }
+
+  updateTournamentMatch(id: number, update: Partial<TournamentMatch>): void {
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if (update.matchId !== undefined) { sets.push("match_id = ?"); vals.push(update.matchId); }
+    if (update.ballAId !== undefined) { sets.push("ball_a_id = ?"); vals.push(update.ballAId); }
+    if (update.ballBId !== undefined) { sets.push("ball_b_id = ?"); vals.push(update.ballBId); }
+    if (update.winnerId !== undefined) { sets.push("winner_id = ?"); vals.push(update.winnerId); }
+    if (sets.length === 0) return;
+    vals.push(id);
+    this.db.prepare(`UPDATE tournament_matches SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  }
+
+  getNextUnplayedMatch(tournamentId: number): TournamentMatch | undefined {
+    const row = this.db.prepare(`
+      SELECT * FROM tournament_matches
+      WHERE tournament_id = ? AND winner_id IS NULL AND is_bye = 0
+        AND ball_a_id IS NOT NULL AND ball_b_id IS NOT NULL
+      ORDER BY round ASC, bracket_position ASC
+      LIMIT 1
+    `).get(tournamentId) as any;
+    if (!row) return undefined;
+    return this.rowToTournamentMatch(row);
+  }
+
+  getTournamentFinalMatch(tournamentId: number): TournamentMatch | undefined {
+    const tournament = this.getTournamentById(tournamentId);
+    if (!tournament) return undefined;
+    const row = this.db.prepare(`
+      SELECT * FROM tournament_matches
+      WHERE tournament_id = ? AND round = ?
+      ORDER BY bracket_position ASC LIMIT 1
+    `).get(tournamentId, tournament.totalRounds) as any;
+    if (!row) return undefined;
+    return this.rowToTournamentMatch(row);
+  }
+
+  /** Link a match row to its tournament match slot. */
+  setMatchTournamentLink(matchRowId: number, tournamentMatchId: number): void {
+    this.db.prepare(
+      "UPDATE matches SET tournament_match_id = ? WHERE id = ?"
+    ).run(tournamentMatchId, matchRowId);
+  }
+
+  getRecentTournaments(limit: number = 10): Tournament[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM tournaments ORDER BY created_at DESC LIMIT ?"
+    ).all(limit) as any[];
+    return rows.map(r => this.rowToTournament(r));
+  }
+
+  private rowToTournament(row: any): Tournament {
+    return {
+      id: row.id,
+      status: row.status,
+      bracketSize: row.bracket_size,
+      fighterCount: row.fighter_count,
+      currentRound: row.current_round,
+      totalRounds: row.total_rounds,
+      championId: row.champion_id,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      createdAt: row.created_at,
+    };
+  }
+
+  private rowToTournamentMatch(row: any): TournamentMatch {
+    return {
+      id: row.id,
+      tournamentId: row.tournament_id,
+      round: row.round,
+      bracketPosition: row.bracket_position,
+      matchId: row.match_id,
+      ballAId: row.ball_a_id,
+      ballBId: row.ball_b_id,
+      winnerId: row.winner_id,
+      isBye: row.is_bye === 1,
+    };
   }
 
   close(): void {
