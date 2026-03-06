@@ -1,20 +1,11 @@
 FROM node:20-bookworm-slim
 
 # Install system packages in one layer:
-#   ffmpeg  — video encoding for recordings
-#   chromium + libs — headless browser for tournament final recording via Puppeteer
+#   ffmpeg    — video encoding for recordings
+#   chromium  — headless browser for Puppeteer (apt resolves all its deps automatically)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     chromium \
-    libnss3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libgbm1 \
-    libasound2t64 \
-    libxss1 \
-    libgtk-3-0 \
-    libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
