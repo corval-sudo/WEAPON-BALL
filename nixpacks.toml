@@ -1,6 +1,8 @@
+# nixpacks.toml is kept for local reference but Railway now uses the Dockerfile.
+# See Dockerfile for the production build configuration.
+
 [phases.setup]
 nixPkgs = ["ffmpeg"]
-aptPkgs = ["chromium"]
 
 [start]
 cmd = "npm run serve"
