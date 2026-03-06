@@ -483,6 +483,29 @@ wss.on("connection", (ws, req) => {
   });
 });
 
+// ─── Serve built frontend (production) ──────────────────────────────────────
+// In production the Vite-built frontend lives in web/dist and is served by
+// this same Express server. SPA fallback sends all non-API routes to index.html.
+const FRONTEND_DIR = path.resolve(__dirname, "../../web/dist");
+if (fs.existsSync(path.join(FRONTEND_DIR, "index.html"))) {
+  app.use(express.static(FRONTEND_DIR));
+  // SPA fallback — any non-API, non-ws, non-recording route serves index.html
+  // Express 5 requires named catch-all params (bare "*" is invalid in path-to-regexp v8)
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/ws") || req.path.startsWith("/recordings")) {
+      return next();
+    }
+    if (req.method === "GET" || req.method === "HEAD") {
+      res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+    } else {
+      next();
+    }
+  });
+  console.log("[server] Serving built frontend from web/dist");
+} else {
+  console.log("[server] No web/dist found — frontend not served (use Vite dev server)");
+}
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 server.on("error", (err: NodeJS.ErrnoException) => {

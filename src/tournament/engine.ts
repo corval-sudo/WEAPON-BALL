@@ -250,7 +250,10 @@ export class TournamentEngine {
     const result: number[][] = [];
     for (const pair of half) {
       const a = pair[0]!;
+      const b = pair[1]!;
+      // Each half-bracket pair expands into two full-bracket pairings
       result.push([a, bracketSize + 1 - a]);
+      result.push([b, bracketSize + 1 - b]);
     }
     return result;
   }

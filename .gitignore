@@ -5,3 +5,4 @@ dist
 .env
 DEVELOPMENT_LOG.md
 recordings/
+nul

@@ -15,12 +15,20 @@ WORKDIR /app
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install Node dependencies
+# Install backend Node dependencies
 COPY package*.json ./
 RUN npm ci
 
+# Install frontend dependencies and build
+COPY web/package*.json web/
+RUN cd web && npm ci
+
 # Copy all source files
 COPY . .
+
+# Build frontend (served by Express at runtime)
+# VITE_API_URL is empty so the frontend uses relative URLs (same origin as backend)
+RUN cd web && VITE_API_URL="" npm run build
 
 EXPOSE 3001
 

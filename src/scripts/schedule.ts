@@ -150,7 +150,7 @@ function shouldStartTournament(): boolean {
 
   if (!TOURNAMENT_HOURS_UTC.includes(hour) || minute >= 2) return false;
 
-  // Check if a tournament already ran in this hour today
+  // Don't run the same tournament hour twice in one day
   const lastTournament = db.getLatestCompletedTournament();
   if (lastTournament?.startedAt) {
     const lastStart = new Date(lastTournament.startedAt);
@@ -160,7 +160,6 @@ function shouldStartTournament(): boolean {
     if (lastDate === today && lastHour === hour) return false;
   }
 
-  // Also check in-progress tournaments (avoid starting if one is stuck)
   const active = db.getActiveTournament();
   if (active) return false;
 
@@ -186,7 +185,8 @@ async function handlePostTournament(tournament: Tournament): Promise<void> {
     return;
   }
 
-  if (!configStore.isXEnabled()) {
+  const xEnabled = process.env["X_ENABLED"] === "true" || configStore.isXEnabled();
+  if (!xEnabled) {
     console.log("[POST-TOURNAMENT] X posting disabled, skipping.");
     return;
   }
@@ -219,7 +219,9 @@ async function handlePostTournament(tournament: Tournament): Promise<void> {
     // Try headless recording → X post with video
     let posted = false;
     try {
-      const frontendUrl = process.env["VITE_API_URL"]?.replace(/:\d+$/, ":5173") ?? "http://localhost:5173";
+      // Use FRONTEND_URL if explicitly set (e.g. external Vercel URL).
+      // Otherwise default to same-origin backend which serves built frontend from web/dist.
+      const frontendUrl = process.env["FRONTEND_URL"] ?? `http://localhost:${process.env["PORT"] ?? "3001"}`;
       const recordingService = new RecordingService(frontendUrl);
       const mp4Path = await recordingService.recordMatch(finalMatch.matchId);
 
@@ -583,6 +585,19 @@ async function main(): Promise<void> {
 
   if (roster.length >= 2) {
     console.log(`Found ${roster.length} active fighters. Starting match loop...\n`);
+  }
+
+  // Check for tournament before the first regular match
+  if (shouldStartTournament()) {
+    tournamentInProgress = true;
+    try {
+      const tournament = await tournamentScheduler.runTournament();
+      await handlePostTournament(tournament);
+    } catch (e: any) {
+      console.error("[TOURNAMENT] Fatal error:", e.message);
+    } finally {
+      tournamentInProgress = false;
+    }
   }
 
   // Run first match immediately, then every MATCH_INTERVAL_MS.

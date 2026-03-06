@@ -59,7 +59,7 @@ export default function RecordPage() {
 
   const recorderRef = useRef(new MatchRecorder());
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasReadyRef = useRef(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const recordingStartedRef = useRef(false);
 
   // Step 1: Fetch replay data
@@ -85,12 +85,12 @@ export default function RecordPage() {
 
   // Step 2: When canvas is ready and replay loaded, start recording and playback
   const onCanvasReady = (canvas: HTMLCanvasElement) => {
-    canvasReadyRef.current = true;
+    setCanvasReady(true);
     console.log(`[Record] Canvas ready: ${canvas.width}x${canvas.height}`);
   };
 
   useEffect(() => {
-    if (!replay || !canvasReadyRef.current || recordingStartedRef.current) return;
+    if (!replay || !canvasReady || recordingStartedRef.current) return;
 
     // Find the canvas in the container
     const canvas = containerRef.current?.querySelector("canvas") as HTMLCanvasElement | null;
@@ -160,7 +160,7 @@ export default function RecordPage() {
     }, FRAME_INTERVAL_MS);
 
     return () => clearInterval(playTimer);
-  }, [replay, canvasReadyRef.current]);
+  }, [replay, canvasReady]);
 
   if (status === "error") {
     return <div style={{ color: "red", padding: 20 }}>Recording failed. matchId={matchId}</div>;
