@@ -33,7 +33,7 @@ import { ConfigStore } from "../data/config-store";
 import { broadcaster } from "./ws-broadcaster";
 import { createSim, stepSim } from "../simCore";
 import type { TickFrame } from "./ws-broadcaster";
-import { matchTrigger } from "../match/trigger";
+import { matchTrigger, tournamentTrigger } from "../match/trigger";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -407,6 +407,15 @@ app.post("/api/admin/run-match", (req, res) => {
   const isTest = req.query["test"] === "true";
   matchTrigger.emit("run", { test: isTest });
   res.json({ ok: true, message: isTest ? "Test match triggered" : "Match triggered" });
+});
+
+/**
+ * Trigger a tournament manually (bypasses UTC schedule).
+ * POST /api/admin/run-tournament
+ */
+app.post("/api/admin/run-tournament", (_req, res) => {
+  tournamentTrigger.emit("run");
+  res.json({ ok: true, message: "Tournament triggered" });
 });
 
 // ─── Recordings upload ────────────────────────────────────────────────────────

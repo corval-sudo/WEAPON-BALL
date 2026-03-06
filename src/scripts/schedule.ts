@@ -29,7 +29,7 @@ import { TelegramService } from "../services/telegram";
 import { broadcaster } from "../api/ws-broadcaster";
 import type { WsWeaponDef } from "../api/ws-broadcaster";
 import { setNextMatch } from "../api/server";
-import { matchTrigger } from "../match/trigger";
+import { matchTrigger, tournamentTrigger } from "../match/trigger";
 import { OracleContentPipeline } from "../services/OracleContentPipeline";
 import { TournamentScheduler } from "../tournament/scheduler";
 import { TwitterService } from "../services/twitter";
@@ -599,6 +599,25 @@ async function main(): Promise<void> {
       tournamentInProgress = false;
     }
   }
+
+  // Listen for manual tournament triggers (POST /api/admin/run-tournament)
+  tournamentTrigger.on("run", async () => {
+    if (tournamentInProgress) {
+      console.log("[TOURNAMENT] Already in progress, ignoring manual trigger.");
+      return;
+    }
+    console.log("[TOURNAMENT] Manual trigger received!");
+    tournamentInProgress = true;
+    try {
+      const tournament = await tournamentScheduler.runTournament();
+      await handlePostTournament(tournament);
+    } catch (e: any) {
+      console.error("[TOURNAMENT] Fatal error:", e.message);
+    } finally {
+      tournamentInProgress = false;
+      scheduleNextMatchAd(MATCH_INTERVAL_MS);
+    }
+  });
 
   // Run first match immediately, then every MATCH_INTERVAL_MS.
   // runNextMatch() handles the empty-roster case gracefully (logs + returns early).

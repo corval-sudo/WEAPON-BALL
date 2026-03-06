@@ -5,3 +5,4 @@
 
 import { EventEmitter } from "node:events";
 export const matchTrigger = new EventEmitter();
+export const tournamentTrigger = new EventEmitter();
