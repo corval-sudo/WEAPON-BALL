@@ -1,5 +1,6 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "chromium"]
+nixPkgs = ["ffmpeg"]
+aptPkgs = ["chromium"]
 
 [start]
 cmd = "npm run serve"

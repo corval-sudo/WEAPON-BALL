@@ -24,8 +24,13 @@ export class RecordingService {
     // Dynamic import — puppeteer is an optional dependency
     const puppeteer = await import("puppeteer");
 
+    // Use PUPPETEER_EXECUTABLE_PATH if set (e.g. Railway: /usr/bin/chromium).
+    // Falls back to Puppeteer's own bundled Chromium when running locally.
+    const executablePath = process.env["PUPPETEER_EXECUTABLE_PATH"] || undefined;
+
     const browser = await puppeteer.default.launch({
       headless: true,
+      ...(executablePath && { executablePath }),
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
