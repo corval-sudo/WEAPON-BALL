@@ -48,7 +48,9 @@ export class RecordingService {
       const url = `${this.frontendUrl}/record?matchId=${matchId}`;
       console.log(`[Recording] Navigating to ${url}`);
 
-      await page.goto(url, { waitUntil: "networkidle0", timeout: 30_000 });
+      // Generous timeout — the replay API re-runs the full physics sim which
+      // can take 10-20s for long matches on constrained Railway containers.
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 120_000 });
 
       // Wait for recording to complete (the page sets window.__recordingComplete)
       // Timeout after 5 minutes for long matches

@@ -456,10 +456,11 @@ app.post(
     ffmpeg(webmPath)
       .outputOptions([
         "-c:v libx264",
-        "-crf 28",                  // good quality for flat 2D content; much smaller than CRF 18
-        "-preset medium",           // better compression ratio than "fast"
+        "-crf 30",                  // slightly lower quality but much less memory
+        "-preset ultrafast",        // minimal memory usage (critical for Railway containers)
+        "-threads 1",              // single-threaded to limit RAM usage
         "-pix_fmt yuv420p",
-        "-vf scale=720:-2",         // downscale to 720px wide; height auto (divisible by 2)
+        "-vf scale=540:-2",         // 540px wide — lighter for Twitter + less memory
         "-r 30",                    // cap at 30 fps
         "-movflags +faststart",
         "-an",                      // arena has no audio
