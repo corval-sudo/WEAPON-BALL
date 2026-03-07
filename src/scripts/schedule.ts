@@ -174,13 +174,13 @@ function shouldStartTournament(): boolean {
  * Only posts once per day (first tournament of the day).
  * Errors are caught — never crashes the scheduler.
  */
-async function handlePostTournament(tournament: Tournament): Promise<void> {
+async function handlePostTournament(tournament: Tournament, opts?: { force?: boolean }): Promise<void> {
   if (tournament.status !== "completed" || !tournament.championId) return;
 
   const today = new Date().toISOString().slice(0, 10);
   const lastPostDate = configStore.getXLastPostDate();
 
-  if (lastPostDate === today) {
+  if (lastPostDate === today && !opts?.force) {
     console.log("[POST-TOURNAMENT] Already posted to X today, skipping.");
     return;
   }
@@ -610,7 +610,7 @@ async function main(): Promise<void> {
     tournamentInProgress = true;
     try {
       const tournament = await tournamentScheduler.runTournament();
-      await handlePostTournament(tournament);
+      await handlePostTournament(tournament, { force: true });
     } catch (e: any) {
       console.error("[TOURNAMENT] Fatal error:", e.message);
     } finally {
