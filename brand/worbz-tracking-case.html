@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // PHASE 4 — TRACKING + CASE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #4DFF91;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 48px;
+      min-height: 100vh;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 52px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0d2a1c;
+    }
+    .header-main { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .header-sub  { font-size: 9px;  letter-spacing: 0.2em; color: #1a5530; }
+
+    /* Section title */
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #1a5530;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #0d1a10;
+    }
+
+    .section-block { margin-bottom: 52px; }
+
+    /* ── TRACKING × CASE GRID ── */
+    .tc-grid {
+      display: grid;
+      grid-template-columns: 96px 1fr 1fr 1fr;
+      gap: 2px;
+    }
+
+    /* Column headers */
+    .col-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 8px;
+      border: 1px solid #0a1a0e;
+      font-size: 7px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #1a5530;
+      text-align: center;
+    }
+
+    .col-header.empty { border: none; background: transparent; }
+
+    /* Row label */
+    .row-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px 16px;
+      border: 1px solid #0a1a0e;
+      gap: 6px;
+    }
+
+    .row-label-main {
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #1a5530;
+    }
+
+    .row-label-value {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: #0d2a1c;
+    }
+
+    /* Each specimen cell */
+    .tc-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 20px;
+      border: 1px solid #0a1a0e;
+      gap: 12px;
+      position: relative;
+    }
+
+    .cell-word {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      color: #4DFF91;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    /* Tracking variants */
+    .track-tight   { letter-spacing: -0.03em; font-size: 42px; }
+    .track-default { letter-spacing: 0em;     font-size: 38px; }
+    .track-loose   { letter-spacing: 0.12em;  font-size: 34px; }
+
+    /* CRT glows per tracking density */
+    .glow-std {
+      filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 5px rgba(77,255,145,0.15));
+    }
+    .glow-orange {
+      filter: drop-shadow(0 0 2px #FF3D00) drop-shadow(0 0 6px rgba(255,61,0,0.2))
+              drop-shadow(0 0 1px rgba(77,255,145,0.2));
+    }
+    .glow-split {
+      filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 4px rgba(255,61,0,0.15));
+    }
+
+    /* Lockup: mark + text */
+    .lockup-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mark-mini {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      filter:
+        drop-shadow(0 0 1.5px #FF3D00)
+        drop-shadow(0 0 3px rgba(255,61,0,0.2))
+        drop-shadow(0 0 1px rgba(77,255,145,0.3));
+    }
+
+    .cell-tag {
+      position: absolute;
+      top: 7px;
+      right: 9px;
+      font-size: 7px;
+      letter-spacing: 0.12em;
+      color: #0d2a1c;
+    }
+
+    /* ── WEIGHT COMPARISON ── */
+    .weight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+    }
+
+    .w-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 16px 22px;
+      border: 1px solid #0a1a0e;
+      gap: 12px;
+    }
+
+    .w-label {
+      font-size: 7px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #1a5530;
+    }
+
+    /* ── COLOR ACCENT STRIP ── */
+    .accent-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin-top: 2px;
+    }
+
+    .accent-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 18px;
+      border: 1px solid #0a1a0e;
+      gap: 10px;
+      position: relative;
+    }
+
+    .accent-label {
+      font-size: 7px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #1a5530;
+      text-align: center;
+    }
+
+    .divider { height: 1px; background: #0d2a1c; margin: 44px 0; }
+
+    .footer-note {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: #0d2a1c;
+      margin-top: 44px;
+      line-height: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="header-main">WORBZ // PHASE 4</span>
+    <span class="header-sub">ORBITRON — TRACKING × CASE × WEIGHT</span>
+    <span class="header-sub">WORDMARK STEP 2 OF 3</span>
+  </header>
+
+  <!-- ══════════════════════════════════════ SECTION 1: TRACKING × CASE GRID -->
+  <div class="section-block">
+    <div class="section-label">Tracking × Case — 9 combinations. Rows = letter-spacing. Columns = case treatment.</div>
+
+    <div class="tc-grid">
+
+      <!-- Column headers -->
+      <div class="col-header empty"></div>
+      <div class="col-header">UPPERCASE<br><span style="opacity:0.5;font-size:6px;">assertive / institutional</span></div>
+      <div class="col-header">lowercase<br><span style="opacity:0.5;font-size:6px;">relaxed / modern</span></div>
+      <div class="col-header">+ mark preview<br><span style="opacity:0.5;font-size:6px;">rough lockup</span></div>
+
+      <!-- ── ROW 1: TIGHT ── -->
+      <div class="row-label">
+        <div class="row-label-main">TIGHT</div>
+        <div class="row-label-value">−0.03em</div>
+        <div class="row-label-value" style="color:#0a1810; margin-top:4px;">dense / weapon</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">T-UPPER</span>
+        <div class="cell-word track-tight glow-std">WORBZ</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">T-LOWER</span>
+        <div class="cell-word track-tight glow-std" style="font-size:38px;">worbz</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">T-LOCK</span>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:22px; color:#4DFF91; letter-spacing:-0.03em; line-height:1;">WORBZ</span>
+        </div>
+      </div>
+
+      <!-- ── ROW 2: DEFAULT ── -->
+      <div class="row-label">
+        <div class="row-label-main">DEFAULT</div>
+        <div class="row-label-value">0em</div>
+        <div class="row-label-value" style="color:#0a1810; margin-top:4px;">natural / balanced</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">D-UPPER</span>
+        <div class="cell-word track-default glow-std">WORBZ</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">D-LOWER</span>
+        <div class="cell-word track-default glow-std" style="font-size:34px;">worbz</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">D-LOCK</span>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:22px; color:#4DFF91; letter-spacing:0em; line-height:1;">WORBZ</span>
+        </div>
+      </div>
+
+      <!-- ── ROW 3: LOOSE ── -->
+      <div class="row-label">
+        <div class="row-label-main">LOOSE</div>
+        <div class="row-label-value">+0.12em</div>
+        <div class="row-label-value" style="color:#0a1810; margin-top:4px;">editorial / billboard</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">L-UPPER</span>
+        <div class="cell-word track-loose glow-std">WORBZ</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">L-LOWER</span>
+        <div class="cell-word track-loose glow-std" style="font-size:30px;">worbz</div>
+      </div>
+
+      <div class="tc-cell">
+        <span class="cell-tag">L-LOCK</span>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:20px; color:#4DFF91; letter-spacing:0.12em; line-height:1;">WORBZ</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ SECTION 2: WEIGHT AT DEFAULT TRACKING -->
+  <div class="section-block">
+    <div class="section-label">Weight check — all at 0em tracking, uppercase. Which weight carries the mark?</div>
+
+    <div class="weight-grid">
+
+      <div class="w-cell">
+        <div class="w-label">400 — light</div>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:400; font-size:22px; color:#4DFF91; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+        <div class="w-label" style="color:#0a1810;">mark outweighs type</div>
+      </div>
+
+      <div class="w-cell">
+        <div class="w-label">600 — medium</div>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:600; font-size:22px; color:#4DFF91; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+        <div class="w-label" style="color:#0a1810;">balanced</div>
+      </div>
+
+      <div class="w-cell">
+        <div class="w-label">700 — bold</div>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:22px; color:#4DFF91; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+        <div class="w-label" style="color:#0a1810;">solid / recommended</div>
+      </div>
+
+      <div class="w-cell">
+        <div class="w-label">900 — black</div>
+        <div class="lockup-row glow-split">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:22px; color:#4DFF91; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+        <div class="w-label" style="color:#0a1810;">heavy / aggressive</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ SECTION 3: COLOR ACCENT STRIP -->
+  <div class="section-block">
+    <div class="section-label">Color treatment — Orbitron 700, default tracking. How much orange in the wordmark?</div>
+
+    <div class="accent-grid">
+
+      <!-- Full green -->
+      <div class="accent-cell">
+        <div class="accent-label">Full green<br>System output</div>
+        <div class="lockup-row" style="filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 5px rgba(77,255,145,0.15));">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:22px; color:#4DFF91; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+      </div>
+
+      <!-- Orange Z -->
+      <div class="accent-cell">
+        <div class="accent-label">Orange final Z<br>Brand initial / sting</div>
+        <div class="lockup-row" style="filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 3px rgba(255,61,0,0.15));">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <svg viewBox="0 0 120 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:28px; width:auto;">
+            <text x="0" y="22" font-family="Orbitron, sans-serif" font-weight="700" font-size="22" fill="#4DFF91" letter-spacing="0">WORB</text>
+            <text x="88" y="22" font-family="Orbitron, sans-serif" font-weight="700" font-size="22" fill="#FF3D00" letter-spacing="0">Z</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Full orange wordmark -->
+      <div class="accent-cell">
+        <div class="accent-label">Full orange<br>Combat / hot state</div>
+        <div class="lockup-row" style="filter: drop-shadow(0 0 2px #FF3D00) drop-shadow(0 0 6px rgba(255,61,0,0.2));">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:22px; color:#FF3D00; letter-spacing:0; line-height:1;">WORBZ</span>
+        </div>
+      </div>
+
+      <!-- Green WORB + orange Z + .gg TLD -->
+      <div class="accent-cell">
+        <div class="accent-label">With domain<br>WORBZ.GG</div>
+        <div class="lockup-row" style="filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 3px rgba(255,61,0,0.15));">
+          <svg class="mark-mini" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9" x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9" y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <svg viewBox="0 0 176 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:28px; width:auto;">
+            <text x="0" y="22" font-family="Orbitron, sans-serif" font-weight="700" font-size="22" fill="#4DFF91" letter-spacing="0">WORBZ</text>
+            <text x="113" y="22" font-family="Orbitron, sans-serif" font-weight="400" font-size="14" fill="#FF3D00" letter-spacing="0">.GG</text>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer-note">
+    PHASE 4 // STEP 2 — Confirm: tracking (tight / default / loose) + case (UPPER / lower) + weight (600 / 700 / 900).<br>
+    Next: full lockup variants at hero, nav, and compact sizes.
+  </div>
+
+</body>
+</html>

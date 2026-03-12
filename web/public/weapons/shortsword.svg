@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WORBZ brand sprite — Shortsword (blade · medium)
+     White stroke/fill on transparent. Use Phaser setTint() for color.
+     viewBox 0 0 100 100 · pointing right (0°) · Phaser rotates -->
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pommel -->
+  <circle cx="8" cy="50" r="4.5" stroke="white" stroke-width="1.5"/>
+  <!-- Grip rails -->
+  <line x1="12" y1="47" x2="29" y2="47" stroke="white" stroke-width="1.5"/>
+  <line x1="12" y1="53" x2="29" y2="53" stroke="white" stroke-width="1.5"/>
+  <!-- Silk wraps -->
+  <line x1="17" y1="47" x2="17" y2="53" stroke="white" stroke-width="1"/>
+  <line x1="22" y1="47" x2="22" y2="53" stroke="white" stroke-width="1"/>
+  <line x1="27" y1="47" x2="27" y2="53" stroke="white" stroke-width="1"/>
+  <!-- Crossguard -->
+  <line x1="29" y1="37" x2="29" y2="63" stroke="white" stroke-width="2.5"/>
+  <!-- Blade edges (converging to tip) -->
+  <line x1="29" y1="47" x2="92" y2="50" stroke="white" stroke-width="1.8"/>
+  <line x1="29" y1="53" x2="92" y2="50" stroke="white" stroke-width="1.8"/>
+  <!-- Fuller (blood groove) -->
+  <line x1="35" y1="50" x2="82" y2="50" stroke="white" stroke-width="0.8" opacity="0.6"/>
+  <!-- Tip -->
+  <circle cx="92" cy="50" r="1.2" fill="white"/>
+</svg>

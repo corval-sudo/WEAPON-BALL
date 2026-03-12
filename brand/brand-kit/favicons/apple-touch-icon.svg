@@ -1,0 +1,21 @@
+<svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- WORBZ Apple Touch Icon — 180×180 -->
+  <!-- iOS adds rounded corners automatically; no clip-path needed -->
+  <rect width="180" height="180" fill="#000000"/>
+  <!-- Mark centred at 90,90 — scaled ×2.5 from 64px base (r=23 → r=57.5) -->
+  <circle cx="90" cy="90" r="57" stroke="#4DFF91" stroke-width="3"/>
+  <ellipse cx="90" cy="62" rx="42" ry="12" stroke="#4DFF91" stroke-width="1.75" opacity="0.6"/>
+  <ellipse cx="90" cy="118" rx="42" ry="12" stroke="#4DFF91" stroke-width="1.75" opacity="0.6"/>
+  <ellipse cx="90" cy="90" rx="17" ry="57" stroke="#4DFF91" stroke-width="2.25"/>
+  <ellipse cx="90" cy="90" rx="57" ry="17" stroke="#FF3D00" stroke-width="3.75"/>
+  <!-- 8-pt compass ticks -->
+  <line x1="147" y1="90" x2="137" y2="90" stroke="#4DFF91" stroke-width="3"/>
+  <line x1="120" y1="120" x2="112" y2="112" stroke="#4DFF91" stroke-width="2.5"/>
+  <line x1="90"  y1="147" x2="90"  y2="137" stroke="#4DFF91" stroke-width="3"/>
+  <line x1="60"  y1="120" x2="68"  y2="112" stroke="#4DFF91" stroke-width="2.5"/>
+  <line x1="33"  y1="90"  x2="43"  y2="90"  stroke="#4DFF91" stroke-width="3"/>
+  <line x1="60"  y1="60"  x2="68"  y2="68"  stroke="#4DFF91" stroke-width="2.5"/>
+  <line x1="90"  y1="33"  x2="90"  y2="43"  stroke="#4DFF91" stroke-width="3"/>
+  <line x1="120" y1="60"  x2="112" y2="68"  stroke="#4DFF91" stroke-width="2.5"/>
+  <circle cx="90" cy="90" r="5" fill="#FF3D00"/>
+</svg>

@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // COMPOSITION — 5 STRUCTURAL VARIANTS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #4DFF91;
+      --orange: #FF3D00;
+      --bg:     #000000;
+      --surf:   #0a0f0b;
+      --raised: #111a12;
+      --border: #0d2a1c;
+      --muted:  #1a5530;
+      --dim:    #0d2a1c;
+    }
+
+    body {
+      background: #050805;
+      color: var(--green);
+      font-family: 'Courier New', monospace;
+      padding: 48px;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 4px);
+      pointer-events: none; z-index: 1000;
+    }
+
+    header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 56px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .hd-main { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .hd-sub  { font-size: 9px; letter-spacing: 0.2em; color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+      margin-bottom: 72px;
+    }
+
+    .variant-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .v-label {
+      padding: 10px 12px;
+      background: var(--surf);
+      border: 1px solid var(--border);
+    }
+    .v-id    { font-size: 8px; letter-spacing: 0.3em; color: var(--orange); }
+    .v-name  { font-size: 9px; letter-spacing: 0.15em; margin-top: 2px; }
+    .v-desc  { font-size: 7px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+    /* ── VARIANT FRAME ── */
+    .v-frame {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: #000;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    /* ── SHARED MARK (inline SVG shorthand via CSS background trick — we use inline SVG elements) */
+    .mark-sm {
+      width: 28px; height: 28px;
+      flex-shrink: 0;
+    }
+    .mark-xs {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════
+       C1 — COMMAND CENTER
+    ═══════════════════════════════════════════════ */
+    .c1 { display: flex; flex-direction: column; }
+
+    .c1-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .c1-logo { display: flex; align-items: center; gap: 6px; }
+    .c1-logotype { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 9px; color: var(--green); }
+    .c1-logotype span { color: var(--orange); font-weight: 400; font-size: 7px; }
+    .c1-status { font-size: 7px; letter-spacing: 0.2em; color: var(--orange); }
+    .c1-status::before { content: '● '; }
+    .c1-time { font-size: 7px; color: var(--muted); }
+
+    .c1-body { display: flex; flex: 1; overflow: hidden; }
+
+    .c1-side {
+      width: 52px; padding: 8px 6px;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 6px;
+      flex-shrink: 0;
+    }
+    .c1-fighter {
+      background: var(--surf);
+      border: 1px solid var(--dim);
+      padding: 4px 5px;
+    }
+    .c1-f-name { font-size: 6px; letter-spacing: 0.1em; color: var(--green); }
+    .c1-f-hp   { height: 2px; background: var(--dim); margin-top: 3px; border-radius: 1px; }
+    .c1-f-hp-fill { height: 100%; background: var(--green); border-radius: 1px; }
+    .c1-f-score{ font-size: 8px; font-family: 'Orbitron', sans-serif; color: var(--green); margin-top: 2px; }
+    .c1-f-dead .c1-f-name { color: var(--muted); }
+    .c1-f-dead .c1-f-hp-fill { background: var(--muted); }
+    .c1-f-dead .c1-f-score { color: var(--muted); }
+
+    .c1-arena {
+      flex: 1; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .c1-arena-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(77,255,145,0.04) 0%, transparent 70%),
+        repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(77,255,145,0.03) 11px, rgba(77,255,145,0.03) 12px),
+        repeating-linear-gradient(90deg, transparent, transparent 11px, rgba(77,255,145,0.03) 11px, rgba(77,255,145,0.03) 12px);
+    }
+    .c1-orb {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid var(--green);
+      box-shadow: 0 0 6px rgba(77,255,145,0.4);
+    }
+    .c1-orb-dead {
+      border-color: var(--muted);
+      box-shadow: none;
+      opacity: 0.4;
+    }
+
+    .c1-right {
+      width: 52px; padding: 8px 6px;
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 6px;
+      flex-shrink: 0;
+    }
+    .c1-stat-block { }
+    .c1-stat-label { font-size: 6px; color: var(--muted); letter-spacing: 0.15em; }
+    .c1-stat-val   { font-size: 11px; font-family: 'Orbitron', sans-serif; color: var(--green); line-height: 1; }
+    .c1-stat-val.accent { color: var(--orange); }
+    .c1-divider { height: 1px; background: var(--dim); }
+
+    .c1-ticker {
+      height: 20px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 8px; overflow: hidden;
+      flex-shrink: 0;
+    }
+    .c1-tick-label { font-size: 6px; color: var(--orange); letter-spacing: 0.2em; flex-shrink: 0; }
+    .c1-tick-items { display: flex; gap: 16px; }
+    .c1-tick-item  { font-size: 6px; color: var(--muted); white-space: nowrap; }
+    .c1-tick-item span { color: var(--green); }
+
+    /* ═══════════════════════════════════════════════
+       C2 — TERMINAL FEED
+    ═══════════════════════════════════════════════ */
+    .c2 { display: flex; }
+
+    .c2-rail {
+      width: 40px; background: var(--surf);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 10px 0; gap: 12px; flex-shrink: 0;
+    }
+    .c2-nav-icon {
+      width: 20px; height: 20px;
+      border: 1px solid var(--dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 6px; color: var(--muted);
+    }
+    .c2-nav-icon.active { border-color: var(--green); color: var(--green); }
+
+    .c2-main { flex: 1; display: flex; flex-direction: column; }
+
+    .c2-header {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .c2-title { font-size: 7px; letter-spacing: 0.2em; text-transform: uppercase; }
+    .c2-live  { font-size: 6px; color: var(--orange); }
+
+    .c2-feed { flex: 1; padding: 6px 10px; overflow: hidden; display: flex; flex-direction: column; gap: 3px; }
+    .c2-row  { display: flex; gap: 6px; align-items: baseline; }
+    .c2-ts   { font-size: 6px; color: var(--dim); width: 28px; flex-shrink: 0; }
+    .c2-event{ font-size: 6.5px; color: var(--muted); }
+    .c2-event b    { color: var(--green); font-weight: normal; }
+    .c2-event.kill b { color: var(--orange); }
+    .c2-event.win  { color: var(--green); }
+
+    .c2-footer {
+      border-top: 1px solid var(--border);
+      padding: 6px 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .c2-prompt { font-size: 6px; color: var(--muted); }
+    .c2-prompt span { color: var(--green); }
+    .c2-cursor { width: 4px; height: 8px; background: var(--green); display: inline-block; animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ═══════════════════════════════════════════════
+       C3 — BRACKET TREE
+    ═══════════════════════════════════════════════ */
+    .c3 { display: flex; flex-direction: column; }
+
+    .c3-head {
+      padding: 8px 10px; text-align: center;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .c3-wordmark { display: flex; justify-content: center; align-items: center; gap: 7px; }
+    .c3-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 9px; color: var(--green); }
+    .c3-tld  { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: 6px; color: var(--orange); }
+    .c3-sub  { font-size: 6px; color: var(--muted); letter-spacing: 0.2em; margin-top: 3px; text-transform: uppercase; }
+
+    .c3-bracket { flex: 1; padding: 10px 8px; position: relative; overflow: hidden; }
+    /* SVG bracket drawn inline */
+
+    .c3-footer {
+      border-top: 1px solid var(--border); padding: 5px 10px;
+      display: flex; justify-content: space-between; flex-shrink: 0;
+    }
+    .c3-stat { font-size: 6px; color: var(--muted); }
+    .c3-stat span { color: var(--green); }
+
+    /* ═══════════════════════════════════════════════
+       C4 — BROADCAST OVERLAY
+    ═══════════════════════════════════════════════ */
+    .c4 { position: relative; }
+
+    .c4-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 45%, rgba(77,255,145,0.03) 0%, transparent 65%),
+        repeating-linear-gradient(0deg, transparent, transparent 9px, rgba(77,255,145,0.025) 9px, rgba(77,255,145,0.025) 10px),
+        repeating-linear-gradient(90deg, transparent, transparent 9px, rgba(77,255,145,0.025) 9px, rgba(77,255,145,0.025) 10px),
+        #000;
+    }
+    /* Orbs in arena */
+    .c4-orb {
+      position: absolute; border-radius: 50%;
+      border: 1.5px solid var(--green);
+      box-shadow: 0 0 8px rgba(77,255,145,0.5);
+    }
+
+    /* Score bug — top right */
+    .c4-bug {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.85);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      display: flex; flex-direction: column; gap: 2px; min-width: 70px;
+    }
+    .c4-bug-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .c4-bug-name { font-size: 6px; letter-spacing: 0.1em; color: var(--green); }
+    .c4-bug-score { font-family: 'Orbitron', sans-serif; font-size: 9px; color: var(--green); }
+    .c4-bug-divider { height: 1px; background: var(--border); }
+
+    /* Mark — bottom left */
+    .c4-mark-bug {
+      position: absolute; bottom: 18px; left: 8px;
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(0,0,0,0.8);
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+    }
+    .c4-mark-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 7px; color: var(--green); }
+    .c4-mark-tld  { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: 5px; color: var(--orange); }
+
+    /* Ticker — bottom */
+    .c4-ticker {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 18px; background: rgba(0,0,0,0.9);
+      border-top: 1px solid var(--orange);
+      display: flex; align-items: center; padding: 0 8px; gap: 10px;
+      overflow: hidden;
+    }
+    .c4-tick-tag { font-size: 6px; color: var(--orange); letter-spacing: 0.2em; flex-shrink: 0; }
+    .c4-tick-text{ font-size: 6px; color: var(--muted); }
+    .c4-tick-text span { color: var(--green); }
+
+    /* Round badge */
+    .c4-round {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.85); border: 1px solid var(--orange);
+      padding: 3px 8px;
+      font-size: 6px; letter-spacing: 0.2em; color: var(--orange);
+      text-transform: uppercase;
+    }
+
+    /* ═══════════════════════════════════════════════
+       C5 — STAT CARD
+    ═══════════════════════════════════════════════ */
+    .c5 { display: flex; flex-direction: column; background: var(--surf); }
+
+    .c5-header {
+      background: #000;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .c5-name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 9px; color: var(--green); }
+    .c5-tld  { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: 6px; color: var(--orange); }
+
+    .c5-hero {
+      padding: 12px 12px 8px;
+      display: flex; align-items: baseline; gap: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .c5-hero-num { font-family: 'Orbitron', sans-serif; font-size: 36px; color: var(--green);
+      line-height: 1; text-shadow: 0 0 20px rgba(77,255,145,0.4); }
+    .c5-hero-label { font-size: 7px; color: var(--muted); letter-spacing: 0.2em; align-self: flex-end; padding-bottom: 4px; }
+
+    .c5-stats {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px; background: var(--dim);
+      border-bottom: 1px solid var(--border);
+    }
+    .c5-stat-cell {
+      background: var(--surf); padding: 7px 8px;
+    }
+    .c5-sc-label { font-size: 6px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .c5-sc-val   { font-family: 'Orbitron', sans-serif; font-size: 10px; color: var(--green); margin-top: 2px; }
+    .c5-sc-val.accent { color: var(--orange); }
+
+    .c5-list { flex: 1; padding: 6px 0; }
+    .c5-list-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-bottom: 1px solid var(--dim);
+    }
+    .c5-list-rank { font-size: 7px; color: var(--muted); width: 14px; flex-shrink: 0; }
+    .c5-list-orb  {
+      width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid var(--green);
+      box-shadow: 0 0 4px rgba(77,255,145,0.4);
+      flex-shrink: 0;
+    }
+    .c5-list-name { font-size: 6.5px; flex: 1; }
+    .c5-list-score{ font-family: 'Orbitron', sans-serif; font-size: 7px; color: var(--green); }
+    .c5-list-row.leader .c5-list-orb  { border-color: var(--orange); box-shadow: 0 0 4px rgba(255,61,0,0.4); }
+    .c5-list-row.leader .c5-list-name { color: var(--orange); }
+    .c5-list-row.leader .c5-list-score{ color: var(--orange); }
+
+    .c5-footer {
+      border-top: 1px solid var(--border); padding: 5px 12px;
+      font-size: 6px; color: var(--dim); display: flex; justify-content: space-between;
+    }
+
+    /* ── BLUR TEST SECTION ── */
+    .section-label {
+      font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--dim);
+    }
+    .section-block { margin-bottom: 64px; }
+
+    .blur-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+    }
+    .blur-frame {
+      aspect-ratio: 3/4;
+      background: #000;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      filter: blur(6px);
+    }
+    .blur-label {
+      font-size: 7px; letter-spacing: 0.2em; color: var(--muted);
+      text-align: center; margin-top: 6px;
+    }
+
+    /* ── WINNER SECTION ── */
+    .winner-section { margin-bottom: 64px; }
+
+    .winner-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .footer-note {
+      font-size: 8px; color: var(--muted); line-height: 1.8;
+      padding: 16px 0; border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="hd-main">WORBZ // PHASE 5.5</span>
+    <span class="hd-sub">COMPOSITION — STRUCTURAL VARIANTS</span>
+    <span class="hd-sub">GATE CHECK</span>
+  </header>
+
+  <!-- ════════════════ 5 VARIANTS ════════════════ -->
+  <div class="section-block">
+    <div class="section-label">Five structural variants — pick the composition direction</div>
+
+    <div class="grid">
+
+      <!-- ── C1: COMMAND CENTER ── -->
+      <div class="variant-wrap">
+        <div class="v-label">
+          <div class="v-id">C1</div>
+          <div class="v-name">COMMAND CENTER</div>
+          <div class="v-desc">HUD side panels flank the arena. Mission control energy. Data at all edges.</div>
+        </div>
+        <div class="v-frame c1">
+          <!-- topbar -->
+          <div class="c1-topbar">
+            <div class="c1-logo">
+              <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+                <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+                <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+                <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+                <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+                <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+                <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+                <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+                <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+                <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+              </svg>
+              <div class="c1-logotype">WORBZ<span>.xyz</span></div>
+            </div>
+            <div class="c1-status">LIVE</div>
+            <div class="c1-time">T+04:22</div>
+          </div>
+          <!-- body -->
+          <div class="c1-body">
+            <!-- left fighters -->
+            <div class="c1-side">
+              <div class="c1-fighter">
+                <div class="c1-f-name">VOLT</div>
+                <div class="c1-f-hp"><div class="c1-f-hp-fill" style="width:82%"></div></div>
+                <div class="c1-f-score">12</div>
+              </div>
+              <div class="c1-fighter">
+                <div class="c1-f-name">RAZE</div>
+                <div class="c1-f-hp"><div class="c1-f-hp-fill" style="width:55%"></div></div>
+                <div class="c1-f-score">8</div>
+              </div>
+              <div class="c1-fighter c1-f-dead">
+                <div class="c1-f-name">KIRA</div>
+                <div class="c1-f-hp"><div class="c1-f-hp-fill" style="width:0%"></div></div>
+                <div class="c1-f-score">3</div>
+              </div>
+            </div>
+            <!-- arena -->
+            <div class="c1-arena">
+              <div class="c1-arena-bg"></div>
+              <!-- arena boundary circle -->
+              <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 120 160" fill="none">
+                <ellipse cx="60" cy="80" rx="48" ry="64" stroke="#4DFF91" stroke-width="0.5" opacity="0.3"/>
+                <ellipse cx="60" cy="80" rx="48" ry="64" stroke="#4DFF91" stroke-width="0.5" opacity="0.1" stroke-dasharray="3 3"/>
+              </svg>
+              <div class="c1-orb" style="width:10px;height:10px;top:30%;left:40%;"></div>
+              <div class="c1-orb" style="width:10px;height:10px;top:55%;left:62%;background:rgba(77,255,145,0.08)"></div>
+              <div class="c1-orb c1-orb-dead" style="width:8px;height:8px;top:70%;left:30%;"></div>
+            </div>
+            <!-- right stats -->
+            <div class="c1-right">
+              <div class="c1-stat-block">
+                <div class="c1-stat-label">ROUND</div>
+                <div class="c1-stat-val accent">07</div>
+              </div>
+              <div class="c1-divider"></div>
+              <div class="c1-stat-block">
+                <div class="c1-stat-label">KILLS</div>
+                <div class="c1-stat-val">23</div>
+              </div>
+              <div class="c1-stat-block">
+                <div class="c1-stat-label">ALIVE</div>
+                <div class="c1-stat-val">02</div>
+              </div>
+              <div class="c1-divider"></div>
+              <div class="c1-stat-block">
+                <div class="c1-stat-label">PRIZE</div>
+                <div class="c1-stat-val accent">0.4Ξ</div>
+              </div>
+            </div>
+          </div>
+          <!-- ticker -->
+          <div class="c1-ticker">
+            <div class="c1-tick-label">FEED</div>
+            <div class="c1-tick-items">
+              <div class="c1-tick-item"><span>VOLT</span> KO'd KIRA</div>
+              <div class="c1-tick-item">Round 7 begins</div>
+              <div class="c1-tick-item"><span>RAZE</span> +3pts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── C2: TERMINAL FEED ── -->
+      <div class="variant-wrap">
+        <div class="v-label">
+          <div class="v-id">C2</div>
+          <div class="v-name">TERMINAL FEED</div>
+          <div class="v-desc">Left nav rail. Full-height event log. Monospace data stream. Bloomberg terminal energy.</div>
+        </div>
+        <div class="v-frame c2">
+          <!-- nav rail -->
+          <div class="c2-rail">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none" style="margin-top:2px">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <div class="c2-nav-icon active">▶</div>
+            <div class="c2-nav-icon">⊞</div>
+            <div class="c2-nav-icon">◈</div>
+            <div class="c2-nav-icon">≡</div>
+          </div>
+          <!-- main -->
+          <div class="c2-main">
+            <div class="c2-header">
+              <div class="c2-title">ARENA · ROUND 07</div>
+              <div class="c2-live">● LIVE</div>
+            </div>
+            <div class="c2-feed">
+              <div class="c2-row"><span class="c2-ts">04:22</span><span class="c2-event kill"><b>VOLT</b> eliminated KIRA [dmg:94]</span></div>
+              <div class="c2-row"><span class="c2-ts">04:19</span><span class="c2-event">collision: <b>RAZE</b>←<b>KIRA</b> [Δv:2.3]</span></div>
+              <div class="c2-row"><span class="c2-ts">04:15</span><span class="c2-event"><b>VOLT</b> scored +3 pts</span></div>
+              <div class="c2-row"><span class="c2-ts">04:11</span><span class="c2-event">round 07 start · fighters: 3</span></div>
+              <div class="c2-row"><span class="c2-ts">04:02</span><span class="c2-event kill"><b>RAZE</b> eliminated SHARD</span></div>
+              <div class="c2-row"><span class="c2-ts">03:58</span><span class="c2-event">weapon spawn · zone C4</span></div>
+              <div class="c2-row"><span class="c2-ts">03:51</span><span class="c2-event">collision: <b>VOLT</b>←<b>SHARD</b></span></div>
+              <div class="c2-row"><span class="c2-ts">03:44</span><span class="c2-event win">round 06 → winner: <b>VOLT</b></span></div>
+              <div class="c2-row"><span class="c2-ts">03:40</span><span class="c2-event">prize pool: +0.04Ξ</span></div>
+              <div class="c2-row"><span class="c2-ts">03:35</span><span class="c2-event"><b>RAZE</b> +2 · <b>VOLT</b> +1</span></div>
+              <div class="c2-row"><span class="c2-ts">03:28</span><span class="c2-event kill"><b>VOLT</b> eliminated NX-9</span></div>
+            </div>
+            <div class="c2-footer">
+              <div class="c2-prompt"><span>WORBZ</span> › feed › arena_<span class="c2-cursor"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── C3: BRACKET TREE ── -->
+      <div class="variant-wrap">
+        <div class="v-label">
+          <div class="v-id">C3</div>
+          <div class="v-name">BRACKET TREE</div>
+          <div class="v-desc">Mark at apex. Tournament bracket fans down. Fighters as nodes. Circuit diagram logic.</div>
+        </div>
+        <div class="v-frame c3">
+          <div class="c3-head">
+            <div class="c3-wordmark">
+              <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+                <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+                <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+                <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+                <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+                <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+              </svg>
+              <span class="c3-name">WORBZ</span><span class="c3-tld">.xyz</span>
+            </div>
+            <div class="c3-sub">TOURNAMENT · ROUND 7</div>
+          </div>
+          <div class="c3-bracket">
+            <svg width="100%" height="100%" viewBox="0 0 160 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- QF lines -->
+              <line x1="20" y1="30" x2="20" y2="60" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="20" y1="45" x2="50" y2="45" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="20" y1="70" x2="20" y2="100" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="20" y1="85" x2="50" y2="85" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="30" x2="140" y2="60" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="45" x2="110" y2="45" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="70" x2="140" y2="100" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="85" x2="110" y2="85" stroke="#0d2a1c" stroke-width="1"/>
+
+              <!-- SF lines -->
+              <line x1="50" y1="45" x2="50" y2="85" stroke="#1a5530" stroke-width="1"/>
+              <line x1="50" y1="65" x2="75" y2="65" stroke="#1a5530" stroke-width="1"/>
+              <line x1="110" y1="45" x2="110" y2="85" stroke="#1a5530" stroke-width="1"/>
+              <line x1="110" y1="65" x2="85" y2="65" stroke="#1a5530" stroke-width="1"/>
+
+              <!-- F lines -->
+              <line x1="75" y1="65" x2="75" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="85" y1="65" x2="85" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="75" y1="130" x2="85" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="80" y1="130" x2="80" y2="155" stroke="#FF3D00" stroke-width="1.5"/>
+
+              <!-- QF nodes — left -->
+              <rect x="0"  y="24" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="3" y="33" font-family="Courier New" font-size="5.5" fill="#1a5530">NEON-A</text>
+              <rect x="0"  y="64" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="3" y="73" font-family="Courier New" font-size="5.5" fill="#1a5530">SHARD</text>
+              <rect x="0"  y="94" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="3" y="103" font-family="Courier New" font-size="5.5" fill="#1a5530">KIRA</text>
+              <!-- QF nodes — right -->
+              <rect x="122" y="24" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="125" y="33" font-family="Courier New" font-size="5.5" fill="#1a5530">NX-9</text>
+              <rect x="122" y="64" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="125" y="73" font-family="Courier New" font-size="5.5" fill="#1a5530">RAZE</text>
+              <rect x="122" y="94" width="38" height="12" fill="#0a0f0b" stroke="#0d2a1c" stroke-width="0.5"/>
+              <text x="125" y="103" font-family="Courier New" font-size="5.5" fill="#1a5530">ORION</text>
+
+              <!-- SF nodes -->
+              <rect x="28" y="58" width="44" height="14" fill="#111a12" stroke="#1a5530" stroke-width="0.7"/>
+              <text x="31" y="67" font-family="Courier New" font-size="5.5" fill="#4DFF91">VOLT</text>
+              <text x="56" y="67" font-family="Orbitron" font-size="6" fill="#4DFF91" font-weight="700">12</text>
+              <rect x="88" y="58" width="44" height="14" fill="#111a12" stroke="#1a5530" stroke-width="0.7"/>
+              <text x="91" y="67" font-family="Courier New" font-size="5.5" fill="#4DFF91">RAZE</text>
+              <text x="116" y="67" font-family="Orbitron" font-size="6" fill="#4DFF91" font-weight="700">8</text>
+
+              <!-- FINAL node -->
+              <rect x="46" y="148" width="68" height="18" fill="#000" stroke="#FF3D00" stroke-width="1"/>
+              <text x="80" y="161" text-anchor="middle" font-family="Orbitron" font-size="7" fill="#FF3D00" font-weight="700" letter-spacing="1">FINAL</text>
+
+              <!-- Champion (TBD) -->
+              <line x1="80" y1="166" x2="80" y2="185" stroke="#FF3D00" stroke-width="1" stroke-dasharray="2 2"/>
+              <circle cx="80" cy="192" r="10" fill="#000" stroke="#FF3D00" stroke-width="1"/>
+              <text x="80" y="195.5" text-anchor="middle" font-family="Courier New" font-size="5" fill="#FF3D00">?</text>
+            </svg>
+          </div>
+          <div class="c3-footer">
+            <div class="c3-stat">FIGHTERS <span>8</span></div>
+            <div class="c3-stat">PRIZE <span>0.4Ξ</span></div>
+            <div class="c3-stat">ROUND <span>07</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── C4: BROADCAST OVERLAY ── -->
+      <div class="variant-wrap">
+        <div class="v-label">
+          <div class="v-id">C4</div>
+          <div class="v-name">BROADCAST OVERLAY</div>
+          <div class="v-desc">Full-bleed arena. HUD elements float as overlays. Sports broadcast / stream layout.</div>
+        </div>
+        <div class="v-frame c4">
+          <div class="c4-bg"></div>
+          <!-- Arena boundary -->
+          <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 140 220" fill="none">
+            <ellipse cx="70" cy="105" rx="58" ry="82" stroke="#4DFF91" stroke-width="0.6" opacity="0.2"/>
+            <ellipse cx="70" cy="105" rx="58" ry="82" stroke="#4DFF91" stroke-width="0.4" opacity="0.1" stroke-dasharray="4 4"/>
+            <ellipse cx="70" cy="105" rx="30" ry="42" stroke="#4DFF91" stroke-width="0.4" opacity="0.08" stroke-dasharray="2 4"/>
+          </svg>
+          <!-- orbs -->
+          <div class="c4-orb" style="width:13px;height:13px;top:35%;left:42%;"></div>
+          <div class="c4-orb" style="width:13px;height:13px;top:50%;left:58%;background:rgba(77,255,145,0.06)"></div>
+          <div class="c4-orb" style="width:10px;height:10px;top:28%;left:35%;opacity:0.3;border-color:#1a5530;box-shadow:none;"></div>
+          <!-- score bug -->
+          <div class="c4-bug">
+            <div class="c4-bug-row">
+              <span class="c4-bug-name">VOLT</span>
+              <span class="c4-bug-score">12</span>
+            </div>
+            <div class="c4-bug-divider"></div>
+            <div class="c4-bug-row">
+              <span class="c4-bug-name">RAZE</span>
+              <span class="c4-bug-score" style="color:var(--muted)">8</span>
+            </div>
+          </div>
+          <!-- round badge -->
+          <div class="c4-round">RD 07</div>
+          <!-- mark bug -->
+          <div class="c4-mark-bug">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <span class="c4-mark-name">WORBZ</span><span class="c4-mark-tld">.xyz</span>
+          </div>
+          <!-- ticker -->
+          <div class="c4-ticker">
+            <span class="c4-tick-tag">LIVE</span>
+            <span class="c4-tick-text"><span>VOLT</span> KO'd KIRA · Round 7 · Prize pool: <span>0.4Ξ</span> · Next round in 12s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── C5: STAT CARD ── -->
+      <div class="variant-wrap">
+        <div class="v-label">
+          <div class="v-id">C5</div>
+          <div class="v-name">STAT CARD</div>
+          <div class="v-desc">Portrait card. Hero number leads. Stat grid below. Ranked list. Mobile-first, social-shareable.</div>
+        </div>
+        <div class="v-frame c5">
+          <div class="c5-header">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+              <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+              <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <span class="c5-name">WORBZ</span><span class="c5-tld">.xyz</span>
+          </div>
+          <div class="c5-hero">
+            <div class="c5-hero-num">12</div>
+            <div class="c5-hero-label">PTS LEAD</div>
+          </div>
+          <div class="c5-stats">
+            <div class="c5-stat-cell">
+              <div class="c5-sc-label">KILLS</div>
+              <div class="c5-sc-val accent">23</div>
+            </div>
+            <div class="c5-stat-cell">
+              <div class="c5-sc-label">ROUND</div>
+              <div class="c5-sc-val">07</div>
+            </div>
+            <div class="c5-stat-cell">
+              <div class="c5-sc-label">ALIVE</div>
+              <div class="c5-sc-val">02</div>
+            </div>
+          </div>
+          <div class="c5-list">
+            <div class="c5-list-row leader">
+              <div class="c5-list-rank">01</div>
+              <div class="c5-list-orb"></div>
+              <div class="c5-list-name">VOLT</div>
+              <div class="c5-list-score">12</div>
+            </div>
+            <div class="c5-list-row">
+              <div class="c5-list-rank">02</div>
+              <div class="c5-list-orb"></div>
+              <div class="c5-list-name">RAZE</div>
+              <div class="c5-list-score">8</div>
+            </div>
+            <div class="c5-list-row" style="opacity:0.45">
+              <div class="c5-list-rank">03</div>
+              <div class="c5-list-orb" style="border-color:#1a5530;box-shadow:none"></div>
+              <div class="c5-list-name" style="color:var(--muted)">KIRA ✕</div>
+              <div class="c5-list-score" style="color:var(--muted)">3</div>
+            </div>
+            <div class="c5-list-row" style="opacity:0.3">
+              <div class="c5-list-rank">04</div>
+              <div class="c5-list-orb" style="border-color:#0d2a1c;box-shadow:none"></div>
+              <div class="c5-list-name" style="color:var(--dim)">SHARD ✕</div>
+              <div class="c5-list-score" style="color:var(--dim)">1</div>
+            </div>
+          </div>
+          <div class="c5-footer">
+            <span>worbz.xyz · round 07</span>
+            <span style="color:var(--orange)">● LIVE</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /grid -->
+  </div>
+
+  <!-- ════════════════ BLUR TEST ════════════════ -->
+  <div class="section-block">
+    <div class="section-label">Blur test — each shape should be distinct at 6px blur</div>
+    <div class="blur-grid">
+
+      <div>
+        <div class="blur-frame c1">
+          <div class="c1-topbar">
+            <div class="c1-logo">
+              <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+                <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+                <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+              </svg>
+              <div class="c1-logotype">WORBZ<span>.xyz</span></div>
+            </div>
+            <div class="c1-status">LIVE</div>
+            <div class="c1-time">T+04:22</div>
+          </div>
+          <div class="c1-body">
+            <div class="c1-side">
+              <div class="c1-fighter"><div class="c1-f-name">VOLT</div><div class="c1-f-hp"><div class="c1-f-hp-fill" style="width:82%"></div></div><div class="c1-f-score">12</div></div>
+              <div class="c1-fighter"><div class="c1-f-name">RAZE</div><div class="c1-f-hp"><div class="c1-f-hp-fill" style="width:55%"></div></div><div class="c1-f-score">8</div></div>
+            </div>
+            <div class="c1-arena">
+              <div class="c1-arena-bg"></div>
+              <div class="c1-orb" style="width:10px;height:10px;top:38%;left:42%;"></div>
+              <div class="c1-orb" style="width:10px;height:10px;top:55%;left:62%;"></div>
+            </div>
+            <div class="c1-right">
+              <div class="c1-stat-block"><div class="c1-stat-label">ROUND</div><div class="c1-stat-val accent">07</div></div>
+              <div class="c1-stat-block"><div class="c1-stat-label">KILLS</div><div class="c1-stat-val">23</div></div>
+            </div>
+          </div>
+          <div class="c1-ticker"><div class="c1-tick-label">FEED</div></div>
+        </div>
+        <div class="blur-label">C1 — COMMAND CTR</div>
+      </div>
+
+      <div>
+        <div class="blur-frame c2">
+          <div class="c2-rail">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none" style="margin-top:2px">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <div class="c2-nav-icon active">▶</div>
+            <div class="c2-nav-icon">⊞</div>
+          </div>
+          <div class="c2-main">
+            <div class="c2-header"><div class="c2-title">ARENA · ROUND 07</div><div class="c2-live">● LIVE</div></div>
+            <div class="c2-feed">
+              <div class="c2-row"><span class="c2-ts">04:22</span><span class="c2-event kill"><b>VOLT</b> eliminated KIRA</span></div>
+              <div class="c2-row"><span class="c2-ts">04:19</span><span class="c2-event">collision event [Δv:2.3]</span></div>
+              <div class="c2-row"><span class="c2-ts">04:15</span><span class="c2-event"><b>VOLT</b> scored +3 pts</span></div>
+              <div class="c2-row"><span class="c2-ts">04:11</span><span class="c2-event">round 07 start</span></div>
+              <div class="c2-row"><span class="c2-ts">04:02</span><span class="c2-event kill"><b>RAZE</b> eliminated SHARD</span></div>
+              <div class="c2-row"><span class="c2-ts">03:58</span><span class="c2-event">weapon spawn · zone C4</span></div>
+              <div class="c2-row"><span class="c2-ts">03:44</span><span class="c2-event win">round 06 winner: <b>VOLT</b></span></div>
+            </div>
+            <div class="c2-footer"><div class="c2-prompt"><span>WORBZ</span> › arena_</div></div>
+          </div>
+        </div>
+        <div class="blur-label">C2 — TERMINAL</div>
+      </div>
+
+      <div>
+        <div class="blur-frame c3">
+          <div class="c3-head">
+            <div class="c3-wordmark">
+              <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+                <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+                <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+              </svg>
+              <span class="c3-name">WORBZ</span><span class="c3-tld">.xyz</span>
+            </div>
+          </div>
+          <div class="c3-bracket">
+            <svg width="100%" height="100%" viewBox="0 0 160 220" fill="none">
+              <line x1="20" y1="30" x2="20" y2="100" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="20" y1="65" x2="50" y2="65" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="30" x2="140" y2="100" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="140" y1="65" x2="110" y2="65" stroke="#0d2a1c" stroke-width="1"/>
+              <line x1="50" y1="45" x2="50" y2="85" stroke="#1a5530" stroke-width="1"/>
+              <line x1="50" y1="65" x2="75" y2="65" stroke="#1a5530" stroke-width="1"/>
+              <line x1="110" y1="45" x2="110" y2="85" stroke="#1a5530" stroke-width="1"/>
+              <line x1="110" y1="65" x2="85" y2="65" stroke="#1a5530" stroke-width="1"/>
+              <line x1="75" y1="65" x2="75" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="85" y1="65" x2="85" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="75" y1="130" x2="85" y2="130" stroke="#4DFF91" stroke-width="1" opacity="0.6"/>
+              <line x1="80" y1="130" x2="80" y2="155" stroke="#FF3D00" stroke-width="1.5"/>
+              <rect x="46" y="148" width="68" height="18" fill="#000" stroke="#FF3D00" stroke-width="1"/>
+              <line x1="80" y1="166" x2="80" y2="185" stroke="#FF3D00" stroke-width="1" stroke-dasharray="2 2"/>
+              <circle cx="80" cy="192" r="10" fill="#000" stroke="#FF3D00" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+        <div class="blur-label">C3 — BRACKET</div>
+      </div>
+
+      <div>
+        <div class="blur-frame c4">
+          <div class="c4-bg"></div>
+          <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 140 220" fill="none">
+            <ellipse cx="70" cy="105" rx="58" ry="82" stroke="#4DFF91" stroke-width="0.6" opacity="0.2"/>
+          </svg>
+          <div class="c4-orb" style="width:13px;height:13px;top:35%;left:42%;"></div>
+          <div class="c4-orb" style="width:13px;height:13px;top:50%;left:58%;"></div>
+          <div class="c4-bug" style="min-width:60px">
+            <div class="c4-bug-row"><span class="c4-bug-name">VOLT</span><span class="c4-bug-score">12</span></div>
+            <div class="c4-bug-divider"></div>
+            <div class="c4-bug-row"><span class="c4-bug-name">RAZE</span><span class="c4-bug-score" style="color:var(--muted)">8</span></div>
+          </div>
+          <div class="c4-round">RD 07</div>
+          <div class="c4-mark-bug">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <span class="c4-mark-name">WORBZ</span>
+          </div>
+          <div class="c4-ticker"><span class="c4-tick-tag">LIVE</span></div>
+        </div>
+        <div class="blur-label">C4 — BROADCAST</div>
+      </div>
+
+      <div>
+        <div class="blur-frame c5">
+          <div class="c5-header">
+            <svg class="mark-xs" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.4"/>
+              <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+            </svg>
+            <span class="c5-name">WORBZ</span><span class="c5-tld">.xyz</span>
+          </div>
+          <div class="c5-hero"><div class="c5-hero-num">12</div><div class="c5-hero-label">PTS LEAD</div></div>
+          <div class="c5-stats">
+            <div class="c5-stat-cell"><div class="c5-sc-label">KILLS</div><div class="c5-sc-val accent">23</div></div>
+            <div class="c5-stat-cell"><div class="c5-sc-label">ROUND</div><div class="c5-sc-val">07</div></div>
+            <div class="c5-stat-cell"><div class="c5-sc-label">ALIVE</div><div class="c5-sc-val">02</div></div>
+          </div>
+          <div class="c5-list">
+            <div class="c5-list-row leader"><div class="c5-list-rank">01</div><div class="c5-list-orb"></div><div class="c5-list-name">VOLT</div><div class="c5-list-score">12</div></div>
+            <div class="c5-list-row"><div class="c5-list-rank">02</div><div class="c5-list-orb"></div><div class="c5-list-name">RAZE</div><div class="c5-list-score">8</div></div>
+          </div>
+        </div>
+        <div class="blur-label">C5 — STAT CARD</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ GATE + NOTES ════════════════ -->
+  <div class="footer-note">
+    <div style="margin-bottom:8px; color: var(--green); letter-spacing: 0.2em; font-size: 9px; text-transform: uppercase;">PHASE 5.5 — COMPOSITION GATE</div>
+    Blur test: C1 reads as wide symmetric triptych · C2 reads as thin left column + tall block · C3 reads as funnel/tree · C4 reads as full-bleed with corner anchors · C5 reads as portrait card with top-heavy glow<br>
+    Each composition has a distinct silhouette. All five pass blur test.<br><br>
+    → Pick one (or combine) to proceed to Phase 6: DESIGN.md
+  </div>
+
+</body>
+</html>

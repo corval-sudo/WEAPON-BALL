@@ -1,0 +1,37 @@
+<svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- WORBZ Avatar — 400×400 (profile picture, Virtuals Protocol, social) -->
+  <rect width="400" height="400" fill="#000000"/>
+  <!-- Subtle grid -->
+  <line x1="0" y1="200" x2="400" y2="200" stroke="#4DFF91" stroke-width="0.4" opacity="0.06"/>
+  <line x1="200" y1="0" x2="200" y2="400" stroke="#4DFF91" stroke-width="0.4" opacity="0.06"/>
+  <!-- Mark centred at 200,185 — scaled ×3.5 (r=23 → r=80.5) -->
+  <circle cx="200" cy="185" r="81" stroke="#4DFF91" stroke-width="4"
+    filter="drop-shadow(0 0 8px rgba(77,255,145,0.35))"/>
+  <ellipse cx="200" cy="147" rx="60" ry="17" stroke="#4DFF91" stroke-width="2.5" opacity="0.6"/>
+  <ellipse cx="200" cy="223" rx="60" ry="17" stroke="#4DFF91" stroke-width="2.5" opacity="0.6"/>
+  <ellipse cx="200" cy="185" rx="24" ry="81" stroke="#4DFF91" stroke-width="3.2"/>
+  <ellipse cx="200" cy="185" rx="81" ry="24" stroke="#FF3D00" stroke-width="5.5"
+    filter="drop-shadow(0 0 8px rgba(255,61,0,0.45))"/>
+  <!-- 8-pt compass ticks -->
+  <line x1="281" y1="185" x2="267" y2="185" stroke="#4DFF91" stroke-width="4"/>
+  <line x1="257" y1="241" x2="247" y2="231" stroke="#4DFF91" stroke-width="3.5"/>
+  <line x1="200" y1="266" x2="200" y2="252" stroke="#4DFF91" stroke-width="4"/>
+  <line x1="143" y1="241" x2="153" y2="231" stroke="#4DFF91" stroke-width="3.5"/>
+  <line x1="119" y1="185" x2="133" y2="185" stroke="#4DFF91" stroke-width="4"/>
+  <line x1="143" y1="129" x2="153" y2="139" stroke="#4DFF91" stroke-width="3.5"/>
+  <line x1="200" y1="104" x2="200" y2="118" stroke="#4DFF91" stroke-width="4"/>
+  <line x1="257" y1="129" x2="247" y2="139" stroke="#4DFF91" stroke-width="3.5"/>
+  <!-- Center dot -->
+  <circle cx="200" cy="185" r="7" fill="#FF3D00"
+    filter="drop-shadow(0 0 6px rgba(255,61,0,0.6))"/>
+  <!-- Wordmark below mark -->
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&amp;display=swap');</style>
+  </defs>
+  <text x="200" y="306" text-anchor="middle"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="700" font-size="42" fill="#4DFF91" letter-spacing="0">WORBZ</text>
+  <text x="200" y="330" text-anchor="middle"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="400" font-size="24" fill="#FF3D00" letter-spacing="2">.xyz</text>
+</svg>

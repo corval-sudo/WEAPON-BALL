@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // MARK DEVELOPMENT // BATCH 01</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #4DFF91;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 48px;
+      min-height: 100vh;
+    }
+
+    /* Subtle scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 48px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0d2a1c;
+    }
+
+    .header-main {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #4DFF91;
+    }
+
+    .header-sub {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: #1a5530;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+    }
+
+    .mark-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 16px 28px;
+      border: 1px solid #0d1f15;
+      gap: 18px;
+      position: relative;
+    }
+
+    .mark-cell svg {
+      width: 200px;
+      height: 200px;
+    }
+
+    /* CRT glow via CSS filter */
+    .crt-glow {
+      filter:
+        drop-shadow(0 0 1.5px #4DFF91)
+        drop-shadow(0 0 4px rgba(77,255,145,0.25));
+    }
+
+    .mark-label {
+      font-size: 8px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #4DFF91;
+      text-align: center;
+    }
+
+    .mark-desc {
+      font-size: 9px;
+      color: #1a5530;
+      text-align: center;
+      line-height: 1.9;
+      letter-spacing: 0.04em;
+    }
+
+    .verdict {
+      font-size: 8px;
+      letter-spacing: 0.18em;
+      color: #0d3320;
+      text-transform: uppercase;
+      position: absolute;
+      top: 10px;
+      right: 12px;
+    }
+
+    /* Favicon size preview strip at bottom */
+    .small-preview {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #0d2a1c;
+    }
+
+    .small-preview-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: #1a5530;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+    }
+
+    .small-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+    }
+
+    .small-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      border: 1px solid #0d1f15;
+      gap: 12px;
+    }
+
+    .small-cell svg {
+      width: 48px;
+      height: 48px;
+    }
+
+    .tiny-label {
+      font-size: 8px;
+      color: #1a5530;
+      letter-spacing: 0.1em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="header-main">WORBZ // MARK DEVELOPMENT</span>
+    <span class="header-sub">BATCH 01 — 5 DIRECTIONS — KILL WHAT DOESN'T BELONG</span>
+    <span class="header-sub">PHASE 3.0</span>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============================================================ -->
+    <!-- V1: TARGETING RETICLE                                        -->
+    <!-- ============================================================ -->
+    <div class="mark-cell">
+      <span class="verdict">V1</span>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+        <rect width="64" height="64" fill="#000"/>
+
+        <!-- Main circle -->
+        <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Crosshair — broken arms with gap at center -->
+        <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Corner L-brackets (targeting) -->
+        <polyline points="22,13 13,13 13,22" stroke="#4DFF91" stroke-width="1"  fill="none"/>
+        <polyline points="42,13 51,13 51,22" stroke="#4DFF91" stroke-width="1"  fill="none"/>
+        <polyline points="51,42 51,51 42,51" stroke="#4DFF91" stroke-width="1"  fill="none"/>
+        <polyline points="22,51 13,51 13,42" stroke="#4DFF91" stroke-width="1"  fill="none"/>
+
+        <!-- Cardinal tick marks on circle surface -->
+        <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="32" y1="51" x2="32" y2="55" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+        <line x1="51" y1="32" x2="55" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Measurement ticks on crosshair arms -->
+        <line x1="47" y1="30" x2="47" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+        <line x1="17" y1="30" x2="17" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+        <line x1="30" y1="47" x2="34" y2="47" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+        <line x1="30" y1="17" x2="34" y2="17" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+
+        <!-- Center dot -->
+        <circle cx="32" cy="32" r="2" fill="#4DFF91"/>
+      </svg>
+      <div class="mark-label">V1 — TARGETING RETICLE</div>
+      <div class="mark-desc">Sphere as weapons target.<br/>Pure tactical. The ball is<br/>already in the crosshairs.</div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- V2: GPS WIREFRAME GLOBE                                      -->
+    <!-- ============================================================ -->
+    <div class="mark-cell">
+      <span class="verdict">V2</span>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+        <rect width="64" height="64" fill="#000"/>
+
+        <!-- Main circle -->
+        <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Latitude lines (horizontal ellipses) -->
+        <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#4DFF91" stroke-width="0.9" opacity="0.9"/>
+        <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+        <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+
+        <!-- Prime meridian (vertical ellipse) -->
+        <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9" opacity="0.9"/>
+
+        <!-- Tick marks at 45° intervals around perimeter -->
+        <!-- 0° right -->   <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+        <!-- 45° BR -->     <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+        <!-- 90° bottom --> <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+        <!-- 135° BL -->    <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+        <!-- 180° left -->  <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+        <!-- 225° TL -->    <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+        <!-- 270° top -->   <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+        <!-- 315° TR -->    <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+
+        <!-- Center dot -->
+        <circle cx="32" cy="32" r="1.5" fill="#4DFF91"/>
+      </svg>
+      <div class="mark-label">V2 — GPS WIREFRAME GLOBE</div>
+      <div class="mark-desc">The EVA globe. Data overlay<br/>on a sphere. Coordinate<br/>system as identity.</div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- V3: FACE — THE KIRBY SIGNAL                                  -->
+    <!-- ============================================================ -->
+    <div class="mark-cell">
+      <span class="verdict">V3</span>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+        <rect width="64" height="64" fill="#000"/>
+
+        <!-- Main circle — the ball/sphere -->
+        <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Eyes — wide ovals, slightly squinting (knowing) -->
+        <ellipse cx="25" cy="27" rx="3.2" ry="2.2" fill="#4DFF91"/>
+        <ellipse cx="39" cy="27" rx="3.2" ry="2.2" fill="#4DFF91"/>
+
+        <!-- Eyelid arcs — half-close the eyes for composure -->
+        <!-- Draw a black arc over the top half of each eye -->
+        <path d="M 21.8,27 A 3.2,2.2 0 0,1 28.2,27" stroke="#000" stroke-width="3" fill="none"/>
+        <path d="M 35.8,27 A 3.2,2.2 0 0,1 42.2,27" stroke="#000" stroke-width="3" fill="none"/>
+
+        <!-- Eye shine (tiny highlight dot — Kirby DNA) -->
+        <circle cx="23.8" cy="26" r="0.9" fill="#000"/>
+        <circle cx="37.8" cy="26" r="0.9" fill="#000"/>
+
+        <!-- Smirk — slight rightward upturn, knowing -->
+        <path d="M 27,38 Q 32,41.5 37,38" stroke="#4DFF91" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+
+        <!-- Subtle blush marks (two small lines under eyes) -->
+        <line x1="20" y1="31" x2="23" y2="31" stroke="#4DFF91" stroke-width="0.8" opacity="0.4"/>
+        <line x1="41" y1="31" x2="44" y2="31" stroke="#4DFF91" stroke-width="0.8" opacity="0.4"/>
+      </svg>
+      <div class="mark-label">V3 — THE KIRBY SIGNAL</div>
+      <div class="mark-desc">A Worbz gladiator with a face.<br/>Knowing smirk. The Arena<br/>Master's surrogate.</div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- V4: RADAR SWEEP                                              -->
+    <!-- ============================================================ -->
+    <div class="mark-cell">
+      <span class="verdict">V4</span>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+        <rect width="64" height="64" fill="#000"/>
+
+        <!-- Outer circle -->
+        <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+
+        <!-- Concentric rings -->
+        <circle cx="32" cy="32" r="15" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+        <circle cx="32" cy="32" r="8"  stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+
+        <!-- Sweep sector — from 270° (top) to 340° (upper right, ~70° sweep) -->
+        <!-- 340°: cos(340°)=0.940, sin(340°)=-0.342 → (32+21.6, 32-7.9) = (53.6, 24.1) -->
+        <!-- Using 315° for cleaner math: (48.3, 15.7) -->
+        <!-- Let's go from 270° (top: 32,9) sweeping to 345° (just past top-right) -->
+        <!-- 345°: cos=-15°=-0.259... wait let me just use 310°: cos=-50°=0.643, sin=-50°=0.766 → (32+14.8, 32-17.6)=(46.8,14.4) -->
+        <!-- Actually sweeping from 270° to 330° (60° sweep, clean triangle) -->
+        <!-- 330°: cos(330°)=0.866, sin(330°)=-0.5 → (32+19.9, 32-11.5)=(51.9, 20.5) -->
+        <path d="M 32,32 L 32,9 A 23,23 0 0,1 51.9,20.5 Z"
+              fill="#4DFF91" fill-opacity="0.1"/>
+
+        <!-- Trailing sweep ghost (faint, earlier position) -->
+        <!-- 270° to 295°: 295°=cos(-65°)=0.423,sin(-65°)=0.906 → (32+9.7,32-20.8)=(41.7,11.2) -->
+        <path d="M 32,32 L 32,9 A 23,23 0 0,1 41.7,11.2 Z"
+              fill="#4DFF91" fill-opacity="0.06"/>
+
+        <!-- Sweep arm — current position at 330° -->
+        <line x1="32" y1="32" x2="51.9" y2="20.5" stroke="#4DFF91" stroke-width="1.5"/>
+
+        <!-- Radial grid lines (faint — at 90° intervals) -->
+        <line x1="32" y1="32" x2="32" y2="9"  stroke="#4DFF91" stroke-width="0.5" opacity="0.15"/>
+        <line x1="32" y1="32" x2="55" y2="32" stroke="#4DFF91" stroke-width="0.5" opacity="0.15"/>
+        <line x1="32" y1="32" x2="32" y2="55" stroke="#4DFF91" stroke-width="0.5" opacity="0.15"/>
+        <line x1="32" y1="32" x2="9"  y2="32" stroke="#4DFF91" stroke-width="0.5" opacity="0.15"/>
+
+        <!-- Detected blip (a fighter on the radar) -->
+        <circle cx="44" cy="21" r="2.2" fill="#4DFF91"/>
+        <!-- Ping ring around blip -->
+        <circle cx="44" cy="21" r="4.5" stroke="#4DFF91" stroke-width="0.6" fill="none" opacity="0.35"/>
+
+        <!-- Center dot -->
+        <circle cx="32" cy="32" r="1.8" fill="#4DFF91"/>
+      </svg>
+      <div class="mark-label">V4 — RADAR SWEEP</div>
+      <div class="mark-desc">The match timer as a sweep.<br/>Anticipation as form.<br/>Something incoming.</div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- V5: FACETED SPHERE                                           -->
+    <!-- ============================================================ -->
+    <div class="mark-cell">
+      <span class="verdict">V5</span>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+        <rect width="64" height="64" fill="#000"/>
+
+        <!--
+          Hex-divided sphere.
+          Outer ring (r=23): 6 points at 60° intervals
+            P0 (0°  right):       55.0, 32.0
+            P1 (60° bottom-right): 43.5, 51.9
+            P2 (120° bottom-left): 20.5, 51.9
+            P3 (180° left):        9.0, 32.0
+            P4 (240° top-left):   20.5, 12.1
+            P5 (300° top-right):  43.5, 12.1
+          Center: C = 32, 32
+          Inner ring (r=11): 6 points at 60° intervals
+            Q0 (0°):   43.0, 32.0
+            Q1 (60°):  37.5, 41.5
+            Q2 (120°): 26.5, 41.5
+            Q3 (180°): 21.0, 32.0
+            Q4 (240°): 26.5, 22.5
+            Q5 (300°): 37.5, 22.5
+        -->
+
+        <!-- 6 outer triangular faces — varying opacity for 3D depth illusion -->
+        <!-- T0: C - P0 - P1 (right face, facing viewer) -->
+        <polygon points="32,32 55,32 43.5,51.9"
+                 fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+        <!-- T1: C - P1 - P2 (bottom face, angled away) -->
+        <polygon points="32,32 43.5,51.9 20.5,51.9"
+                 fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+        <!-- T2: C - P2 - P3 (left-bottom, medium) -->
+        <polygon points="32,32 20.5,51.9 9,32"
+                 fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+        <!-- T3: C - P3 - P4 (left face, darker) -->
+        <polygon points="32,32 9,32 20.5,12.1"
+                 fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+        <!-- T4: C - P4 - P5 (top face, bright — "light source" above) -->
+        <polygon points="32,32 20.5,12.1 43.5,12.1"
+                 fill="#4DFF91" fill-opacity="0.20" stroke="#4DFF91" stroke-width="0.75"/>
+        <!-- T5: C - P5 - P0 (right-top, medium-bright) -->
+        <polygon points="32,32 43.5,12.1 55,32"
+                 fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+
+        <!-- Inner hexagon -->
+        <polygon points="43,32 37.5,41.5 26.5,41.5 21,32 26.5,22.5 37.5,22.5"
+                 fill="none" stroke="#4DFF91" stroke-width="0.75" opacity="0.7"/>
+
+        <!-- Connector lines from inner ring to outer ring (radial detail) -->
+        <line x1="43"  y1="32"   x2="55"   y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+        <line x1="37.5" y1="41.5" x2="43.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+        <line x1="26.5" y1="41.5" x2="20.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+        <line x1="21"   y1="32"   x2="9"    y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+        <line x1="26.5" y1="22.5" x2="20.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+        <line x1="37.5" y1="22.5" x2="43.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+
+        <!-- Outer circle on top to give clean sphere silhouette -->
+        <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+
+        <!-- Center point -->
+        <circle cx="32" cy="32" r="1.5" fill="#4DFF91"/>
+      </svg>
+      <div class="mark-label">V5 — FACETED SPHERE</div>
+      <div class="mark-desc">Low-poly orb. The mood board<br/>mask as a sphere. Geometric<br/>cold with implied depth.</div>
+    </div>
+
+  </div><!-- end .grid -->
+
+  <!-- ============================================================ -->
+  <!-- FAVICON SIZE PREVIEW (32px equivalent)                       -->
+  <!-- ============================================================ -->
+  <div class="small-preview">
+    <div class="small-preview-label">Favicon size check — 48×48 display (equivalent to 32px render)</div>
+    <div class="small-grid">
+
+      <!-- V1 small -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <polyline points="22,13 13,13 13,22" stroke="#4DFF91" stroke-width="1" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#4DFF91" stroke-width="1" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#4DFF91" stroke-width="1" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#4DFF91" stroke-width="1" fill="none"/>
+          <circle cx="32" cy="32" r="2" fill="#4DFF91"/>
+        </svg>
+        <div class="tiny-label">V1</div>
+      </div>
+
+      <!-- V2 small -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <circle cx="32" cy="32" r="1.5" fill="#4DFF91"/>
+        </svg>
+        <div class="tiny-label">V2</div>
+      </div>
+
+      <!-- V3 small -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="25" cy="27" rx="3.2" ry="2.2" fill="#4DFF91"/>
+          <ellipse cx="39" cy="27" rx="3.2" ry="2.2" fill="#4DFF91"/>
+          <path d="M 21.8,27 A 3.2,2.2 0 0,1 28.2,27" stroke="#000" stroke-width="3" fill="none"/>
+          <path d="M 35.8,27 A 3.2,2.2 0 0,1 42.2,27" stroke="#000" stroke-width="3" fill="none"/>
+          <path d="M 27,38 Q 32,41.5 37,38" stroke="#4DFF91" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="tiny-label">V3</div>
+      </div>
+
+      <!-- V4 small -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <circle cx="32" cy="32" r="15" stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+          <circle cx="32" cy="32" r="8"  stroke="#4DFF91" stroke-width="0.7" opacity="0.5"/>
+          <path d="M 32,32 L 32,9 A 23,23 0 0,1 51.9,20.5 Z" fill="#4DFF91" fill-opacity="0.1"/>
+          <line x1="32" y1="32" x2="51.9" y2="20.5" stroke="#4DFF91" stroke-width="1.5"/>
+          <circle cx="44" cy="21" r="2.2" fill="#4DFF91"/>
+          <circle cx="32" cy="32" r="1.8" fill="#4DFF91"/>
+        </svg>
+        <div class="tiny-label">V4</div>
+      </div>
+
+      <!-- V5 small -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="crt-glow">
+          <rect width="64" height="64" fill="#000"/>
+          <polygon points="32,32 55,32 43.5,51.9"   fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"    fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"    fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#4DFF91" fill-opacity="0.20" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"   fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="43,32 37.5,41.5 26.5,41.5 21,32 26.5,22.5 37.5,22.5" fill="none" stroke="#4DFF91" stroke-width="0.75" opacity="0.7"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+        </svg>
+        <div class="tiny-label">V5</div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

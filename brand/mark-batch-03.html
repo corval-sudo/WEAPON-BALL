@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // MARK DEV // BATCH 03 — TEMPERATURE + V5 REWORK</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #4DFF91;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 48px;
+      min-height: 100vh;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 52px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0d2a1c;
+    }
+    .header-main { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .header-sub  { font-size: 9px;  letter-spacing: 0.2em; color: #1a5530; }
+
+    .section-block { margin-bottom: 52px; }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #1a5530;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #0d1a10;
+    }
+
+    .three-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .mark-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 22px;
+      border: 1px solid #0d1f15;
+      gap: 14px;
+      position: relative;
+    }
+
+    .mark-cell svg { width: 185px; height: 185px; }
+
+    .mark-cell.hot-bg  { border-color: #260800; background: #030000; }
+    .mark-cell.curr-bg { border-color: #261200; background: #020100; }
+    .mark-cell.cool-bg { border-color: #261c00; background: #020200; }
+    .mark-cell.prev-bg { border-color: #111; background: #000; }
+
+    .badge {
+      position: absolute;
+      top: 9px; right: 10px;
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .badge.hot  { color: #3a0e00; }
+    .badge.curr { color: #3a1800; }
+    .badge.cool { color: #3a2800; }
+    .badge.prev { color: #1e1e1e; }
+
+    .temp-chip {
+      font-size: 7px;
+      letter-spacing: 0.2em;
+      padding: 3px 9px 2px;
+      border: 1px solid currentColor;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+    .temp-chip.hot  { color: #FF3D00; }
+    .temp-chip.curr { color: #FF8C00; }
+    .temp-chip.cool { color: #FFB300; }
+
+    .mark-label {
+      font-size: 8px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .mark-label.hot  { color: #FF3D00; }
+    .mark-label.curr { color: #FF8C00; }
+    .mark-label.cool { color: #FFB300; }
+    .mark-label.prev { color: #242424; }
+    .mark-label.alt  { color: #FF8C00; }
+
+    .mark-desc {
+      font-size: 9px;
+      text-align: center;
+      line-height: 1.85;
+    }
+    .mark-desc.hot  { color: #2a0e00; }
+    .mark-desc.curr { color: #2a1400; }
+    .mark-desc.cool { color: #2a2000; }
+    .mark-desc.prev { color: #191919; }
+    .mark-desc.alt  { color: #2a1a00; }
+
+    /* Per-temperature CRT glows */
+    .glow-hot  {
+      filter:
+        drop-shadow(0 0 1.5px #FF3D00)
+        drop-shadow(0 0 5px rgba(255,61,0,0.3))
+        drop-shadow(0 0 1px rgba(77,255,145,0.4));
+    }
+    .glow-curr {
+      filter:
+        drop-shadow(0 0 1.5px #FF8C00)
+        drop-shadow(0 0 4px rgba(255,140,0,0.22))
+        drop-shadow(0 0 1.5px rgba(77,255,145,0.3));
+    }
+    .glow-cool {
+      filter:
+        drop-shadow(0 0 1.5px #FFB300)
+        drop-shadow(0 0 4px rgba(255,179,0,0.2))
+        drop-shadow(0 0 1px rgba(77,255,145,0.3));
+    }
+    .glow-prev {
+      filter: drop-shadow(0 0 1px rgba(77,255,145,0.08));
+      opacity: 0.28;
+    }
+    .glow-green {
+      filter:
+        drop-shadow(0 0 1.5px #4DFF91)
+        drop-shadow(0 0 4px rgba(77,255,145,0.2));
+    }
+
+    /* Small size strip */
+    .small-section {
+      margin-top: 44px;
+      padding-top: 24px;
+      border-top: 1px solid #0d2a1c;
+    }
+    .small-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #1a5530;
+      margin-bottom: 12px;
+    }
+    .small-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+    }
+    .small-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 8px 12px;
+      border: 1px solid #0d1f15;
+      gap: 8px;
+    }
+    .small-cell svg  { width: 42px; height: 42px; }
+    .tiny-label {
+      font-size: 7px;
+      letter-spacing: 0.1em;
+      text-align: center;
+    }
+    .tiny-label.hot  { color: #2a0800; }
+    .tiny-label.curr { color: #2a1200; }
+    .tiny-label.cool { color: #2a1e00; }
+    .tiny-label.green { color: #1a5530; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="header-main">WORBZ // MARK DEVELOPMENT</span>
+    <span class="header-sub">BATCH 03 — TEMPERATURE SWEEP + V5 REWORK</span>
+    <span class="header-sub">PHASE 3.2</span>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════ V1 TEMPERATURE -->
+  <div class="section-block">
+    <div class="section-label">V1 — TARGETING RETICLE // Orange temperature sweep — hot / current / cool</div>
+    <div class="three-grid">
+
+      <!-- V1 HOT: #FF3D00 -->
+      <div class="mark-cell hot-bg">
+        <span class="badge hot">HOT</span>
+        <div class="temp-chip hot">#FF3D00</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-hot">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="51" x2="32" y2="55" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="51" y1="32" x2="55" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="47" y1="30" x2="47" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="17" y1="30" x2="17" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="47" x2="34" y2="47" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="17" x2="34" y2="17" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FF3D00"/>
+          <circle cx="32" cy="32" r="6"   stroke="#FF3D00" stroke-width="0.7" fill="none" opacity="0.4"/>
+        </svg>
+        <div class="mark-label hot">TARGETING RETICLE</div>
+        <div class="mark-desc hot">Damage state. Combat active.<br/>High urgency. Fire hot.</div>
+      </div>
+
+      <!-- V1 CURRENT: #FF8C00 -->
+      <div class="mark-cell curr-bg">
+        <span class="badge curr">CURRENT</span>
+        <div class="temp-chip curr">#FF8C00</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="51" x2="32" y2="55" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="51" y1="32" x2="55" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="47" y1="30" x2="47" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="17" y1="30" x2="17" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="47" x2="34" y2="47" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="17" x2="34" y2="17" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FF8C00"/>
+          <circle cx="32" cy="32" r="6"   stroke="#FF8C00" stroke-width="0.6" fill="none" opacity="0.35"/>
+        </svg>
+        <div class="mark-label curr">TARGETING RETICLE</div>
+        <div class="mark-desc curr">EVA amber. Active lock-on.<br/>The current selection.</div>
+      </div>
+
+      <!-- V1 COOL: #FFB300 -->
+      <div class="mark-cell cool-bg">
+        <span class="badge cool">COOL</span>
+        <div class="temp-chip cool">#FFB300</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-cool">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="51" x2="32" y2="55" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="51" y1="32" x2="55" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="47" y1="30" x2="47" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="17" y1="30" x2="17" y2="34" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="47" x2="34" y2="47" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <line x1="30" y1="17" x2="34" y2="17" stroke="#4DFF91" stroke-width="0.7" opacity="0.4"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FFB300"/>
+          <circle cx="32" cy="32" r="6"   stroke="#FFB300" stroke-width="0.6" fill="none" opacity="0.3"/>
+        </svg>
+        <div class="mark-label cool">TARGETING RETICLE</div>
+        <div class="mark-desc cool">Gold amber. Passive watch.<br/>Warm hold. Idle scan.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ V2 TEMPERATURE -->
+  <div class="section-block">
+    <div class="section-label">V2 — GPS WIREFRAME GLOBE // Orange temperature sweep — hot / current / cool</div>
+    <div class="three-grid">
+
+      <!-- V2 HOT: #FF3D00 -->
+      <div class="mark-cell hot-bg">
+        <span class="badge hot">HOT</span>
+        <div class="temp-chip hot">#FF3D00</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-hot">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <!-- Equator: HOT -->
+          <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#FF3D00" stroke-width="1.5"/>
+          <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+        </svg>
+        <div class="mark-label hot">GPS WIREFRAME GLOBE</div>
+        <div class="mark-desc hot">Combat frequency. Alarm<br/>band. The equator burns.</div>
+      </div>
+
+      <!-- V2 CURRENT: #FF8C00 -->
+      <div class="mark-cell curr-bg">
+        <span class="badge curr">CURRENT</span>
+        <div class="temp-chip curr">#FF8C00</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#FF8C00" stroke-width="1.2"/>
+          <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <circle cx="32" cy="32" r="2" fill="#FF8C00"/>
+        </svg>
+        <div class="mark-label curr">GPS WIREFRAME GLOBE</div>
+        <div class="mark-desc curr">EVA synchro band. Active<br/>tracking. Current pick.</div>
+      </div>
+
+      <!-- V2 COOL: #FFB300 -->
+      <div class="mark-cell cool-bg">
+        <span class="badge cool">COOL</span>
+        <div class="temp-chip cool">#FFB300</div>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-cool">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#FFB300" stroke-width="1.2"/>
+          <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <circle cx="32" cy="32" r="2" fill="#FFB300"/>
+        </svg>
+        <div class="mark-label cool">GPS WIREFRAME GLOBE</div>
+        <div class="mark-desc cool">Gold amber. Idle orbit.<br/>Passive hold. Watching.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ V5 COLOR REWORK -->
+  <div class="section-block">
+    <div class="section-label">V5 — FACETED SPHERE // Color approach rework — prev / B: hot core / C: apex</div>
+    <div class="three-grid">
+
+      <!-- V5 PREV (the "strange" one — shown as retired reference) -->
+      <div class="mark-cell prev-bg">
+        <span class="badge prev">PREV</span>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-prev">
+          <rect width="64" height="64" fill="#000"/>
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.13" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.05" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.10" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.03" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#FF8C00" fill-opacity="0.22" stroke="#FF8C00" stroke-width="0.9"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#FF8C00" fill-opacity="0.10" stroke="#FF8C00" stroke-width="0.75"/>
+          <polyline points="43,32 37.5,22.5 26.5,22.5 21,32" stroke="#FF8C00" stroke-width="0.75" fill="none" opacity="0.7"/>
+          <polyline points="21,32 26.5,41.5 37.5,41.5 43,32" stroke="#4DFF91" stroke-width="0.75" fill="none" opacity="0.7"/>
+          <line x1="43"   y1="32"   x2="55"   y2="32"   stroke="#FF8C00" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="22.5" x2="43.5" y2="12.1" stroke="#FF8C00" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="22.5" x2="20.5" y2="12.1" stroke="#FF8C00" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="41.5" x2="43.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="41.5" x2="20.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="21"   y1="32"   x2="9"    y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="1.5" fill="#FF8C00"/>
+        </svg>
+        <div class="mark-label prev">PREVIOUS</div>
+        <div class="mark-desc prev">Split inner hex. Mixed connector<br/>lines. Retired. Retained for ref.</div>
+      </div>
+
+      <!-- V5-B: HOT CORE — orange inner hexagon only -->
+      <!-- The inner hex ring becomes a glowing equatorial band. All faces stay green.
+           Reads: molten interior, the sphere has a hot core. Clean + unambiguous. -->
+      <div class="mark-cell curr-bg">
+        <span class="badge curr">B — HOT CORE</span>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <!-- All 6 faces: green, same lighting as green V5 -->
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#4DFF91" fill-opacity="0.20" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <!-- Inner hexagon: ORANGE — the equatorial ring, hot interior core -->
+          <polygon points="43,32 37.5,22.5 26.5,22.5 21,32 26.5,41.5 37.5,41.5"
+                   fill="none" stroke="#FF8C00" stroke-width="1.1"/>
+          <!-- All connector lines: green -->
+          <line x1="43"   y1="32"   x2="55"   y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="22.5" x2="43.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="22.5" x2="20.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="21"   y1="32"   x2="9"    y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="41.5" x2="20.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="41.5" x2="43.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <!-- Outer circle: green -->
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <!-- Center: orange -->
+          <circle cx="32" cy="32" r="1.5" fill="#FF8C00"/>
+        </svg>
+        <div class="mark-label alt">V5-B — HOT CORE</div>
+        <div class="mark-desc alt">Orange inner ring only. All faces<br/>green. The sphere has a molten<br/>equatorial band inside.</div>
+      </div>
+
+      <!-- V5-C: APEX — single top face orange, rest green -->
+      <!-- One face at the crown catches the arena spotlight.
+           The most minimal treatment. A precise accent, not a split. -->
+      <div class="mark-cell curr-bg">
+        <span class="badge curr">C — APEX</span>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <!-- 5 non-apex faces: green -->
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <!-- APEX face: ORANGE — the crown, the single lit face -->
+          <polygon points="32,32 20.5,12.1 43.5,12.1"
+                   fill="#FF8C00" fill-opacity="0.28" stroke="#FF8C00" stroke-width="1.1"/>
+          <!-- Inner hexagon: all green -->
+          <polygon points="43,32 37.5,22.5 26.5,22.5 21,32 26.5,41.5 37.5,41.5"
+                   fill="none" stroke="#4DFF91" stroke-width="0.75" opacity="0.7"/>
+          <!-- All connector lines: green -->
+          <line x1="43"   y1="32"   x2="55"   y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="22.5" x2="43.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="22.5" x2="20.5" y2="12.1" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="21"   y1="32"   x2="9"    y2="32"   stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="26.5" y1="41.5" x2="20.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <line x1="37.5" y1="41.5" x2="43.5" y2="51.9" stroke="#4DFF91" stroke-width="0.5" opacity="0.5"/>
+          <!-- Outer circle: green -->
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <!-- Center: orange -->
+          <circle cx="32" cy="32" r="1.5" fill="#FF8C00"/>
+        </svg>
+        <div class="mark-label alt">V5-C — APEX</div>
+        <div class="mark-desc alt">One face at the crown catches<br/>light. Precise. Everything else<br/>is green. The arena spotlight.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ FAVICON STRIP -->
+  <div class="small-section">
+    <div class="small-label">Favicon check — 42px display</div>
+    <div class="small-grid">
+
+      <!-- V1 hot -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-hot">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FF3D00" stroke-width="1.4" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FF3D00"/>
+        </svg>
+        <div class="tiny-label hot">V1 HOT</div>
+      </div>
+
+      <!-- V1 curr -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FF8C00" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FF8C00"/>
+        </svg>
+        <div class="tiny-label curr">V1 CURR</div>
+      </div>
+
+      <!-- V1 cool -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-cool">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="3"  y1="32" x2="27" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="37" y1="32" x2="61" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="3"  x2="32" y2="27" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="32" y1="37" x2="32" y2="61" stroke="#4DFF91" stroke-width="1.2"/>
+          <polyline points="22,13 13,13 13,22" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="42,13 51,13 51,22" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="51,42 51,51 42,51" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <polyline points="22,51 13,51 13,42" stroke="#FFB300" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="2.5" fill="#FFB300"/>
+        </svg>
+        <div class="tiny-label cool">V1 COOL</div>
+      </div>
+
+      <!-- V2 hot -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-hot">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+        </svg>
+        <div class="tiny-label hot">V2 HOT</div>
+      </div>
+
+      <!-- V2 curr -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF8C00" stroke-width="1.2"/>
+          <circle cx="32" cy="32" r="2" fill="#FF8C00"/>
+        </svg>
+        <div class="tiny-label curr">V2 CURR</div>
+      </div>
+
+      <!-- V2 cool -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-cool">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FFB300" stroke-width="1.2"/>
+          <circle cx="32" cy="32" r="2" fill="#FFB300"/>
+        </svg>
+        <div class="tiny-label cool">V2 COOL</div>
+      </div>
+
+      <!-- V5-B -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#4DFF91" fill-opacity="0.20" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="43,32 37.5,22.5 26.5,22.5 21,32 26.5,41.5 37.5,41.5" fill="none" stroke="#FF8C00" stroke-width="1.1"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="1.5" fill="#FF8C00"/>
+        </svg>
+        <div class="tiny-label curr">V5-B</div>
+      </div>
+
+      <!-- V5-C -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-curr">
+          <rect width="64" height="64" fill="#000"/>
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#FF8C00" fill-opacity="0.28" stroke="#FF8C00" stroke-width="1.1"/>
+          <polygon points="43,32 37.5,22.5 26.5,22.5 21,32 26.5,41.5 37.5,41.5" fill="none" stroke="#4DFF91" stroke-width="0.75" opacity="0.7"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="1.5" fill="#FF8C00"/>
+        </svg>
+        <div class="tiny-label curr">V5-C</div>
+      </div>
+
+      <!-- V5 green (reference) -->
+      <div class="small-cell">
+        <svg viewBox="0 0 64 64" fill="none" class="glow-green">
+          <rect width="64" height="64" fill="#000"/>
+          <polygon points="32,32 55,32 43.5,51.9"    fill="#4DFF91" fill-opacity="0.15" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,51.9 20.5,51.9" fill="#4DFF91" fill-opacity="0.06" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,51.9 9,32"     fill="#4DFF91" fill-opacity="0.11" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 9,32 20.5,12.1"     fill="#4DFF91" fill-opacity="0.04" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 20.5,12.1 43.5,12.1" fill="#4DFF91" fill-opacity="0.20" stroke="#4DFF91" stroke-width="0.75"/>
+          <polygon points="32,32 43.5,12.1 55,32"    fill="#4DFF91" fill-opacity="0.12" stroke="#4DFF91" stroke-width="0.75"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2" fill="none"/>
+          <circle cx="32" cy="32" r="1.5" fill="#4DFF91"/>
+        </svg>
+        <div class="tiny-label green">V5 REF</div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

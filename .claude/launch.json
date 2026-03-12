@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "brand-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5175", "-s", "brand"],
+      "port": 5175
+    },
+    {
       "name": "arena-api",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "npm", "run", "serve"],

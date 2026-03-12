@@ -1,2 +1,28 @@
-<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
-<svg width="800px" height="800px" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path fill="#000000" d="M487.666 24.334c-24.62 11.186-45.546 18.608-63.14 21.9l41.24 41.24c3.292-17.594 10.714-38.52 21.9-63.14zm-86.082 24.414c-32.088 11.49-60.035 12.74-84.406 4.617l-9.674-3.222-1.998 9.996c-10.117 50.582-18.887 83.28-36.71 121.694l61.37 61.37c38.413-17.823 71.112-26.593 121.695-36.71l9.997-1.998-3.222-9.674c-8.124-24.37-6.873-52.318 4.617-84.406zm2.025 18.148c-13.847 11.685-29.848 19.95-55.34 19.95h-5.56l-2.487 4.974c-18.768 37.536-37.835 74.907-55.494 98.27 17.45-37.59 26.875-71.046 36.4-117.088 25.205 6.06 52.813 3.84 82.48-6.106zm7.902 16.276L303.65 194.957c17.364-24.354 33.734-57.204 50.276-90.32 24.903-1.193 42.88-10.125 57.586-21.465zm17.316 17.316c-11.34 14.707-20.272 32.683-21.465 57.586-33.116 16.542-65.966 32.912-90.32 50.276zm16.276 7.903c-9.945 29.667-12.166 57.275-6.106 82.48-46.042 9.525-79.5 18.95-117.088 36.4 23.363-17.658 60.734-36.725 98.27-55.493l4.974-2.488v-5.56c0-25.492 8.265-41.493 19.95-55.34zm-192.292 82.915l-12.728 12.728 67.883 67.883 12.728-12.728-7.67-7.67-52.543-52.543zm-6.363 41.718l-43.843 43.842 32.528 32.528 43.842-43.842zm-67.884 45.256l-12.728 12.728 55.154 55.154 12.73-12.728zm-14.142 36.77l-41.012 41.01 32.527 32.528 41.01-41.012zM99.37 357.474l-12.727 12.728 55.154 55.154 12.728-12.728zm-14.14 36.77L18 461.472V494h32.527l67.23-67.23z"/></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WORBZ brand sprite — Mace (blunt · heavy)
+     White stroke/fill on transparent. Use Phaser setTint() for color.
+     viewBox 0 0 100 100 · pointing right (0°) · Phaser rotates
+     Head spikes mirror the GPS Globe mark's 8-point compass rose. -->
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Butt cap -->
+  <circle cx="7" cy="50" r="3" stroke="white" stroke-width="1.5"/>
+  <!-- Shaft -->
+  <line x1="10" y1="50" x2="54" y2="50" stroke="white" stroke-width="2.5"/>
+  <!-- Grip wraps -->
+  <line x1="14" y1="46" x2="14" y2="54" stroke="white" stroke-width="1"/>
+  <line x1="20" y1="46" x2="20" y2="54" stroke="white" stroke-width="1"/>
+  <line x1="26" y1="46" x2="26" y2="54" stroke="white" stroke-width="1"/>
+  <!-- Head (circle) -->
+  <circle cx="72" cy="50" r="16" stroke="white" stroke-width="2"/>
+  <!-- Head center dot -->
+  <circle cx="72" cy="50" r="3.5" fill="white" opacity="0.7"/>
+  <!-- 8-point compass spikes — echoes brand mark -->
+  <line x1="88" y1="50" x2="97" y2="50" stroke="white" stroke-width="2.2"/>
+  <line x1="83" y1="39" x2="89" y2="33" stroke="white" stroke-width="1.8"/>
+  <line x1="72" y1="34" x2="72" y2="25" stroke="white" stroke-width="2.2"/>
+  <line x1="61" y1="39" x2="55" y2="33" stroke="white" stroke-width="1.8"/>
+  <line x1="56" y1="50" x2="47" y2="50" stroke="white" stroke-width="2.2"/>
+  <line x1="61" y1="61" x2="55" y2="67" stroke="white" stroke-width="1.8"/>
+  <line x1="72" y1="66" x2="72" y2="75" stroke="white" stroke-width="2.2"/>
+  <line x1="83" y1="61" x2="89" y2="67" stroke="white" stroke-width="1.8"/>
+</svg>

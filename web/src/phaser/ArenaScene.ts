@@ -2,9 +2,10 @@
 // Phaser 3 Scene — live arena match renderer.
 //
 // Rendering strategy:
-//   • All shapes drawn via Phaser.GameObjects.Graphics (pure procedural, no texture deps).
-//   • drawBall()   — layered circles: glow ring + gradient body + specular highlight
-//   • drawWeapon() — procedural blade/spear/mace in fighter color
+//   • SVG sprites loaded in preload() for ball + weapons — tinted per fighter color via setTint().
+//   • Procedural Graphics layers retained for: background, HP bars, flash rings, name badges.
+//   • drawBall()   — replaced by ballAImg / ballBImg sprites (orb-wireframe.svg)
+//   • drawWeapon() — replaced by weapon sprites (shortsword/spear/mace/katana.svg)
 //   • buildArenaBackground() — hex grid + border, drawn once to bgGfx on create()
 //
 // ─── Coordinate system ────────────────────────────────────────────────────────
@@ -20,7 +21,9 @@ const ARENA_W    = 400;
 const ARENA_H    = 700;
 const SIM_SCALE  = 1000;
 
-const REPLAY_FPS = 30;
+const REPLAY_FPS  = 30;
+/** Native rasterization size for all SVG sprites (power of 2 for GPU). */
+const SPRITE_SIZE = 256;
 
 // ─── Public config type ───────────────────────────────────────────────────────
 
@@ -58,12 +61,14 @@ export class ArenaScene extends Phaser.Scene {
   // Static background (drawn once to bgGfx, never cleared)
   private bgBuilt = false;
 
-  // Graphics layers (always present, never crash)
+  // ── SVG sprite images ──────────────────────────────────────────────────────
+  private ballAImg!:  Phaser.GameObjects.Image;
+  private ballBImg!:  Phaser.GameObjects.Image;
+  private wpnAImg!:   Phaser.GameObjects.Image;
+  private wpnBImg!:   Phaser.GameObjects.Image;
+
+  // ── Graphics layers (retained for HP bars, flash rings, badges) ───────────
   private bgGfx!:    Phaser.GameObjects.Graphics;
-  private wpnAGfx!:  Phaser.GameObjects.Graphics;
-  private wpnBGfx!:  Phaser.GameObjects.Graphics;
-  private ballAGfx!: Phaser.GameObjects.Graphics;
-  private ballBGfx!: Phaser.GameObjects.Graphics;
   private flashGfx!: Phaser.GameObjects.Graphics;
   private hpBarGfx!: Phaser.GameObjects.Graphics;
   private badgeGfx!: Phaser.GameObjects.Graphics;
@@ -80,7 +85,7 @@ export class ArenaScene extends Phaser.Scene {
   private cardBGfx!:     Phaser.GameObjects.Graphics;
   private txtCardAName!: Phaser.GameObjects.Text;
   private txtCardBName!: Phaser.GameObjects.Text;
-  private txtCardAInfo!: Phaser.GameObjects.Text;   // multiline: record + HP + weapon
+  private txtCardAInfo!: Phaser.GameObjects.Text;
   private txtCardBInfo!: Phaser.GameObjects.Text;
   private resultGfx!:    Phaser.GameObjects.Graphics;
   private txtResult!:    Phaser.GameObjects.Text;
@@ -116,42 +121,69 @@ export class ArenaScene extends Phaser.Scene {
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
 
+  preload(): void {
+    // Rasterize SVGs at SPRITE_SIZE × SPRITE_SIZE for high-quality game sprites.
+    // White stroke/fill on transparent — tinted per fighter with setTint(color).
+    this.load.svg("orb-wireframe", "/orbs/orb-wireframe.svg",     { width: SPRITE_SIZE, height: SPRITE_SIZE });
+    this.load.svg("shortsword",    "/weapons/shortsword.svg",     { width: SPRITE_SIZE, height: SPRITE_SIZE });
+    this.load.svg("spear",         "/weapons/spear.svg",          { width: SPRITE_SIZE, height: SPRITE_SIZE });
+    this.load.svg("mace",          "/weapons/mace.svg",           { width: SPRITE_SIZE, height: SPRITE_SIZE });
+    this.load.svg("katana",        "/weapons/katana.svg",         { width: SPRITE_SIZE, height: SPRITE_SIZE });
+  }
+
   create(): void {
     const { canvasW, canvasH } = this.cfg;
     this.updateScales();
 
-    // ── Graphics layers (always safe — no texture deps) ───────────────────
-    this.bgGfx    = this.add.graphics();
-    this.wpnAGfx  = this.add.graphics();
-    this.wpnBGfx  = this.add.graphics();
-    this.ballAGfx = this.add.graphics();
-    this.ballBGfx = this.add.graphics();
-    this.flashGfx = this.add.graphics();
-    this.hpBarGfx = this.add.graphics();
-    this.badgeGfx = this.add.graphics();
-
+    // ── Background (depth 0) ──────────────────────────────────────────────
+    this.bgGfx = this.add.graphics().setDepth(0);
     this.buildArenaBackground();
 
-    // ── Text ──────────────────────────────────────────────────────────────
+    // ── Weapon sprites (depth 5–6, behind balls) ─────────────────────────
+    this.wpnAImg = this.add.image(0, 0, "shortsword")
+      .setOrigin(0, 0.5)
+      .setVisible(false)
+      .setDepth(5);
+    this.wpnBImg = this.add.image(0, 0, "shortsword")
+      .setOrigin(0, 0.5)
+      .setVisible(false)
+      .setDepth(6);
+
+    // ── Ball sprites (depth 10–11, above weapons) ─────────────────────────
+    this.ballAImg = this.add.image(0, 0, "orb-wireframe")
+      .setVisible(false)
+      .setDepth(10);
+    this.ballBImg = this.add.image(0, 0, "orb-wireframe")
+      .setVisible(false)
+      .setDepth(11);
+
+    // ── Flash rings (depth 15) ────────────────────────────────────────────
+    this.flashGfx = this.add.graphics().setDepth(15);
+
+    // ── HP bars (depth 20) ────────────────────────────────────────────────
+    this.hpBarGfx = this.add.graphics().setDepth(20);
+
+    // ── Name badges + labels (depth 25–26) ───────────────────────────────
+    this.badgeGfx = this.add.graphics().setDepth(25);
+
     const mono = { fontFamily: "'Courier New', Courier, monospace", fontSize: "10px", color: "#4DFF91" };
 
-    this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
-    this.txtB = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
+    this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1).setDepth(26);
+    this.txtB = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1).setDepth(26);
 
     this.txtEvent = this.add.text(canvasW / 2, canvasH - 16, "", {
       ...mono, fontStyle: "bold", fontSize: "11px",
-    }).setOrigin(0.5, 0.5).setVisible(false);
+    }).setOrigin(0.5, 0.5).setVisible(false).setDepth(26);
 
     this.txtTick = this.add.text(canvasW - 4, canvasH - 4, "", {
       fontFamily: "'Courier New', Courier, monospace", fontSize: "9px", color: "#0d2a1c",
-    }).setOrigin(1, 1);
+    }).setOrigin(1, 1).setDepth(26);
 
     this.txtWaiting = this.add.text(canvasW / 2, canvasH / 2, "WAITING FOR MATCH...", {
       fontFamily: "'Orbitron', sans-serif", fontSize: "16px", color: "#1a5530", fontStyle: "bold",
-    }).setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5).setDepth(26);
 
-    // ── Recording overlays (side cards + winner banner) ─────────────────
-    // Created last + depth-sorted so they always render on top of all arena content.
+    // ── Recording overlays (depth 100–201) ───────────────────────────────
     this.cardAGfx = this.add.graphics().setDepth(100);
     this.cardBGfx = this.add.graphics().setDepth(100);
     this.txtCardAName = this.add.text(0, 0, "", {
@@ -201,24 +233,31 @@ export class ArenaScene extends Phaser.Scene {
     const ballRA = Math.max(8, cfg.ballARadius * this.scaleX);
     const ballRB = Math.max(8, cfg.ballBRadius * this.scaleX);
 
-    // ── Weapons ────────────────────────────────────────────────────────────
-    this.wpnAGfx.clear();
-    this.drawWeapon(this.wpnAGfx, ax, ay, angleA, cfg.ballAColor, ballRA, cfg.weaponA);
-    this.wpnBGfx.clear();
-    this.drawWeapon(this.wpnBGfx, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
+    // ── Weapon sprites ────────────────────────────────────────────────────
+    this.updateWeaponSprite(this.wpnAImg, ax, ay, angleA, cfg.ballAColor, ballRA, cfg.weaponA);
+    this.updateWeaponSprite(this.wpnBImg, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
 
-    // ── Balls ──────────────────────────────────────────────────────────────
-    this.ballAGfx.clear();
-    this.ballBGfx.clear();
-    this.drawBall(this.ballAGfx, ax, ay, ballRA, cfg.ballAColor, frame.a.hp / cfg.ballAHp, cfg.weaponA?.type);
-    this.drawBall(this.ballBGfx, bx, by, ballRB, cfg.ballBColor, frame.b.hp / cfg.ballBHp, cfg.weaponB?.type);
+    // ── Ball sprites ──────────────────────────────────────────────────────
+    const ballAScale = (ballRA * 2) / SPRITE_SIZE;
+    this.ballAImg
+      .setVisible(true)
+      .setPosition(ax, ay)
+      .setScale(ballAScale)
+      .setTint(cfg.ballAColor);
+
+    const ballBScale = (ballRB * 2) / SPRITE_SIZE;
+    this.ballBImg
+      .setVisible(true)
+      .setPosition(bx, by)
+      .setScale(ballBScale)
+      .setTint(cfg.ballBColor);
 
     // ── HP bars ────────────────────────────────────────────────────────────
     this.hpBarGfx.clear();
     this.drawHpBar(this.hpBarGfx, ax, ay - ballRA - 10, ballRA * 2.5, 4, frame.a.hp / cfg.ballAHp);
     this.drawHpBar(this.hpBarGfx, bx, by - ballRB - 10, ballRB * 2.5, 4, frame.b.hp / cfg.ballBHp);
 
-    // ── Name labels + badges (hidden in recording mode — side cards show names) ──
+    // ── Name labels + badges (hidden in recording mode) ───────────────────
     if (!cfg.recordingMode) {
       const truncA = cfg.ballAName.length > 10 ? cfg.ballAName.slice(0, 10) + "…" : cfg.ballAName;
       const truncB = cfg.ballBName.length > 10 ? cfg.ballBName.slice(0, 10) + "…" : cfg.ballBName;
@@ -268,8 +307,41 @@ export class ArenaScene extends Phaser.Scene {
 
     this.txtTick.setText(`t:${frame.tick}`);
 
-    // ── Recording overlays ───────────────────────────────────────────────
+    // ── Recording overlays ────────────────────────────────────────────────
     this.renderRecordingOverlays();
+  }
+
+  // ─── Weapon sprite helper ─────────────────────────────────────────────────
+
+  private updateWeaponSprite(
+    img: Phaser.GameObjects.Image,
+    cx: number, cy: number,
+    angle: number,
+    color: number,
+    ballRpx: number,
+    wDef: WeaponDef | null | undefined,
+  ): void {
+    if (!wDef) {
+      img.setVisible(false);
+      return;
+    }
+
+    const rad     = (angle / 65536) * 2 * Math.PI;
+    const reachPx = this.au(wDef.reach);
+    const key     = weaponTextureKey(wDef);
+
+    // Swap texture if the weapon type changed mid-match
+    if (img.texture.key !== key) img.setTexture(key);
+
+    // Origin (0, 0.5): left edge = pivot, positioned at ball center.
+    // The hilt portion (x≈5–12% of sprite) sits inside the ball naturally.
+    // The weapon extends outward to reachPx screen pixels.
+    img
+      .setVisible(true)
+      .setPosition(cx, cy)
+      .setRotation(rad)
+      .setScale(reachPx / SPRITE_SIZE)
+      .setTint(color);
   }
 
   // ─── Recording overlays ──────────────────────────────────────────────────
@@ -303,15 +375,13 @@ export class ArenaScene extends Phaser.Scene {
     const cardW   = 500;
     const cardH   = 280;
     const margin  = 20;
-    const pad     = 24;      // inner padding
-    const accent  = 6;       // colored border width
-    const corner  = 14;      // rounded corner radius
+    const pad     = 24;
+    const accent  = 6;
+    const corner  = 14;
 
-    // Live HP (fall back to max HP if no frame yet)
     const hpA = this.currentFrame?.a.hp ?? cfg.ballAHp;
     const hpB = this.currentFrame?.b.hp ?? cfg.ballBHp;
 
-    // ── Draw card helper ──────────────────────────────────────────────
     const drawCard = (
       gfx: Phaser.GameObjects.Graphics,
       txtName: Phaser.GameObjects.Text,
@@ -323,13 +393,11 @@ export class ArenaScene extends Phaser.Scene {
     ) => {
       const hex = "#" + color.toString(16).padStart(6, "0");
 
-      // Background
       gfx.clear();
       gfx.setVisible(true);
       gfx.fillStyle(0x000000, 0.6);
       gfx.fillRoundedRect(x, margin, cardW, cardH, corner);
 
-      // Colored accent border on the inner edge
       gfx.fillStyle(color, 1);
       if (side === "left") {
         gfx.fillRect(x, margin + corner, accent, cardH - corner * 2);
@@ -337,19 +405,16 @@ export class ArenaScene extends Phaser.Scene {
         gfx.fillRect(x + cardW - accent, margin + corner, accent, cardH - corner * 2);
       }
 
-      // Separator line under name
       const sepY = margin + 80;
       gfx.lineStyle(1, 0x1a5530, 0.6);
       gfx.lineBetween(x + pad, sepY, x + cardW - pad, sepY);
 
-      // Name (bold, fighter color)
       const textX = x + pad + (side === "left" ? accent + 2 : 0);
       txtName.setVisible(true);
       txtName.setText(name.toUpperCase());
       txtName.setColor(hex);
       txtName.setPosition(textX, margin + 12);
 
-      // Stats (multiline: HP + weapon only)
       txtInfo.setVisible(true);
       txtInfo.setText(
         `HP: ${Math.round(hp)} / ${maxHp}\n` +
@@ -358,7 +423,6 @@ export class ArenaScene extends Phaser.Scene {
       txtInfo.setPosition(textX, sepY + 10);
     };
 
-    // ── Left card (Fighter A) ─────────────────────────────────────────
     drawCard(
       this.cardAGfx, this.txtCardAName, this.txtCardAInfo,
       margin, cfg.ballAColor, cfg.ballAName,
@@ -367,7 +431,6 @@ export class ArenaScene extends Phaser.Scene {
       "left",
     );
 
-    // ── Right card (Fighter B) ────────────────────────────────────────
     drawCard(
       this.cardBGfx, this.txtCardBName, this.txtCardBInfo,
       canvasW - margin - cardW, cfg.ballBColor, cfg.ballBName,
@@ -376,7 +439,7 @@ export class ArenaScene extends Phaser.Scene {
       "right",
     );
 
-    // ── Winner overlay ─────────────────────────────────────────────────
+    // ── Winner overlay ────────────────────────────────────────────────────
     if (cfg.winner) {
       const winnerName = cfg.winner === "A" ? cfg.ballAName : cfg.ballBName;
       const text = `🏆 ${winnerName.toUpperCase()} WINS!`;
@@ -386,7 +449,6 @@ export class ArenaScene extends Phaser.Scene {
       this.txtResult.setText(text);
       this.txtResult.setPosition(canvasW / 2, canvasH * 0.4);
 
-      // Dark rounded backdrop behind the text
       const bounds = this.txtResult.getBounds();
       const padR = 24;
       this.resultGfx.clear();
@@ -404,119 +466,7 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  // ─── Procedural drawing ───────────────────────────────────────────────────
-
-  private drawBall(
-    g: Phaser.GameObjects.Graphics,
-    cx: number, cy: number,
-    r: number, color: number, hpFrac: number,
-    weaponType?: string,
-  ): void {
-    const frac = Math.max(0, hpFrac);
-
-    // 1. Archetype glow ring (weapon-type based)
-    if (weaponType === "blunt") {
-      g.fillStyle(0xff8800, 0.09 * Math.max(frac, 0.2));
-      g.fillCircle(cx, cy, r + 10);
-      g.lineStyle(3, 0xff8800, 0.5);
-      g.strokeCircle(cx, cy, r + 2);
-    } else if (weaponType === "point") {
-      g.fillStyle(0x44aaff, 0.07 * Math.max(frac, 0.2));
-      g.fillCircle(cx, cy, r + 9);
-      g.lineStyle(1.5, 0x44aaff, 0.45);
-      g.strokeCircle(cx, cy, r + 1);
-    } else {
-      // blade — thin bright ring
-      g.lineStyle(1.5, 0xffffff, 0.3);
-      g.strokeCircle(cx, cy, r + 2);
-    }
-
-    // 2. Ball body — layered circles for gradient feel
-    const bright = shiftColor(color, 70);
-    g.fillStyle(bright, 0.9);
-    g.fillCircle(cx - r * 0.18, cy - r * 0.22, r * 0.75);
-    g.fillStyle(color, 1);
-    g.fillCircle(cx, cy, r);
-    g.fillStyle(0x000000, 0.32);
-    g.fillCircle(cx + r * 0.14, cy + r * 0.18, r * 0.52);
-
-    // 3. Specular highlight
-    g.fillStyle(0xffffff, 0.32);
-    g.fillCircle(cx - r * 0.28, cy - r * 0.3, r * 0.18);
-
-    // 4. Damage state ring (hpFrac < 0.35)
-    if (frac < 0.35) {
-      g.lineStyle(2, 0xff2222, 0.55 * (1 - frac));
-      g.strokeCircle(cx, cy, r + 1);
-    }
-  }
-
-  private drawWeapon(
-    g: Phaser.GameObjects.Graphics,
-    cx: number, cy: number,
-    angle: number,       // sim angle 0..65535
-    color: number,
-    ballRpx: number,
-    wDef: WeaponDef | null | undefined,
-  ): void {
-    const rad  = (angle / 65536) * 2 * Math.PI;
-    const cosA = Math.cos(rad);
-    const sinA = Math.sin(rad);
-
-    if (!wDef) {
-      const sx = cx + cosA * ballRpx, sy = cy + sinA * ballRpx;
-      const tx = cx + cosA * (ballRpx + 28), ty = cy + sinA * (ballRpx + 28);
-      g.lineStyle(3, color, 1);
-      g.lineBetween(sx, sy, tx, ty);
-      g.fillStyle(color, 1);
-      g.fillCircle(tx, ty, 4);
-      return;
-    }
-
-    const reachPx = this.au(wDef.reach);
-    const tipRPx  = Math.max(2, this.au(wDef.tipRadius));
-    const tipX    = cx + cosA * reachPx, tipY = cy + sinA * reachPx;
-    const surfX   = cx + cosA * ballRpx, surfY = cy + sinA * ballRpx;
-
-    if (wDef.type === "blade") {
-      const bsStart = wDef.bladeStart ?? wDef.reach * 0.4;
-      const bsPx    = this.au(bsStart);
-      const bsX     = cx + cosA * bsPx, bsY = cy + sinA * bsPx;
-      const bladeW  = Math.max(2, this.au(wDef.bladeWidth ?? wDef.tipRadius));
-
-      if (bsPx > ballRpx) {
-        g.lineStyle(2.5, color, 0.7);
-        g.lineBetween(surfX, surfY, bsX, bsY);
-      }
-      const fx = bsPx > ballRpx ? bsX : surfX;
-      const fy = bsPx > ballRpx ? bsY : surfY;
-      this.thickLine(g, fx, fy, tipX, tipY, bladeW * 2, color, 0.9);
-      this.thickLine(g, fx, fy, tipX, tipY, 1, 0xffffff, 0.45);
-
-    } else if (wDef.type === "blunt") {
-      const hx = cx + cosA * reachPx * 0.72, hy = cy + sinA * reachPx * 0.72;
-      g.lineStyle(3, color, 1);
-      g.lineBetween(surfX, surfY, hx, hy);
-      g.fillStyle(color, 0.9);
-      g.fillCircle(tipX, tipY, tipRPx);
-      g.lineStyle(1.5, color, 0.5);
-      g.strokeCircle(tipX, tipY, tipRPx + 3);
-
-    } else { // point
-      const ax2 = cx + cosA * reachPx * 0.82, ay2 = cy + sinA * reachPx * 0.82;
-      g.lineStyle(2.5, color, 1);
-      g.lineBetween(surfX, surfY, ax2, ay2);
-      const halfW = Math.max(3, tipRPx * 0.7);
-      g.fillStyle(color, 1);
-      g.fillTriangle(
-        ax2 + (-sinA) * halfW, ay2 + cosA * halfW,
-        ax2 - (-sinA) * halfW, ay2 - cosA * halfW,
-        tipX, tipY,
-      );
-    }
-
-    this.dashedCircle(g, tipX, tipY, tipRPx, color, 0.3);
-  }
+  // ─── Procedural drawing — HP bars + badges (retained) ────────────────────
 
   private drawHpBar(
     g: Phaser.GameObjects.Graphics,
@@ -525,15 +475,12 @@ export class ArenaScene extends Phaser.Scene {
     frac = Math.max(0, Math.min(1, frac));
     const barX = cx - barW / 2;
     const rad = 2;
-    // Background pill
     g.fillStyle(0x0a0f0b, 0.85);
     g.fillRoundedRect(barX, barY, barW, barH, rad);
-    // Filled portion
-    const col = frac > 0.5 ? 0x4dff91 : frac > 0.25 ? 0xff3d00 : 0xff3d00;
+    const col = frac > 0.5 ? 0x4dff91 : 0xff3d00;
     if (frac > 0) {
       g.fillStyle(col, 1);
       g.fillRoundedRect(barX, barY, barW * frac, barH, rad);
-      // Shine strip at top of fill
       g.fillStyle(0xffffff, 0.18);
       g.fillRoundedRect(barX, barY, barW * frac, barH * 0.4, rad);
     }
@@ -595,7 +542,6 @@ export class ArenaScene extends Phaser.Scene {
     _label: string,
     color: number,
   ): void {
-    // Approximate text width at 10px monospace (~6px per char)
     const charW = 6;
     const maxChars = 10;
     const len = Math.min(_label.length, maxChars);
@@ -607,42 +553,14 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private clearDynamic(): void {
-    this.wpnAGfx?.clear();     this.wpnBGfx?.clear();
-    this.ballAGfx?.clear();    this.ballBGfx?.clear();
-    this.flashGfx?.clear();    this.hpBarGfx?.clear();
+    this.wpnAImg?.setVisible(false);   this.wpnBImg?.setVisible(false);
+    this.ballAImg?.setVisible(false);  this.ballBImg?.setVisible(false);
+    this.flashGfx?.clear();
+    this.hpBarGfx?.clear();
     this.badgeGfx?.clear();
-    this.txtA?.setText("");    this.txtB?.setText("");
+    this.txtA?.setText("");            this.txtB?.setText("");
     this.txtEvent?.setVisible(false);
     this.txtTick?.setText("");
-  }
-
-  // ─── Geometry helpers ─────────────────────────────────────────────────────
-
-  private thickLine(
-    g: Phaser.GameObjects.Graphics,
-    x1: number, y1: number, x2: number, y2: number,
-    halfW: number, color: number, alpha: number,
-  ): void {
-    const dx = x2 - x1, dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len === 0) return;
-    const nx = -dy / len, ny = dx / len;
-    g.fillStyle(color, alpha);
-    g.fillTriangle(x1 + nx*halfW, y1 + ny*halfW, x1 - nx*halfW, y1 - ny*halfW, x2 - nx*halfW, y2 - ny*halfW);
-    g.fillTriangle(x1 + nx*halfW, y1 + ny*halfW, x2 - nx*halfW, y2 - ny*halfW, x2 + nx*halfW, y2 + ny*halfW);
-  }
-
-  private dashedCircle(
-    g: Phaser.GameObjects.Graphics,
-    cx: number, cy: number, r: number, color: number, alpha: number,
-  ): void {
-    const segs = 12, gap = 0.4, step = (2 * Math.PI) / segs;
-    g.lineStyle(1, color, alpha);
-    for (let i = 0; i < segs; i++) {
-      const s = i * step, e = s + step - gap;
-      if (e <= s) continue;
-      g.lineBetween(cx + Math.cos(s)*r, cy + Math.sin(s)*r, cx + Math.cos(e)*r, cy + Math.sin(e)*r);
-    }
   }
 
   // ─── Scale helpers ────────────────────────────────────────────────────────
@@ -665,12 +583,17 @@ function toScreenX(simX: number, scaleX: number): number { return (simX / SIM_SC
 function toScreenY(simY: number, scaleY: number): number { return (simY / SIM_SCALE) * scaleY; }
 function lerp(a: number, b: number, t: number): number   { return a + (b - a) * t; }
 
-/** Shift each RGB channel of a packed hex color by `delta` (0–255). */
-function shiftColor(hex: number, delta: number): number {
-  const r = Math.min(255, Math.max(0, ((hex >> 16) & 0xff) + delta));
-  const g = Math.min(255, Math.max(0, ((hex >>  8) & 0xff) + delta));
-  const b = Math.min(255, Math.max(0, ( hex        & 0xff) + delta));
-  return (r << 16) | (g << 8) | b;
+/**
+ * Select sprite texture key from WeaponDef.
+ * Blade default = shortsword. Add `name` field to WeaponDef to distinguish katana.
+ */
+function weaponTextureKey(wDef: WeaponDef): string {
+  if (wDef.type === "blunt") return "mace";
+  if (wDef.type === "point") return "spear";
+  // blade — check for optional name field (future: server passes weapon name)
+  const name = (wDef as WeaponDef & { name?: string }).name?.toLowerCase() ?? "";
+  if (name.includes("katana")) return "katana";
+  return "shortsword";
 }
 
 function lerpAngle(a: number, b: number, t: number): number {

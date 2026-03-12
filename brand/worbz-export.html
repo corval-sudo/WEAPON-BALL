@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // EXPORT — PNG GENERATOR</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #000; color: #4DFF91;
+      font-family: 'Courier New', monospace;
+      padding: 48px;
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+      pointer-events: none; z-index: 100;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 52px; padding-bottom: 12px; border-bottom: 1px solid #0d2a1c;
+    }
+    .hd { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .hd-sub { font-size: 9px; color: #1a5530; letter-spacing: 0.2em; }
+
+    .section-label {
+      font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: #1a5530; margin-bottom: 18px; padding-bottom: 8px;
+      border-bottom: 1px solid #0d1a10;
+    }
+    .section { margin-bottom: 56px; }
+
+    .export-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2px;
+    }
+
+    .export-card {
+      background: #0a0f0b;
+      border: 1px solid #0d2a1c;
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .card-preview {
+      background: #000;
+      border: 1px solid #0a1a0e;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .card-preview canvas { display: block; max-width: 100%; }
+
+    .card-info { display: flex; flex-direction: column; gap: 3px; }
+    .card-name { font-size: 9px; letter-spacing: 0.15em; color: #4DFF91; }
+    .card-dims { font-size: 7px; color: #1a5530; }
+
+    .card-actions { display: flex; gap: 2px; }
+
+    .dl-btn {
+      flex: 1;
+      padding: 7px 10px;
+      background: #000; border: 1px solid #1a5530;
+      color: #4DFF91; font-family: 'Courier New', monospace;
+      font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase;
+      cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    }
+    .dl-btn:hover { border-color: #4DFF91; }
+    .dl-btn.primary { border-color: #4DFF91; }
+    .dl-btn.primary:hover { background: #4DFF91; color: #000; }
+    .dl-btn.generating { color: #1a5530; border-color: #0d2a1c; cursor: default; }
+
+    .status-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 32px; background: #000; border-top: 1px solid #0d2a1c;
+      display: flex; align-items: center; padding: 0 48px;
+      font-size: 8px; letter-spacing: 0.15em; color: #1a5530;
+      z-index: 200;
+    }
+    #status-text { color: #4DFF91; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="hd">WORBZ // EXPORT</span>
+  <span class="hd-sub">PNG GENERATOR — CLICK ANY BUTTON TO DOWNLOAD</span>
+  <span class="hd-sub">PHASE 7</span>
+</header>
+
+<!-- MARKS -->
+<div class="section">
+  <div class="section-label">Mark — all sizes</div>
+  <div class="export-grid" id="marks-grid"></div>
+</div>
+
+<!-- WORDMARKS -->
+<div class="section">
+  <div class="section-label">Wordmark</div>
+  <div class="export-grid" id="wordmarks-grid"></div>
+</div>
+
+<!-- FAVICONS -->
+<div class="section">
+  <div class="section-label">Favicons</div>
+  <div class="export-grid" id="favicons-grid"></div>
+</div>
+
+<!-- SOCIAL -->
+<div class="section">
+  <div class="section-label">Social assets</div>
+  <div class="export-grid" id="social-grid"></div>
+</div>
+
+<div class="status-bar">
+  STATUS: <span id="status-text" style="margin-left:10px;">READY — SELECT AN ASSET TO EXPORT</span>
+</div>
+
+<script>
+// ── Asset definitions ────────────────────────────────────────────
+const ASSETS = {
+  marks: [
+    { name: 'Mark · Primary',   file: 'worbz-mark-final.svg',              w: 512, h: 512,  thumb: 80 },
+    { name: 'Mark · Primary',   file: 'worbz-mark-final.svg',              w: 256, h: 256,  thumb: 80 },
+    { name: 'Mark · Primary',   file: 'worbz-mark-final.svg',              w: 64,  h: 64,   thumb: 64 },
+    { name: 'Mark · White',     file: 'brand-kit/svg/worbz-mark-white.svg',     w: 512, h: 512,  thumb: 80, lightBg: true },
+    { name: 'Mark · Mono',      file: 'brand-kit/svg/worbz-mark-mono.svg',      w: 512, h: 512,  thumb: 80 },
+    { name: 'Mark · On Light',  file: 'brand-kit/svg/worbz-mark-on-light.svg',  w: 512, h: 512,  thumb: 80, lightBg: true },
+  ],
+  wordmarks: [
+    { name: 'Wordmark · Primary',   file: 'worbz-wordmark-final.svg',                   w: 672, h: 128, thumb: 240 },
+    { name: 'Wordmark · Short',     file: 'worbz-wordmark-short.svg',                   w: 560, h: 128, thumb: 200 },
+    { name: 'Wordmark · Stacked',   file: 'worbz-wordmark-stacked.svg',                 w: 320, h: 248, thumb: 120 },
+    { name: 'Wordmark · White',     file: 'brand-kit/svg/worbz-wordmark-white.svg',      w: 672, h: 128, thumb: 240, lightBg: true },
+    { name: 'Wordmark · On Light',  file: 'brand-kit/svg/worbz-wordmark-on-light.svg',   w: 672, h: 128, thumb: 240, lightBg: true },
+  ],
+  favicons: [
+    { name: 'Favicon 16px',         file: 'brand-kit/favicons/favicon-16.svg',          w: 16,  h: 16,  thumb: 64 },
+    { name: 'Favicon 32px',         file: 'brand-kit/favicons/favicon-32.svg',          w: 32,  h: 32,  thumb: 64 },
+    { name: 'Favicon 48px',         file: 'brand-kit/favicons/favicon-48.svg',          w: 48,  h: 48,  thumb: 64 },
+    { name: 'Apple Touch 180px',    file: 'brand-kit/favicons/apple-touch-icon.svg',    w: 180, h: 180, thumb: 100 },
+  ],
+  social: [
+    { name: 'Avatar 400×400',       file: 'brand-kit/social/worbz-avatar.svg',          w: 400, h: 400, thumb: 120 },
+    { name: 'OG Image 1200×630',    file: 'brand-kit/social/worbz-og-image.svg',        w: 1200, h: 630, thumb: 280, wide: true },
+  ]
+};
+
+// ── Renderer ────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('status-text').textContent = msg;
+}
+
+async function svgToPng(svgPath, outW, outH) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, outW, outH);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    // Fetch SVG and use blob URL (handles relative paths)
+    fetch(svgPath)
+      .then(r => r.text())
+      .then(svgText => {
+        const blob = new Blob([svgText], { type: 'image/svg+xml' });
+        img.src = URL.createObjectURL(blob);
+      })
+      .catch(reject);
+  });
+}
+
+async function downloadPng(asset, btn) {
+  btn.textContent = 'RENDERING...';
+  btn.classList.add('generating');
+  btn.disabled = true;
+  setStatus(`RENDERING: ${asset.name} at ${asset.w}×${asset.h}...`);
+
+  try {
+    const dataUrl = await svgToPng(asset.file, asset.w, asset.h);
+    const a = document.createElement('a');
+    const safeName = asset.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    a.download = `${safeName}-${asset.w}x${asset.h}.png`;
+    a.href = dataUrl;
+    a.click();
+    setStatus(`DOWNLOADED: ${a.download}`);
+  } catch(e) {
+    setStatus(`ERROR: ${e.message}`);
+    console.error(e);
+  }
+
+  btn.textContent = 'DOWNLOAD PNG';
+  btn.classList.remove('generating');
+  btn.disabled = false;
+}
+
+// ── Card builder ─────────────────────────────────────────────────
+async function buildCard(asset, container) {
+  const card = document.createElement('div');
+  card.className = 'export-card';
+
+  // Preview
+  const preview = document.createElement('div');
+  preview.className = 'card-preview';
+  const thumbW = asset.wide ? 280 : asset.thumb;
+  const thumbH = asset.wide ? Math.round(280 * asset.h / asset.w) : asset.thumb;
+  preview.style.height = thumbH + 'px';
+  if (asset.lightBg) preview.style.background = '#f0f5f1';
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = thumbW;
+  canvas.height = thumbH;
+  canvas.style.width  = thumbW + 'px';
+  canvas.style.height = thumbH + 'px';
+  preview.appendChild(canvas);
+
+  // Render thumb asynchronously
+  fetch(asset.file)
+    .then(r => r.text())
+    .then(svgText => {
+      const blob = new Blob([svgText], { type: 'image/svg+xml' });
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvas.getContext('2d');
+        if (asset.lightBg) {
+          ctx.fillStyle = '#f0f5f1';
+          ctx.fillRect(0, 0, thumbW, thumbH);
+        }
+        ctx.drawImage(img, 0, 0, thumbW, thumbH);
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(blob);
+    })
+    .catch(() => {});
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'card-info';
+  info.innerHTML = `
+    <div class="card-name">${asset.name}</div>
+    <div class="card-dims">${asset.w} × ${asset.h}px · PNG</div>
+  `;
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+
+  const dlBtn = document.createElement('button');
+  dlBtn.className = 'dl-btn primary';
+  dlBtn.textContent = 'DOWNLOAD PNG';
+  dlBtn.addEventListener('click', () => downloadPng(asset, dlBtn));
+
+  actions.appendChild(dlBtn);
+
+  card.appendChild(preview);
+  card.appendChild(info);
+  card.appendChild(actions);
+  container.appendChild(card);
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+Object.entries(ASSETS).forEach(([section, assets]) => {
+  const container = document.getElementById(section + '-grid');
+  if (!container) return;
+  assets.forEach(asset => buildCard(asset, container));
+});
+</script>
+
+</body>
+</html>

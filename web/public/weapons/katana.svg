@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WORBZ brand sprite — Katana (blade · fast)
+     White stroke/fill on transparent. Use Phaser setTint() for color.
+     viewBox 0 0 100 100 · pointing right (0°) · Phaser rotates -->
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Kashira (pommel cap) -->
+  <rect x="4" y="45" width="5" height="10" rx="1.5" stroke="white" stroke-width="1.5"/>
+  <!-- Handle rails -->
+  <line x1="9" y1="46" x2="28" y2="46" stroke="white" stroke-width="1.5"/>
+  <line x1="9" y1="54" x2="28" y2="54" stroke="white" stroke-width="1.5"/>
+  <!-- Ito silk wrap — X diamond pattern -->
+  <line x1="10" y1="46" x2="15" y2="54" stroke="white" stroke-width="0.8"/>
+  <line x1="15" y1="46" x2="10" y2="54" stroke="white" stroke-width="0.8"/>
+  <line x1="15" y1="46" x2="20" y2="54" stroke="white" stroke-width="0.8"/>
+  <line x1="20" y1="46" x2="15" y2="54" stroke="white" stroke-width="0.8"/>
+  <line x1="20" y1="46" x2="25" y2="54" stroke="white" stroke-width="0.8"/>
+  <line x1="25" y1="46" x2="20" y2="54" stroke="white" stroke-width="0.8"/>
+  <!-- Tsuba (oval guard) -->
+  <ellipse cx="30" cy="50" rx="4" ry="11" stroke="white" stroke-width="1.8"/>
+  <!-- Habaki (blade collar) -->
+  <rect x="33" y="47" width="7" height="6" stroke="white" stroke-width="1.2"/>
+  <!-- Blade — subtle curve via quadratic bezier (spine + edge) -->
+  <path d="M 40,47 Q 68,45 94,48" stroke="white" stroke-width="1.8"/>
+  <path d="M 40,53 Q 68,52 94,48" stroke="white" stroke-width="1.8"/>
+  <!-- Yokote (blade shoulder line) -->
+  <line x1="86" y1="47" x2="89" y2="49" stroke="white" stroke-width="1"/>
+  <!-- Shinogi (blade ridge — subtle) -->
+  <line x1="40" y1="50" x2="88" y2="49" stroke="white" stroke-width="0.7" opacity="0.5"/>
+  <!-- Kissaki (tip) -->
+  <circle cx="94" cy="48" r="1.2" fill="white"/>
+</svg>

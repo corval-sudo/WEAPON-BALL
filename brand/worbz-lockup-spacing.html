@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // PHASE 4 — LOCKUP SPACING</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #4DFF91;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 48px;
+      min-height: 100vh;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 52px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0d2a1c;
+    }
+    .header-main { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .header-sub  { font-size: 9px;  letter-spacing: 0.2em; color: #1a5530; }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #1a5530;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #0d1a10;
+    }
+
+    .section-block { margin-bottom: 56px; }
+
+    /* ── SPACING ROWS ── */
+    .spacing-grid {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 2px;
+    }
+
+    .row-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px 16px;
+      border: 1px solid #0a1a0e;
+      gap: 5px;
+    }
+    .rl-id   { font-size: 11px; letter-spacing: 0.15em; color: #4DFF91; }
+    .rl-gap  { font-size: 8px;  letter-spacing: 0.1em;  color: #1a5530; }
+    .rl-note { font-size: 7.5px; color: #0d2a1c; margin-top: 3px; }
+
+    .spacing-cell {
+      display: flex;
+      align-items: center;
+      padding: 28px 36px;
+      border: 1px solid #0a1a0e;
+    }
+
+    /* The lockup: mark + green WORBZ + orange .xyz */
+    .lockup {
+      display: flex;
+      align-items: center;
+    }
+
+    .lockup-mark {
+      flex-shrink: 0;
+      filter:
+        drop-shadow(0 0 1.5px #4DFF91)
+        drop-shadow(0 0 3px rgba(77,255,145,0.15))
+        drop-shadow(0 0 1px rgba(255,61,0,0.2));
+    }
+
+    /* Green name */
+    .wname {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      color: #4DFF91;
+      line-height: 1;
+      white-space: nowrap;
+      text-shadow:
+        0 0 8px rgba(77,255,145,0.35),
+        0 0 2px #4DFF91;
+    }
+
+    /* Orange domain */
+    .wtld {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 400;
+      color: #FF3D00;
+      line-height: 1;
+      white-space: nowrap;
+      text-shadow:
+        0 0 8px rgba(255,61,0,0.3),
+        0 0 2px #FF3D00;
+    }
+
+    /* ── DOMAIN TREATMENT ── */
+    .domain-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .domain-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 28px 28px 24px;
+      border: 1px solid #0a1a0e;
+      gap: 14px;
+      position: relative;
+    }
+
+    .d-id {
+      position: absolute;
+      top: 8px; right: 10px;
+      font-size: 7px; letter-spacing: 0.15em;
+      color: #0d2a1c; text-transform: uppercase;
+    }
+
+    .d-label {
+      font-size: 8px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: #1a5530;
+    }
+
+    .d-desc {
+      font-size: 8.5px; color: #0d2a1c; line-height: 1.75;
+    }
+
+    /* ── SIZE TEST ── */
+    .size-grid {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 2px;
+    }
+
+    .size-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 16px;
+      border: 1px solid #0a1a0e;
+      gap: 4px;
+    }
+    .sl-name { font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: #4DFF91; }
+    .sl-px   { font-size: 8px; color: #1a5530; }
+    .sl-note { font-size: 7px; color: #0d2a1c; }
+
+    .size-cell {
+      display: flex;
+      align-items: center;
+      padding: 20px 36px;
+      border: 1px solid #0a1a0e;
+    }
+
+    /* ── STACKED ── */
+    .alt-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+    }
+
+    .alt-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 28px;
+      border: 1px solid #0a1a0e;
+      gap: 16px;
+    }
+
+    .alt-label {
+      font-size: 8px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: #1a5530;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="header-main">WORBZ // PHASE 4</span>
+    <span class="header-sub">LOCKUP SPACING — GREEN NAME · ORANGE DOMAIN</span>
+    <span class="header-sub">WORDMARK STEP 3 OF 3</span>
+  </header>
+
+  <!-- ════════════════════════════ GAP COMPARISON -->
+  <div class="section-block">
+    <div class="section-label">Gap — mark at 52px. WORBZ green, .xyz orange. Which gap?</div>
+
+    <div class="spacing-grid">
+
+      <!-- A: 10px -->
+      <div class="row-label">
+        <div class="rl-id">A</div>
+        <div class="rl-gap">10px gap</div>
+        <div class="rl-note">dense / fused</div>
+      </div>
+      <div class="spacing-cell">
+        <div class="lockup" style="gap:10px;">
+          <svg class="lockup-mark" width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:32px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:18px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+      <!-- B: 18px -->
+      <div class="row-label">
+        <div class="rl-id">B</div>
+        <div class="rl-gap">18px gap</div>
+        <div class="rl-note">medium / natural</div>
+      </div>
+      <div class="spacing-cell">
+        <div class="lockup" style="gap:18px;">
+          <svg class="lockup-mark" width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:32px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:18px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+      <!-- C: 26px -->
+      <div class="row-label">
+        <div class="rl-id">C</div>
+        <div class="rl-gap">26px gap</div>
+        <div class="rl-note">open / comfortable</div>
+      </div>
+      <div class="spacing-cell">
+        <div class="lockup" style="gap:26px;">
+          <svg class="lockup-mark" width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:32px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:18px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+      <!-- D: 36px -->
+      <div class="row-label">
+        <div class="rl-id">D</div>
+        <div class="rl-gap">36px gap</div>
+        <div class="rl-note">airy / premium</div>
+      </div>
+      <div class="spacing-cell">
+        <div class="lockup" style="gap:36px;">
+          <svg class="lockup-mark" width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:32px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:18px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ DOMAIN SIZE TREATMENT -->
+  <div class="section-block">
+    <div class="section-label">Domain scale — how large should .xyz sit relative to WORBZ? (all at gap B)</div>
+
+    <div class="domain-grid">
+
+      <!-- T1: Same size -->
+      <div class="domain-cell">
+        <div class="d-id">T1 — EQUAL</div>
+        <div class="d-label">.xyz same size as name</div>
+        <div class="lockup" style="gap:18px;">
+          <svg class="lockup-mark" width="44" height="44" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:26px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:26px; letter-spacing:0;">.xyz</span>
+        </div>
+        <div class="d-desc">Domain is an equal character in<br>the name. WORBZ.XYZ as one word.<br>Bold. No hierarchy.</div>
+      </div>
+
+      <!-- T2: TLD at 60% -->
+      <div class="domain-cell">
+        <div class="d-id">T2 — RECEDED</div>
+        <div class="d-label">.xyz at ~60% size</div>
+        <div class="lockup" style="gap:18px;">
+          <svg class="lockup-mark" width="44" height="44" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:26px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:16px; letter-spacing:0;">.xyz</span>
+        </div>
+        <div class="d-desc">Name leads, domain confirms.<br>Eyes land on WORBZ first, the<br>orange sting trails behind.</div>
+      </div>
+
+      <!-- T3: TLD superscript-ish, baseline raised -->
+      <div class="domain-cell">
+        <div class="d-id">T3 — STING</div>
+        <div class="d-label">.xyz small + baseline raised</div>
+        <div class="lockup" style="gap:18px; align-items:flex-end;">
+          <svg class="lockup-mark" width="44" height="44" viewBox="0 0 64 64" fill="none" style="margin-bottom:2px;">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div style="display:flex; align-items:flex-end; gap:0; line-height:1;">
+            <span class="wname" style="font-size:26px; letter-spacing:0; display:inline-block;">WORBZ</span><span class="wtld" style="font-size:11px; letter-spacing:0.08em; display:inline-block; margin-bottom:4px;">.XYZ</span>
+          </div>
+        </div>
+        <div class="d-desc">Domain floats at cap-top like a<br>superscript. The orange sting<br>at the corner — a brand mark.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ SIZE TEST (B gap + T2 treatment) -->
+  <div class="section-block">
+    <div class="section-label">Size test — gap B + T2 (receded .xyz) at three contexts</div>
+
+    <div class="size-grid">
+
+      <div class="size-label">
+        <div class="sl-name">Hero</div>
+        <div class="sl-px">64px mark</div>
+        <div class="sl-note">landing page</div>
+      </div>
+      <div class="size-cell">
+        <div class="lockup" style="gap:22px;">
+          <svg class="lockup-mark" width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:40px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:24px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+      <div class="size-label">
+        <div class="sl-name">Nav</div>
+        <div class="sl-px">32px mark</div>
+        <div class="sl-note">header bar</div>
+      </div>
+      <div class="size-cell">
+        <div class="lockup" style="gap:12px;">
+          <svg class="lockup-mark" width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:20px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:12px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+      <div class="size-label">
+        <div class="sl-name">Compact</div>
+        <div class="sl-px">20px mark</div>
+        <div class="sl-note">footer / inline</div>
+      </div>
+      <div class="size-cell">
+        <div class="lockup" style="gap:8px;">
+          <svg class="lockup-mark" width="20" height="20" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wname" style="font-size:12px; letter-spacing:0;">WORBZ</span><span class="wtld" style="font-size:8px; letter-spacing:0;">.xyz</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ ALTERNATE LAYOUTS -->
+  <div class="section-block">
+    <div class="section-label">Alternate layouts — stacked + mark-only</div>
+
+    <div class="alt-grid">
+
+      <!-- Stacked -->
+      <div class="alt-cell">
+        <div class="alt-label">Stacked — square formats</div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <svg class="lockup-mark" width="56" height="56" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <span class="wname" style="font-size:22px; letter-spacing:0.06em;">WORBZ</span>
+            <span class="wtld" style="font-size:12px; letter-spacing:0.18em;">.XYZ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mark only -->
+      <div class="alt-cell">
+        <div class="alt-label">Mark-only — favicon + avatar</div>
+        <svg style="filter: drop-shadow(0 0 2px #4DFF91) drop-shadow(0 0 6px rgba(77,255,145,0.15)) drop-shadow(0 0 1.5px rgba(255,61,0,0.2));" width="80" height="80" viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" fill="#000"/>
+          <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+          <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+          <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+          <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+          <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+          <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+          <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+        </svg>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="font-size:9px; letter-spacing:0.15em; color:#0d2a1c; line-height:2.2;">
+    PHASE 4 // STEP 3 — Pick gap (A/B/C/D) + domain size (T1/T2/T3).<br>
+    Final SVG files built on confirmation.
+  </div>
+
+</body>
+</html>

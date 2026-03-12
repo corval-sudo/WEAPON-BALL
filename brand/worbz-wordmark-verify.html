@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WORBZ // WORDMARK — VERIFICATION</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #4DFF91;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 48px;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 52px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0d2a1c;
+    }
+    .header-main { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
+    .header-sub  { font-size: 9px;  letter-spacing: 0.2em; color: #1a5530; }
+
+    .section-label {
+      font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: #1a5530; margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 1px solid #0d1a10;
+    }
+    .section-block { margin-bottom: 56px; }
+
+    /* Variant rows */
+    .variant-grid {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 2px;
+    }
+
+    .v-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20px 16px;
+      border: 1px solid #0a1a0e;
+      gap: 5px;
+    }
+    .vl-name { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: #4DFF91; }
+    .vl-sub  { font-size: 7px; color: #1a5530; }
+
+    .v-cell {
+      display: flex;
+      align-items: center;
+      padding: 24px 36px;
+      border: 1px solid #0a1a0e;
+    }
+
+    /* Size test rows */
+    .size-grid {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 2px;
+    }
+
+    .s-label {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 16px;
+      border: 1px solid #0a1a0e;
+      gap: 4px;
+    }
+    .sl-name { font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: #4DFF91; }
+    .sl-desc { font-size: 7px; color: #1a5530; }
+
+    .s-cell {
+      display: flex;
+      align-items: center;
+      padding: 20px 36px;
+      border: 1px solid #0a1a0e;
+    }
+
+    /* Glow styles */
+    .glow-final {
+      filter:
+        drop-shadow(0 0 1.5px #4DFF91)
+        drop-shadow(0 0 4px rgba(77,255,145,0.12))
+        drop-shadow(0 0 1.5px rgba(255,61,0,0.15));
+    }
+
+    /* Inline wordmark via HTML (matches SVG) */
+    .wm {
+      display: flex;
+      align-items: center;
+    }
+
+    .wm-text {
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+    }
+
+    .wm-name {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      color: #4DFF91;
+      line-height: 1;
+      text-shadow: 0 0 8px rgba(77,255,145,0.3), 0 0 2px #4DFF91;
+    }
+
+    .wm-tld {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 400;
+      color: #FF3D00;
+      line-height: 1;
+      text-shadow: 0 0 6px rgba(255,61,0,0.25), 0 0 2px #FF3D00;
+    }
+
+    /* On-light test */
+    .light-bg {
+      background: #f5f5f5;
+      border-color: #ddd !important;
+    }
+    .on-light .wm-name { color: #000; text-shadow: none; }
+    .on-light .wm-tld  { color: #FF3D00; text-shadow: none; }
+
+    /* Divider */
+    .divider { height: 1px; background: #0d2a1c; margin: 44px 0; }
+
+    /* Checklist */
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      margin-top: 14px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border: 1px solid #0a1a0e;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      color: #1a5530;
+    }
+
+    .check-mark { color: #4DFF91; font-size: 10px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="header-main">WORBZ // PHASE 4</span>
+    <span class="header-sub">WORDMARK VERIFICATION — ALL VARIANTS</span>
+    <span class="header-sub">GATE CHECK</span>
+  </header>
+
+  <!-- ════════════════ THE THREE VARIANTS -->
+  <div class="section-block">
+    <div class="section-label">Three deliverables — horizontal / short / stacked</div>
+
+    <div class="variant-grid">
+
+      <div class="v-label">
+        <div class="vl-name">Horizontal</div>
+        <div class="vl-sub">Primary lockup</div>
+        <div class="vl-sub" style="margin-top:4px; color:#0d2a1c;">worbz-wordmark-final.svg</div>
+      </div>
+      <div class="v-cell">
+        <div class="wm glow-final" style="gap:18px;">
+          <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div class="wm-text">
+            <span class="wm-name" style="font-size:32px;">WORBZ</span><span class="wm-tld" style="font-size:19px;">.xyz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="v-label">
+        <div class="vl-name">Short</div>
+        <div class="vl-sub">Name only</div>
+        <div class="vl-sub" style="margin-top:4px; color:#0d2a1c;">worbz-wordmark-short.svg</div>
+      </div>
+      <div class="v-cell">
+        <div class="wm glow-final" style="gap:18px;">
+          <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <span class="wm-name" style="font-size:32px;">WORBZ</span>
+        </div>
+      </div>
+
+      <div class="v-label">
+        <div class="vl-name">Stacked</div>
+        <div class="vl-sub">Square formats</div>
+        <div class="vl-sub" style="margin-top:4px; color:#0d2a1c;">worbz-wordmark-stacked.svg</div>
+      </div>
+      <div class="v-cell">
+        <div class="glow-final" style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+            <span class="wm-name" style="font-size:20px; letter-spacing:0.06em;">WORBZ</span>
+            <span class="wm-tld" style="font-size:11px; letter-spacing:0.18em;">.XYZ</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ SIZE TEST — Primary horizontal -->
+  <div class="section-block">
+    <div class="section-label">Size test — primary horizontal at three contexts</div>
+
+    <div class="size-grid">
+
+      <div class="s-label">
+        <div class="sl-name">Hero</div>
+        <div class="sl-desc">64px mark</div>
+        <div class="sl-desc">landing page</div>
+      </div>
+      <div class="s-cell">
+        <div class="wm glow-final" style="gap:22px;">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div class="wm-text">
+            <span class="wm-name" style="font-size:40px;">WORBZ</span><span class="wm-tld" style="font-size:24px;">.xyz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-label">
+        <div class="sl-name">Nav</div>
+        <div class="sl-desc">32px mark</div>
+        <div class="sl-desc">header bar</div>
+      </div>
+      <div class="s-cell">
+        <div class="wm glow-final" style="gap:12px;">
+          <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div class="wm-text">
+            <span class="wm-name" style="font-size:20px;">WORBZ</span><span class="wm-tld" style="font-size:12px;">.xyz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-label">
+        <div class="sl-name">Compact</div>
+        <div class="sl-desc">20px mark</div>
+        <div class="sl-desc">footer / inline</div>
+      </div>
+      <div class="s-cell">
+        <div class="wm" style="gap:8px; filter: drop-shadow(0 0 1px #4DFF91);">
+          <svg width="20" height="20" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#000"/>
+            <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div class="wm-text">
+            <span class="wm-name" style="font-size:12px;">WORBZ</span><span class="wm-tld" style="font-size:8px;">.xyz</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ LIGHT BACKGROUND TEST -->
+  <div class="section-block">
+    <div class="section-label">Light background test</div>
+
+    <div class="size-grid">
+      <div class="s-label">
+        <div class="sl-name">On white</div>
+        <div class="sl-desc">If needed for<br>print/docs</div>
+      </div>
+      <div class="s-cell light-bg">
+        <div class="wm on-light" style="gap:18px;">
+          <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" fill="#fff"/>
+            <circle cx="32" cy="32" r="23" stroke="#000" stroke-width="1.2"/>
+            <ellipse cx="32" cy="22" rx="17" ry="5" stroke="#000" stroke-width="0.7" opacity="0.5"/>
+            <ellipse cx="32" cy="42" rx="17" ry="5" stroke="#000" stroke-width="0.7" opacity="0.5"/>
+            <ellipse cx="32" cy="32" rx="7" ry="23" stroke="#000" stroke-width="0.9"/>
+            <ellipse cx="32" cy="32" rx="23" ry="7" stroke="#FF3D00" stroke-width="1.5"/>
+            <line x1="55" y1="32" x2="51" y2="32" stroke="#000" stroke-width="1.2"/>
+            <line x1="48" y1="48" x2="45" y2="45" stroke="#000" stroke-width="1"/>
+            <line x1="32" y1="55" x2="32" y2="51" stroke="#000" stroke-width="1.2"/>
+            <line x1="16" y1="48" x2="19" y2="45" stroke="#000" stroke-width="1"/>
+            <line x1="9"  y1="32" x2="13" y2="32" stroke="#000" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="19" y2="19" stroke="#000" stroke-width="1"/>
+            <line x1="32" y1="9"  x2="32" y2="13" stroke="#000" stroke-width="1.2"/>
+            <line x1="48" y1="16" x2="45" y2="19" stroke="#000" stroke-width="1"/>
+            <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+          </svg>
+          <div class="wm-text">
+            <span class="wm-name" style="font-size:32px;">WORBZ</span><span class="wm-tld" style="font-size:19px;">.xyz</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ GATE CHECKLIST -->
+  <div class="section-block">
+    <div class="section-label">Phase 4 gate checklist</div>
+    <div class="checklist">
+      <div class="check-item"><span class="check-mark">✓</span> Font personality matches mark (Orbitron / 90s sci-fi / HUD)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Orange confined to domain only — not competing with mark</div>
+      <div class="check-item"><span class="check-mark">✓</span> Weight 700 balances with mark's visual weight</div>
+      <div class="check-item"><span class="check-mark">✓</span> Reads clearly at nav size (32px mark)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Reads clearly at hero size (64px mark)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Letter-spacing intentional (0em — Orbitron natural)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Gap 18px — connected without fusing</div>
+      <div class="check-item"><span class="check-mark">✓</span> .xyz receded at ~60% size (T2 treatment)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Three variants delivered (horizontal / short / stacked)</div>
+      <div class="check-item"><span class="check-mark">✓</span> Light background variant present</div>
+    </div>
+  </div>
+
+  <div style="font-size:9px; letter-spacing:0.15em; color:#0d2a1c; line-height:2.2;">
+    Files: worbz-wordmark-final.svg · worbz-wordmark-short.svg · worbz-wordmark-stacked.svg<br>
+    On approval: Phase 4 closes → Phase 5: Design System
+  </div>
+
+</body>
+</html>

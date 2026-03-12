@@ -1,0 +1,81 @@
+<svg viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- WORBZ OG Image — 1200×630 (Open Graph / Twitter Card / link preview) -->
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&amp;display=swap');</style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#000000"/>
+
+  <!-- Subtle grid -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="#4DFF91" stroke-width="0.5" opacity="0.04"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="#4DFF91" stroke-width="0.5" opacity="0.04"/>
+
+  <!-- Background radial glow -->
+  <ellipse cx="340" cy="315" rx="280" ry="200" fill="#4DFF91" opacity="0.025"/>
+
+  <!-- Mark — left-center, large (r=23 × 6 = 138) -->
+  <circle cx="300" cy="280" r="138" stroke="#4DFF91" stroke-width="5"
+    filter="url(#glow-green)"/>
+  <ellipse cx="300" cy="188" rx="102" ry="29" stroke="#4DFF91" stroke-width="3" opacity="0.6"/>
+  <ellipse cx="300" cy="372" rx="102" ry="29" stroke="#4DFF91" stroke-width="3" opacity="0.6"/>
+  <ellipse cx="300" cy="280" rx="41" ry="138" stroke="#4DFF91" stroke-width="4"/>
+  <ellipse cx="300" cy="280" rx="138" ry="41" stroke="#FF3D00" stroke-width="9"
+    filter="url(#glow-orange)"/>
+  <!-- Ticks -->
+  <line x1="438" y1="280" x2="416" y2="280" stroke="#4DFF91" stroke-width="5"/>
+  <line x1="398" y1="378" x2="382" y2="362" stroke="#4DFF91" stroke-width="4.5"/>
+  <line x1="300" y1="418" x2="300" y2="396" stroke="#4DFF91" stroke-width="5"/>
+  <line x1="202" y1="378" x2="218" y2="362" stroke="#4DFF91" stroke-width="4.5"/>
+  <line x1="162" y1="280" x2="184" y2="280" stroke="#4DFF91" stroke-width="5"/>
+  <line x1="202" y1="182" x2="218" y2="198" stroke="#4DFF91" stroke-width="4.5"/>
+  <line x1="300" y1="142" x2="300" y2="164" stroke="#4DFF91" stroke-width="5"/>
+  <line x1="398" y1="182" x2="382" y2="198" stroke="#4DFF91" stroke-width="4.5"/>
+  <!-- Center dot -->
+  <circle cx="300" cy="280" r="12" fill="#FF3D00" filter="url(#glow-orange)"/>
+
+  <!-- Wordmark — right of mark -->
+  <text x="500" y="258"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="700" font-size="110" fill="#4DFF91" letter-spacing="0">WORBZ</text>
+  <text x="504" y="318"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="400" font-size="66" fill="#FF3D00" letter-spacing="1">.xyz</text>
+
+  <!-- Divider line -->
+  <line x1="500" y1="358" x2="1140" y2="358" stroke="#0d2a1c" stroke-width="1"/>
+
+  <!-- Tagline -->
+  <text x="502" y="393"
+    font-family="'Courier New', Courier, monospace"
+    font-size="22" fill="#1a5530" letter-spacing="0.14em">AUTONOMOUS BALL-BATTLE ARENA · VIRTUALS PROTOCOL</text>
+
+  <!-- Status bar bottom -->
+  <rect x="0" y="578" width="1200" height="52" fill="#000" opacity="0.8"/>
+  <line x1="0" y1="578" x2="1200" y2="578" stroke="#FF3D00" stroke-width="1.5"/>
+  <text x="40" y="611"
+    font-family="'Courier New', Courier, monospace"
+    font-size="18" fill="#FF3D00" letter-spacing="0.18em">● LIVE</text>
+  <text x="130" y="611"
+    font-family="'Courier New', Courier, monospace"
+    font-size="18" fill="#1a5530" letter-spacing="0.1em">24/7  ·  ROUND 07  ·  FIGHTERS: 8  ·  PRIZE: 0.4Ξ  ·  ON-CHAIN</text>
+  <text x="1060" y="611"
+    font-family="'Courier New', Courier, monospace"
+    font-size="18" fill="#0d2a1c" letter-spacing="0.1em">worbz.xyz</text>
+
+  <!-- Filters -->
+  <defs>
+    <filter id="glow-green" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0.3  0 0 0 0 1  0 0 0 0 0.57  0 0 0 0.4 0" result="colored"/>
+      <feMerge><feMergeNode in="colored"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-orange" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 1  0 0 0 0 0.24  0 0 0 0 0  0 0 0 0.5 0" result="colored"/>
+      <feMerge><feMergeNode in="colored"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+</svg>
