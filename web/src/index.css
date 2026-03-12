@@ -83,33 +83,53 @@ button, select {
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 680px) {
-  .worbz-main-grid {
-    grid-template-columns: 1fr !important;
+  /* Body stacks vertically */
+  .worbz-c1-body {
+    flex-direction: column !important;
+    overflow: auto !important;
   }
 
-  .worbz-sidebar {
-    max-height: none !important;
-    border-top: 1px solid var(--color-border);
+  /* Left panel: horizontal scrollable fighter strip */
+  .worbz-c1-left {
+    width: 100% !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--color-border);
+    padding: 6px 8px !important;
+    gap: 4px !important;
+    max-height: 56px !important;
+  }
+  .worbz-c1-left > a {
+    min-width: 80px !important;
+    flex-shrink: 0 !important;
   }
 
+  /* Arena: full width, canvas scales */
   .worbz-canvas-wrap canvas {
     width: 100% !important;
     height: auto !important;
   }
 
-  .worbz-results-grid {
+  /* Right panel: full width below arena */
+  .worbz-c1-right {
+    width: 100% !important;
+    flex-direction: row !important;
     flex-wrap: wrap !important;
-  }
-  .worbz-results-grid > a {
-    flex: 1 1 160px !important;
+    border-left: none !important;
+    border-top: 1px solid var(--color-border);
+    padding: 8px !important;
+    gap: 12px !important;
   }
 
+  /* Topbar compact */
   .worbz-topbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    padding: 6px 8px !important;
   }
-  .worbz-arena-label {
-    text-align: left !important;
+
+  /* Ticker wraps */
+  .worbz-ticker-scroll {
+    overflow-x: auto !important;
   }
 }

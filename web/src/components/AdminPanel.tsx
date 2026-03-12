@@ -240,8 +240,8 @@ const P: Record<string, React.CSSProperties> = {
   panel: {
     background: C.panel,
     border: `1px solid ${C.border}`,
-    padding: "12px 10px",
-    marginTop: 10,
+    padding: "8px 6px",
+    marginTop: 6,
     fontFamily: "'Courier New', Courier, monospace",
     color: C.text,
   },
@@ -276,7 +276,7 @@ const P: Record<string, React.CSSProperties> = {
   toggleLabel: {
     display: "flex",
     alignItems: "center",
-    fontSize: 11,
+    fontSize: 9,
     color: C.text,
     cursor: "pointer",
   },
@@ -306,10 +306,10 @@ const P: Record<string, React.CSSProperties> = {
   item: {
     background: C.bg,
     border: `1px solid ${C.border}`,
-    padding: "7px 8px",
+    padding: "5px 6px",
     display: "flex",
     flexDirection: "column" as const,
-    gap: 3,
+    gap: 2,
   },
   itemMeta: {
     display: "flex",
@@ -325,7 +325,7 @@ const P: Record<string, React.CSSProperties> = {
     color: C.muted,
   },
   itemNames: {
-    fontSize: 10,
+    fontSize: 8,
     color: C.text,
     overflow: "hidden",
     textOverflow: "ellipsis",
