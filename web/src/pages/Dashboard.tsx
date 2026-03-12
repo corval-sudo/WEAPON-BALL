@@ -202,22 +202,22 @@ export default function Dashboard() {
 
   // Arena status label — countdown === -1 means startsAt is known but past (match imminent)
   const arenaLabel =
-    arena.phase === "live"      ? `⚔️ MATCH #${arena.matchNumber} — LIVE` :
-    arena.phase === "countdown" ? `🔜 STARTING IN ${fmtCountdown(countdown)}` :
-    arena.phase === "result"    ? `🏆 MATCH #${arena.matchNumber} RESULT` :
-    countdown === -1            ? `⏳ NEXT MATCH STARTING SOON` :
-    countdown > 0               ? `🔜 NEXT MATCH IN ${fmtCountdown(countdown)}` :
-    "🎯 WORBZ ARENA";
+    arena.phase === "live"      ? `MATCH #${arena.matchNumber} — LIVE` :
+    arena.phase === "countdown" ? `STARTING IN ${fmtCountdown(countdown)}` :
+    arena.phase === "result"    ? `MATCH #${arena.matchNumber} RESULT` :
+    countdown === -1            ? `NEXT MATCH STARTING SOON` :
+    countdown > 0               ? `NEXT MATCH IN ${fmtCountdown(countdown)}` :
+    "WORBZ ARENA";
 
   return (
     <div style={S.page}>
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header style={S.topbar} className="worbz-topbar">
-        <span style={S.logo}>⚔️ WORBZ</span>
+        <img src="/brand/worbz-wordmark-short.svg" alt="WORBZ" style={S.logo} />
         <span style={S.arenaLabel} className="worbz-arena-label">{arenaLabel}</span>
         <span style={S.liveChip}>
-          <span style={{ ...S.dot, background: arena.connected ? "#4caf50" : "#f44336" }} />
+          <span style={{ ...S.dot, background: arena.connected ? "#4DFF91" : "#FF3D00" }} />
           {arena.connected ? "LIVE" : "OFFLINE"}
         </span>
       </header>
@@ -240,7 +240,7 @@ export default function Dashboard() {
               {ballA && ballB && (
                 <div style={S.vsStrip}>
                   <span style={{ ...S.vsName, color: ballA.color }}>{ballA.name}</span>
-                  <span style={S.vsText}>⚔️</span>
+                  <span style={S.vsText}>VS</span>
                   <span style={{ ...S.vsName, color: ballB.color, textAlign: "right" }}>{ballB.name}</span>
                 </div>
               )}
@@ -271,14 +271,14 @@ export default function Dashboard() {
 
           {/* Announcement */}
           {arena.announcement && arena.phase === "live" && (
-            <p style={S.announcement}>💬 {arena.announcement}</p>
+            <p style={S.announcement}>{arena.announcement}</p>
           )}
 
           {/* Result card */}
           {arena.phase === "result" && arena.winner && (
             <div style={S.resultCard}>
               <div style={S.resultTitle}>
-                🏆 {(arena.winner === "A" ? arena.resultBallA : arena.resultBallB)?.name} WINS
+                {(arena.winner === "A" ? arena.resultBallA : arena.resultBallB)?.name} WINS
               </div>
               <div style={S.resultMeta}>
                 {(arena.ticks / 30).toFixed(1)}s · {countdown === -1 ? "starting soon" : countdown > 0 ? `${fmtCountdown(countdown)} until next` : "next match soon"}
@@ -292,7 +292,7 @@ export default function Dashboard() {
         <aside style={S.sidebar} className="worbz-sidebar">
           <div style={S.sideCard}>
             <button style={S.panelToggle} onClick={() => setShowLB(v => !v)}>
-              <span>🏅 LEADERBOARD</span>
+              <span>LEADERBOARD</span>
               <span style={S.chevron}>{showLeaderboard ? "▲" : "▼"}</span>
             </button>
             <div style={{ overflow: "hidden", maxHeight: showLeaderboard ? 1200 : 0, transition: "max-height 0.3s ease" }}>
@@ -331,7 +331,7 @@ export default function Dashboard() {
       {/* ── Recent results ──────────────────────────────────────────────── */}
       <section style={S.resultsSection}>
         <button style={S.panelToggle} onClick={() => setShowResults(v => !v)}>
-          <span>📋 RECENT RESULTS</span>
+          <span>RECENT RESULTS</span>
           <span style={S.chevron}>{showResults ? "▲" : "▼"}</span>
         </button>
         <div style={{ overflow: "hidden", maxHeight: showResults ? 400 : 0, transition: "max-height 0.3s ease" }}>
@@ -351,15 +351,15 @@ export default function Dashboard() {
                   <span style={S.resultMeta2}>{ago}</span>
                 </div>
                 <div style={S.resultCardBody}>
-                  <span style={S.winnerText}>🏆 {winnerName}</span>
+                  <span style={S.winnerText}>W {winnerName}</span>
                   <span style={S.weaponBadge}>{winnerWeap}</span>
                 </div>
                 <div style={S.resultCardBody}>
-                  <span style={S.loserText}>💀 {loserName}</span>
+                  <span style={S.loserText}>L {loserName}</span>
                   <span style={S.weaponBadge}>{loserWeap}</span>
                 </div>
                 <div style={S.resultCardFooter}>
-                  <span style={S.durText}>⏱ {dur}</span>
+                  <span style={S.durText}>{dur}</span>
                   <span style={S.viewReplay}>▶ replay →</span>
                 </div>
               </Link>
@@ -513,13 +513,13 @@ function FighterCard({ f, weapon, side }: { f: LiveFighter | null; weapon: Weapo
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const C = {
-  bg:      "#07070f",
-  panel:   "#0e0e1a",
-  border:  "#1c1c2e",
-  text:    "#e0e0ff",
-  muted:   "#555588",
-  accent:  "#7c4dff",
-  gold:    "#ffd700",
+  bg:      "#000000",
+  panel:   "#0a0f0b",
+  border:  "#0d2a1c",
+  text:    "#4DFF91",
+  muted:   "#1a5530",
+  accent:  "#FF3D00",
+  win:     "#4DFF91",
 };
 
 /** Fighter card styles */
@@ -529,7 +529,6 @@ const FC: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     background: C.panel,
     border: `1px solid ${C.border}`,
-    borderRadius: 8,
     padding: "10px 8px",
     display: "flex",
     flexDirection: "column",
@@ -583,16 +582,16 @@ const FC: Record<string, React.CSSProperties> = {
   wins: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#4caf50",
+    color: "#4DFF91",
   },
   losses: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#f44336",
+    color: "#FF3D00",
   },
   winRate: {
     fontSize: 10,
-    color: "#9977cc",
+    color: "#4a5a4e",
     marginLeft: "auto",
   },
   streakRow: {
@@ -626,7 +625,7 @@ const FC: Record<string, React.CSSProperties> = {
   weaponName: {
     fontSize: 10,
     fontWeight: "bold",
-    color: "#aaaaee",
+    color: "#4DFF91",
     whiteSpace: "nowrap" as const,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -656,18 +655,17 @@ const S: Record<string, React.CSSProperties> = {
     flexWrap: "wrap" as const,
   },
   logo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    letterSpacing: 4,
-    color: C.accent,
+    height: 24,
     flexShrink: 0,
   },
   arenaLabel: {
     flex: 1,
     textAlign: "center" as const,
-    fontSize: 13,
-    letterSpacing: 2,
-    color: "#aaa8cc",
+    fontFamily: "'Orbitron', sans-serif",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.2em",
+    color: "#4DFF91",
     minWidth: 120,
   },
   liveChip: {
@@ -675,7 +673,8 @@ const S: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 5,
     fontSize: 11,
-    color: "#666688",
+    fontFamily: "'Courier New', Courier, monospace",
+    color: "#4a5a4e",
     flexShrink: 0,
   },
   dot: {
@@ -739,18 +738,20 @@ const S: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap" as const,
   },
   vsText: {
-    fontSize: 13,
+    fontSize: 11,
+    fontFamily: "'Orbitron', sans-serif",
+    fontWeight: 700,
+    color: "#FF3D00",
     flexShrink: 0,
   },
 
   canvasWrap: {
-    borderRadius: 8,
     overflow: "hidden",
     border: `1px solid ${C.border}`,
   },
   announcement: {
     fontSize: 11,
-    color: "#99bbaa",
+    color: "#4a5a4e",
     fontStyle: "italic",
     textAlign: "center" as const,
     maxWidth: 660,
@@ -758,9 +759,8 @@ const S: Record<string, React.CSSProperties> = {
     margin: 0,
   },
   resultCard: {
-    background: "#12102a",
-    border: `1px solid ${C.accent}`,
-    borderRadius: 8,
+    background: C.panel,
+    border: `1px solid #1a5530`,
     padding: "12px 16px",
     width: "100%",
     maxWidth: 660,
@@ -769,17 +769,19 @@ const S: Record<string, React.CSSProperties> = {
   resultTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: C.gold,
+    fontFamily: "'Orbitron', sans-serif",
+    color: "#4DFF91",
+    textShadow: "0 0 8px rgba(77,255,145,0.30)",
     marginBottom: 4,
   },
   resultMeta: {
     fontSize: 11,
-    color: "#666688",
+    color: "#4a5a4e",
     marginBottom: 8,
   },
   commentary: {
     fontSize: 11,
-    color: "#aaaacc",
+    color: "#4a5a4e",
     fontStyle: "italic",
     lineHeight: 1.6,
     margin: 0,
@@ -795,7 +797,6 @@ const S: Record<string, React.CSSProperties> = {
   sideCard: {
     background: C.panel,
     border: `1px solid ${C.border}`,
-    borderRadius: 8,
     padding: "12px 10px",
   },
   panelToggle: {
@@ -805,19 +806,20 @@ const S: Record<string, React.CSSProperties> = {
     width: "100%",
     background: "none",
     border: "none",
-    borderBottom: `1px solid #1c1c2e`,
+    borderBottom: `1px solid ${C.border}`,
     padding: "0 0 8px 0",
     marginBottom: 10,
     cursor: "pointer",
-    color: "#666688",
-    fontSize: 11,
-    letterSpacing: 2,
+    color: "#4DFF91",
+    fontSize: 10,
+    letterSpacing: "0.2em",
     textTransform: "uppercase" as const,
-    fontFamily: "'Courier New', Courier, monospace",
+    fontFamily: "'Orbitron', sans-serif",
+    fontWeight: 700,
   },
   chevron: {
     fontSize: 9,
-    color: "#444466",
+    color: C.muted,
   },
   leaderRow: {
     display: "flex",
@@ -829,7 +831,7 @@ const S: Record<string, React.CSSProperties> = {
     color: C.text,
     fontSize: 12,
   },
-  rank: { color: "#444466", width: 22, textAlign: "right" as const, flexShrink: 0 },
+  rank: { color: C.muted, width: 22, textAlign: "right" as const, flexShrink: 0 },
   colorDot: {
     display: "inline-block",
     width: 10,
@@ -838,9 +840,9 @@ const S: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   leaderName: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontSize: 11 },
-  leaderStats: { fontSize: 10, color: "#666688", flexShrink: 0, whiteSpace: "nowrap" as const },
-  wr: { color: "#9977cc" },
-  streak: { fontSize: 10, color: "#ff9800", flexShrink: 0 },
+  leaderStats: { fontSize: 10, color: "#4a5a4e", flexShrink: 0, whiteSpace: "nowrap" as const },
+  wr: { color: "#4DFF91" },
+  streak: { fontSize: 10, color: "#FF3D00", flexShrink: 0 },
 
   // Recent results — full-width scrollable card strip below main grid
   resultsSection: {
@@ -860,7 +862,6 @@ const S: Record<string, React.CSSProperties> = {
     flex: "0 0 200px",
     background: C.bg,
     border: `1px solid ${C.border}`,
-    borderRadius: 8,
     padding: "10px 12px",
     textDecoration: "none",
     color: C.text,
@@ -889,13 +890,13 @@ const S: Record<string, React.CSSProperties> = {
     borderTop: `1px solid ${C.border}`,
     paddingTop: 5,
   },
-  matchId:     { color: "#444466", fontSize: 10 },
-  winnerText:  { fontSize: 12, fontWeight: "bold" as const, color: C.gold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
-  loserText:   { fontSize: 11, color: "#666688", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
-  weaponBadge: { fontSize: 9, color: "#555577", background: "#1a1a2e", borderRadius: 3, padding: "1px 4px", flexShrink: 0, whiteSpace: "nowrap" as const },
-  durText:     { fontSize: 10, color: "#555577" },
-  viewReplay:  { fontSize: 10, color: C.accent },
-  resultMeta2: { fontSize: 10, color: "#555577" },
+  matchId:     { color: C.muted, fontSize: 10 },
+  winnerText:  { fontSize: 12, fontWeight: "bold" as const, color: "#4DFF91", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  loserText:   { fontSize: 11, color: "#4a5a4e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, flex: 1 },
+  weaponBadge: { fontSize: 9, color: "#4a5a4e", background: "#111a12", padding: "1px 4px", flexShrink: 0, whiteSpace: "nowrap" as const },
+  durText:     { fontSize: 10, color: "#4a5a4e" },
+  viewReplay:  { fontSize: 10, color: "#FF3D00" },
+  resultMeta2: { fontSize: 10, color: "#4a5a4e" },
 
   // Hidden arena — offscreen 1080×1890 canvas for recording (4:7 portrait).
   // IMPORTANT: do NOT use opacity:0 or z-index:-1 — Chrome's compositor skips

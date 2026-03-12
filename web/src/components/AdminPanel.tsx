@@ -118,7 +118,7 @@ export function AdminPanel({
     <div style={P.panel}>
       {/* Header */}
       <div style={P.header}>
-        <span style={P.title}>🎬 ADMIN</span>
+        <span style={P.title}>ADMIN</span>
         {isRecording && <span style={P.recDot}>● REC</span>}
       </div>
 
@@ -190,7 +190,7 @@ export function AdminPanel({
                 </span>
               </div>
               <div style={P.itemNames}>{r.nameA} vs {r.nameB}</div>
-              <div style={P.itemWinner}>🏆 {winnerName}</div>
+              <div style={P.itemWinner}>W {winnerName}</div>
               <div style={P.itemActions}>
                 {r.mp4Url ? (
                   <a href={r.mp4Url} target="_blank" rel="noreferrer" style={P.mp4Link}>
@@ -227,20 +227,19 @@ export function AdminPanel({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const C = {
-  bg:     "#07070f",
-  panel:  "#0e0e1a",
-  border: "#1c1c2e",
-  text:   "#e0e0ff",
-  muted:  "#555588",
-  red:    "#f44336",
-  accent: "#7c4dff",
+  bg:     "#000000",
+  panel:  "#0a0f0b",
+  border: "#0d2a1c",
+  text:   "#4DFF91",
+  muted:  "#1a5530",
+  red:    "#FF3D00",
+  accent: "#FF3D00",
 };
 
 const P: Record<string, React.CSSProperties> = {
   panel: {
     background: C.panel,
     border: `1px solid ${C.border}`,
-    borderRadius: 8,
     padding: "12px 10px",
     marginTop: 10,
     fontFamily: "'Courier New', Courier, monospace",
@@ -255,11 +254,12 @@ const P: Record<string, React.CSSProperties> = {
     marginBottom: 10,
   },
   title: {
-    fontSize: 11,
-    fontWeight: "bold",
-    letterSpacing: 2,
-    color: "#666688",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.2em",
+    color: "#4DFF91",
     textTransform: "uppercase" as const,
+    fontFamily: "'Orbitron', sans-serif",
   },
   recDot: {
     fontSize: 10,
@@ -282,13 +282,13 @@ const P: Record<string, React.CSSProperties> = {
   },
   listHeader: {
     fontSize: 9,
-    letterSpacing: 2,
+    letterSpacing: "0.2em",
     color: C.muted,
     textTransform: "uppercase" as const,
     marginBottom: 6,
   },
   uploadingText: {
-    color: "#ff9800",
+    color: "#FF3D00",
   },
   list: {
     display: "flex",
@@ -306,7 +306,6 @@ const P: Record<string, React.CSSProperties> = {
   item: {
     background: C.bg,
     border: `1px solid ${C.border}`,
-    borderRadius: 6,
     padding: "7px 8px",
     display: "flex",
     flexDirection: "column" as const,
@@ -334,7 +333,7 @@ const P: Record<string, React.CSSProperties> = {
   },
   itemWinner: {
     fontSize: 10,
-    color: "#ffd700",
+    color: "#4DFF91",
   },
   itemActions: {
     display: "flex",
@@ -344,25 +343,23 @@ const P: Record<string, React.CSSProperties> = {
   btn: {
     fontSize: 9,
     padding: "2px 7px",
-    background: "#1c1c2e",
+    background: "#111a12",
     border: `1px solid ${C.border}`,
-    borderRadius: 4,
     color: C.text,
     cursor: "pointer",
     fontFamily: "'Courier New', Courier, monospace",
   },
   btnUpload: {
-    color: "#7c4dff",
-    borderColor: "#3a2a6e",
+    color: "#FF3D00",
+    borderColor: "#1a5530",
   },
   mp4Link: {
     fontSize: 9,
-    color: "#4caf50",
+    color: "#4DFF91",
     textDecoration: "none",
-    border: `1px solid #1e3a1e`,
-    borderRadius: 4,
+    border: `1px solid #1a5530`,
     padding: "2px 7px",
-    background: "#0a1a0a",
+    background: "#0a0f0b",
   },
   noBlobNote: {
     fontSize: 9,
@@ -381,19 +378,19 @@ const P: Record<string, React.CSSProperties> = {
   },
   btnTest: {
     flex: 1,
-    color: "#ff9800",
-    borderColor: "#5a3a00",
+    color: "#FF3D00",
+    borderColor: "#1a5530",
     textAlign: "center" as const,
   },
   btnOfficial: {
     flex: 1,
-    color: "#4caf50",
-    borderColor: "#1e3a1e",
+    color: "#4DFF91",
+    borderColor: "#1a5530",
     textAlign: "center" as const,
   },
   matchHint: {
     fontSize: 8,
-    color: C.muted,
+    color: "#4a5a4e",
     marginTop: 4,
     fontStyle: "italic",
   },

@@ -1,0 +1,46 @@
+<svg viewBox="0 0 160 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- WORBZ WORDMARK — Stacked -->
+  <!-- Use for: square formats, profile avatars with text, social thumbnails -->
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&amp;display=swap');</style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="160" height="124" fill="#000000"/>
+
+  <!-- Mark: centered horizontally (64px mark in 160px canvas → offset x=48) -->
+  <g transform="translate(48, 0)">
+    <circle cx="32" cy="32" r="23" stroke="#4DFF91" stroke-width="1.2"/>
+    <ellipse cx="32" cy="22" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+    <ellipse cx="32" cy="42" rx="17" ry="5"  stroke="#4DFF91" stroke-width="0.7" opacity="0.6"/>
+    <ellipse cx="32" cy="32" rx="7"  ry="23" stroke="#4DFF91" stroke-width="0.9"/>
+    <ellipse cx="32" cy="32" rx="23" ry="7"  stroke="#FF3D00" stroke-width="1.5"/>
+    <line x1="55" y1="32" x2="51" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+    <line x1="48" y1="48" x2="45" y2="45" stroke="#4DFF91" stroke-width="1"/>
+    <line x1="32" y1="55" x2="32" y2="51" stroke="#4DFF91" stroke-width="1.2"/>
+    <line x1="16" y1="48" x2="19" y2="45" stroke="#4DFF91" stroke-width="1"/>
+    <line x1="9"  y1="32" x2="13" y2="32" stroke="#4DFF91" stroke-width="1.2"/>
+    <line x1="16" y1="16" x2="19" y2="19" stroke="#4DFF91" stroke-width="1"/>
+    <line x1="32" y1="9"  x2="32" y2="13" stroke="#4DFF91" stroke-width="1.2"/>
+    <line x1="48" y1="16" x2="45" y2="19" stroke="#4DFF91" stroke-width="1"/>
+    <circle cx="32" cy="32" r="2" fill="#FF3D00"/>
+  </g>
+
+  <!-- WORBZ: green, centered, 16px below mark -->
+  <text x="80" y="96"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="700"
+    font-size="22"
+    fill="#4DFF91"
+    letter-spacing="2"
+    text-anchor="middle">WORBZ</text>
+
+  <!-- .xyz: orange, centered, receded below name -->
+  <text x="80" y="113"
+    font-family="'Orbitron', 'Orbitron Fallback', sans-serif"
+    font-weight="400"
+    font-size="13"
+    fill="#FF3D00"
+    letter-spacing="3"
+    text-anchor="middle">.XYZ</text>
+</svg>

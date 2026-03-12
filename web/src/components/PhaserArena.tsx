@@ -124,7 +124,7 @@ export function PhaserArena({
       type: preserveDrawingBuffer ? Phaser.CANVAS : Phaser.AUTO,
       width,
       height,
-      backgroundColor: "#0a0a0f",
+      backgroundColor: "#000000",
       parent: containerRef.current,
       scene: [scene],
       scale: {

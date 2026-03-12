@@ -133,7 +133,7 @@ export class ArenaScene extends Phaser.Scene {
     this.buildArenaBackground();
 
     // ── Text ──────────────────────────────────────────────────────────────
-    const mono = { fontFamily: "monospace", fontSize: "10px", color: "#cccccc" };
+    const mono = { fontFamily: "'Courier New', Courier, monospace", fontSize: "10px", color: "#4DFF91" };
 
     this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
     this.txtB = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1);
@@ -143,11 +143,11 @@ export class ArenaScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5).setVisible(false);
 
     this.txtTick = this.add.text(canvasW - 4, canvasH - 4, "", {
-      fontFamily: "monospace", fontSize: "9px", color: "#333355",
+      fontFamily: "'Courier New', Courier, monospace", fontSize: "9px", color: "#0d2a1c",
     }).setOrigin(1, 1);
 
     this.txtWaiting = this.add.text(canvasW / 2, canvasH / 2, "WAITING FOR MATCH...", {
-      fontFamily: "monospace", fontSize: "16px", color: "#444466", fontStyle: "bold",
+      fontFamily: "'Orbitron', sans-serif", fontSize: "16px", color: "#1a5530", fontStyle: "bold",
     }).setOrigin(0.5, 0.5);
 
     // ── Recording overlays (side cards + winner banner) ─────────────────
@@ -155,20 +155,20 @@ export class ArenaScene extends Phaser.Scene {
     this.cardAGfx = this.add.graphics().setDepth(100);
     this.cardBGfx = this.add.graphics().setDepth(100);
     this.txtCardAName = this.add.text(0, 0, "", {
-      fontFamily: "monospace", fontSize: "60px", fontStyle: "bold",
+      fontFamily: "'Orbitron', sans-serif", fontSize: "60px", fontStyle: "bold",
     }).setOrigin(0, 0).setDepth(101);
     this.txtCardBName = this.add.text(0, 0, "", {
-      fontFamily: "monospace", fontSize: "60px", fontStyle: "bold",
+      fontFamily: "'Orbitron', sans-serif", fontSize: "60px", fontStyle: "bold",
     }).setOrigin(0, 0).setDepth(101);
     this.txtCardAInfo = this.add.text(0, 0, "", {
-      fontFamily: "monospace", fontSize: "48px", color: "#cccccc", lineSpacing: 16,
+      fontFamily: "'Courier New', Courier, monospace", fontSize: "48px", color: "#4a5a4e", lineSpacing: 16,
     }).setOrigin(0, 0).setDepth(101);
     this.txtCardBInfo = this.add.text(0, 0, "", {
-      fontFamily: "monospace", fontSize: "48px", color: "#cccccc", lineSpacing: 16,
+      fontFamily: "'Courier New', Courier, monospace", fontSize: "48px", color: "#4a5a4e", lineSpacing: 16,
     }).setOrigin(0, 0).setDepth(101);
     this.resultGfx = this.add.graphics().setDepth(200);
     this.txtResult = this.add.text(canvasW / 2, canvasH * 0.4, "", {
-      fontFamily: "monospace", fontSize: "32px", fontStyle: "bold", color: "#ffd700",
+      fontFamily: "'Orbitron', sans-serif", fontSize: "32px", fontStyle: "bold", color: "#4DFF91",
     }).setOrigin(0.5, 0.5).setDepth(201);
   }
 
@@ -242,7 +242,7 @@ export class ArenaScene extends Phaser.Scene {
     const hasElim    = frame.events.some(ev => ev.includes("eliminated"));
 
     if (hasCollide || hasHit || hasElim) {
-      const flashColor = hasElim ? 0xff4444 : hasHit ? 0xffcc00 : 0xaaddff;
+      const flashColor = hasElim ? 0xff3d00 : hasHit ? 0xff3d00 : 0x4dff91;
       const flashAlpha = hasElim ? 0.9 : 0.7;
       const flashExtra = hasElim ? 10 : hasHit ? 7 : 5;
       const lw         = hasElim ? 3 : 2;
@@ -258,9 +258,9 @@ export class ArenaScene extends Phaser.Scene {
     // ── Event text ─────────────────────────────────────────────────────────
     const topEvent = frame.events[0] ?? "";
     if (topEvent.includes("hits") || topEvent.includes("eliminated") || topEvent.includes("collide")) {
-      const textColor = topEvent.includes("eliminated") ? "#ff4444"
-                       : topEvent.includes("collide")    ? "#ffffff"
-                       : "#ffcc00";
+      const textColor = topEvent.includes("eliminated") ? "#FF3D00"
+                       : topEvent.includes("collide")    ? "#4DFF91"
+                       : "#FF3D00";
       this.txtEvent.setText(topEvent.toUpperCase()).setColor(textColor).setVisible(true);
     } else {
       this.txtEvent.setVisible(false);
@@ -339,7 +339,7 @@ export class ArenaScene extends Phaser.Scene {
 
       // Separator line under name
       const sepY = margin + 80;
-      gfx.lineStyle(1, 0x444466, 0.6);
+      gfx.lineStyle(1, 0x1a5530, 0.6);
       gfx.lineBetween(x + pad, sepY, x + cardW - pad, sepY);
 
       // Name (bold, fighter color)
@@ -526,10 +526,10 @@ export class ArenaScene extends Phaser.Scene {
     const barX = cx - barW / 2;
     const rad = 2;
     // Background pill
-    g.fillStyle(0x111111, 0.85);
+    g.fillStyle(0x0a0f0b, 0.85);
     g.fillRoundedRect(barX, barY, barW, barH, rad);
     // Filled portion
-    const col = frac > 0.5 ? 0x4caf50 : frac > 0.25 ? 0xff9800 : 0xf44336;
+    const col = frac > 0.5 ? 0x4dff91 : frac > 0.25 ? 0xff3d00 : 0xff3d00;
     if (frac > 0) {
       g.fillStyle(col, 1);
       g.fillRoundedRect(barX, barY, barW * frac, barH, rad);
@@ -547,14 +547,12 @@ export class ArenaScene extends Phaser.Scene {
 
     g.clear();
 
-    // 1. Background — dark navy top, dark purple bottom
-    g.fillStyle(0x050510, 1);
-    g.fillRect(0, 0, canvasW, Math.ceil(canvasH * 0.5));
-    g.fillStyle(0x0a0518, 1);
-    g.fillRect(0, Math.floor(canvasH * 0.5), canvasW, Math.ceil(canvasH * 0.5) + 1);
+    // 1. Background — pure black void
+    g.fillStyle(0x000000, 1);
+    g.fillRect(0, 0, canvasW, canvasH);
 
-    // 2. Hexagonal grid
-    g.lineStyle(1, 0x111133, 0.65);
+    // 2. Hexagonal grid — green-tinted CRT lines
+    g.lineStyle(1, 0x0d2a1c, 0.65);
     const size = 28;
     const colW  = size * Math.sqrt(3);
     const rowH  = size * 1.5;
@@ -570,18 +568,18 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
 
-    // 3. Center spotlight glow
-    g.fillStyle(0x2040ff, 0.035);
+    // 3. Center spotlight glow — subtle green
+    g.fillStyle(0x4dff91, 0.02);
     g.fillCircle(canvasW / 2, canvasH / 2, canvasH * 0.42);
 
-    // 4. Double border
-    g.lineStyle(2, 0x2233aa, 0.85);
+    // 4. Double border — brand green
+    g.lineStyle(2, 0x1a5530, 0.85);
     g.strokeRect(1, 1, canvasW - 2, canvasH - 2);
-    g.lineStyle(1, 0x5566cc, 0.28);
+    g.lineStyle(1, 0x4dff91, 0.15);
     g.strokeRect(5, 5, canvasW - 10, canvasH - 10);
 
-    // 5. Corner L-brackets
-    g.lineStyle(2, 0x4455cc, 1);
+    // 5. Corner L-brackets — brand green
+    g.lineStyle(2, 0x4dff91, 0.7);
     const L = 18;
     [[0, 0], [canvasW, 0], [0, canvasH], [canvasW, canvasH]].forEach(([cx, cy]) => {
       const sx = cx === 0 ? 1 : -1;

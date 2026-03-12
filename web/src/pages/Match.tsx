@@ -189,9 +189,9 @@ export default function MatchPage() {
             { name: match.ball_a_name, weapon: match.ball_a_weapon, dmgDealt: match.ball_a_damage_dealt, dmgTaken: match.ball_a_damage_taken, acc: match.ball_a_accuracy, won: match.winner === "A" },
             { name: match.ball_b_name, weapon: match.ball_b_weapon, dmgDealt: match.ball_b_damage_dealt, dmgTaken: match.ball_b_damage_taken, acc: match.ball_b_accuracy, won: match.winner === "B" },
           ].map(f => (
-            <div key={f.name} style={{ ...styles.statCard, borderColor: f.won ? "#4caf50" : "#333" }}>
+            <div key={f.name} style={{ ...styles.statCard, borderColor: f.won ? "#4DFF91" : "#0d2a1c" }}>
               <div style={styles.statCardName}>
-                {f.won ? "🏆 " : ""}<strong>{f.name}</strong> ({f.weapon})
+                {f.won ? "W " : ""}<strong>{f.name}</strong> ({f.weapon})
               </div>
               <div style={styles.statRow}><span>Damage Dealt</span><span>{f.dmgDealt}</span></div>
               <div style={styles.statRow}><span>Damage Taken</span><span>{f.dmgTaken}</span></div>
@@ -211,26 +211,26 @@ export default function MatchPage() {
   );
 }
 
-const C = { bg: "#0a0a0f", panel: "#12121a", border: "#1e1e2e", text: "#e0e0ff", muted: "#666699" };
+const C = { bg: "#000000", panel: "#0a0f0b", border: "#0d2a1c", text: "#4DFF91", muted: "#4a5a4e" };
 
 const styles: Record<string, React.CSSProperties> = {
-  page:         { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "monospace", padding: "16px 20px", maxWidth: 900, margin: "0 auto" },
+  page:         { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Courier New', Courier, monospace", padding: "16px 20px", maxWidth: 900, margin: "0 auto" },
   nav:          { display: "flex", gap: 16, marginBottom: 16 },
   backLink:     { color: C.muted, textDecoration: "none", fontSize: 13 },
-  title:        { margin: "0 0 4px", fontSize: 22, letterSpacing: 2 },
+  title:        { margin: "0 0 4px", fontSize: 22, fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: 0 },
   subtitle:     { color: C.muted, fontSize: 13, marginBottom: 20 },
   grid:         { display: "grid", gridTemplateColumns: "320px 1fr", gap: 20 },
   canvasPanel:  { display: "flex", flexDirection: "column" as const, gap: 10 },
   controls:     { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const },
-  btn:          { background: "#1e1e2e", border: "1px solid #333", color: C.text, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "monospace", fontSize: 12 },
-  select:       { background: "#1e1e2e", border: "1px solid #333", color: C.text, borderRadius: 6, padding: "4px 6px", fontFamily: "monospace", fontSize: 12 },
+  btn:          { background: "#0a0f0b", border: "1px solid #0d2a1c", color: C.text, padding: "4px 10px", cursor: "pointer", fontFamily: "'Courier New', Courier, monospace", fontSize: 12 },
+  select:       { background: "#0a0f0b", border: "1px solid #0d2a1c", color: C.text, padding: "4px 6px", fontFamily: "'Courier New', Courier, monospace", fontSize: 12 },
   tickDisplay:  { color: C.muted, fontSize: 11 },
   statsPanel:   { display: "flex", flexDirection: "column" as const, gap: 12 },
-  sectionTitle: { fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 6, textTransform: "uppercase" as const },
-  statCard:     { background: C.panel, border: "1px solid", borderRadius: 8, padding: 12 },
+  sectionTitle: { fontSize: 10, color: "#4DFF91", letterSpacing: "0.2em", marginBottom: 6, textTransform: "uppercase" as const, fontFamily: "'Orbitron', sans-serif", fontWeight: 700 },
+  statCard:     { background: C.panel, border: "1px solid", padding: 12 },
   statCardName: { fontSize: 13, marginBottom: 8 },
   statRow:      { display: "flex", justifyContent: "space-between", fontSize: 12, color: C.muted, padding: "3px 0" },
-  metaBox:      { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 },
+  metaBox:      { background: C.panel, border: `1px solid ${C.border}`, padding: 12 },
   metaRow:      { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, padding: "3px 0", borderBottom: `1px solid ${C.border}` },
   muted:        { color: C.muted, fontSize: 13 },
 };

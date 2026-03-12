@@ -59,10 +59,10 @@ export default function FighterPage() {
 
       {/* Stats grid */}
       <div style={styles.statsGrid}>
-        <StatBox label="Wins" value={fighter.wins} accent="#4caf50" />
-        <StatBox label="Losses" value={fighter.losses} accent="#f44336" />
-        <StatBox label="Win Rate" value={`${winRate}%`} accent="#7c4dff" />
-        <StatBox label="Streak" value={fighter.currentStreak > 0 ? `🔥${fighter.currentStreak}` : fighter.currentStreak < 0 ? `❄️${Math.abs(fighter.currentStreak)}` : "—"} />
+        <StatBox label="Wins" value={fighter.wins} accent="#4DFF91" />
+        <StatBox label="Losses" value={fighter.losses} accent="#FF3D00" />
+        <StatBox label="Win Rate" value={`${winRate}%`} accent="#4DFF91" />
+        <StatBox label="Streak" value={fighter.currentStreak > 0 ? `${fighter.currentStreak}W` : fighter.currentStreak < 0 ? `${Math.abs(fighter.currentStreak)}L` : "—"} />
         <StatBox label="Best Streak" value={fighter.longestWinStreak} />
         <StatBox label="DMG Dealt" value={fighter.totalDamageDealt.toLocaleString()} />
         <StatBox label="DMG Taken" value={fighter.totalDamageTaken.toLocaleString()} />
@@ -90,7 +90,7 @@ export default function FighterPage() {
           const date = new Date(m.timestamp).toLocaleDateString();
           return (
             <Link key={m.id} to={`/match/${m.id}`} style={styles.historyRow}>
-              <span style={{ ...styles.outcomeTag, background: won ? "#1a3a1a" : "#3a1a1a", color: won ? "#4caf50" : "#f44336" }}>
+              <span style={{ ...styles.outcomeTag, background: won ? "#0a1a0c" : "#1a0a08", color: won ? "#4DFF91" : "#FF3D00" }}>
                 {won ? "WIN" : "LOSS"}
               </span>
               <span style={styles.historyOpp}>vs {oppName}</span>
@@ -108,32 +108,32 @@ export default function FighterPage() {
 function StatBox({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
   return (
     <div style={styles.statBox}>
-      <div style={{ ...styles.statValue, color: accent ?? "#e0e0ff" }}>{value}</div>
+      <div style={{ ...styles.statValue, color: accent ?? "#4DFF91" }}>{value}</div>
       <div style={styles.statLabel}>{label}</div>
     </div>
   );
 }
 
-const C = { bg: "#0a0a0f", panel: "#12121a", border: "#1e1e2e", text: "#e0e0ff", muted: "#666699", accent: "#7c4dff" };
+const C = { bg: "#000000", panel: "#0a0f0b", border: "#0d2a1c", text: "#4DFF91", muted: "#4a5a4e" };
 
 const styles: Record<string, React.CSSProperties> = {
-  page:           { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "monospace", padding: "16px 20px", maxWidth: 800, margin: "0 auto" },
+  page:           { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Courier New', Courier, monospace", padding: "16px 20px", maxWidth: 800, margin: "0 auto" },
   nav:            { marginBottom: 16 },
   backLink:       { color: C.muted, textDecoration: "none", fontSize: 13 },
   profileHeader:  { display: "flex", alignItems: "center", gap: 14, marginBottom: 24 },
   colorDot:       { width: 48, height: 48, borderRadius: "50%", flexShrink: 0 },
-  name:           { margin: 0, fontSize: 24, letterSpacing: 2 },
+  name:           { margin: 0, fontSize: 24, fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: 0 },
   subtitle:       { color: C.muted, fontSize: 12, marginTop: 4 },
   statsGrid:      { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 },
-  statBox:        { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 10px", textAlign: "center" as const },
+  statBox:        { background: C.panel, border: `1px solid ${C.border}`, padding: "12px 10px", textAlign: "center" as const },
   statValue:      { fontSize: 20, fontWeight: "bold", marginBottom: 4 },
-  statLabel:      { fontSize: 10, color: C.muted, letterSpacing: 1 },
-  personalityBox: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14, marginBottom: 20 },
-  personality:    { margin: 0, fontSize: 12, color: "#aaaacc", lineHeight: 1.7, fontStyle: "italic" },
-  sectionTitle:   { fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 10, textTransform: "uppercase" as const },
-  historySection: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 },
+  statLabel:      { fontSize: 10, color: C.muted, letterSpacing: "0.2em", fontFamily: "'Orbitron', sans-serif" },
+  personalityBox: { background: C.panel, border: `1px solid ${C.border}`, padding: 14, marginBottom: 20 },
+  personality:    { margin: 0, fontSize: 12, color: C.muted, lineHeight: 1.7, fontStyle: "italic" },
+  sectionTitle:   { fontSize: 10, color: "#4DFF91", letterSpacing: "0.2em", marginBottom: 10, textTransform: "uppercase" as const, fontFamily: "'Orbitron', sans-serif", fontWeight: 700 },
+  historySection: { background: C.panel, border: `1px solid ${C.border}`, padding: 14 },
   historyRow:     { display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${C.border}`, textDecoration: "none", color: C.text, fontSize: 12 },
-  outcomeTag:     { borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: "bold", flexShrink: 0 },
+  outcomeTag:     { padding: "2px 7px", fontSize: 10, fontWeight: "bold", flexShrink: 0 },
   historyOpp:     { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const },
   historyDmg:     { color: C.muted, fontSize: 11, flexShrink: 0 },
   historyDur:     { color: C.muted, fontSize: 11, flexShrink: 0 },
