@@ -1,26 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WORBZ brand sprite — CRT Wireframe Ball
-     White stroke/fill on transparent. Use Phaser setTint() for color.
-     viewBox 0 0 100 100 · pointing: n/a (globe, no orientation) -->
+<!-- WORBZ brand sprite — Orb (solid · 3-D shaded)
+     White-channel art on transparent. Use Phaser setTint() for color.
+     viewBox 0 0 100 100 · centered at 50,50
+     Light source: upper-left → shadow falls lower-right.
+
+     Tinting math (Phaser multiplies pixel RGB by tint RGB):
+       white (255)   → 100 % tint colour  (specular hot-spot)
+       ~211          →  83 % tint colour  (lit hemisphere base)
+       ~120–150      →  47–59 % tint     (shadow mid-tone)
+       ~70–90        →  27–35 % tint     (deep shadow)
+     Globe lines use black overlays to stay consistent with any tint. -->
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Outer sphere -->
-  <circle cx="50" cy="50" r="46" stroke="white" stroke-width="2"/>
-  <!-- Latitude lines (upper + lower) -->
-  <ellipse cx="50" cy="34" rx="34" ry="9.5" stroke="white" stroke-width="1" opacity="0.6"/>
-  <ellipse cx="50" cy="66" rx="34" ry="9.5" stroke="white" stroke-width="1" opacity="0.6"/>
-  <!-- Prime meridian (vertical ellipse) -->
-  <ellipse cx="50" cy="50" rx="14" ry="46" stroke="white" stroke-width="1.3"/>
-  <!-- Equatorial ring — thicker, matches brand mark hierarchy -->
-  <ellipse cx="50" cy="50" rx="46" ry="14" stroke="white" stroke-width="2.2"/>
-  <!-- 8-point compass ticks (cardinal + diagonal) -->
-  <line x1="96" y1="50" x2="89" y2="50" stroke="white" stroke-width="2"/>
-  <line x1="83" y1="83" x2="78" y2="78" stroke="white" stroke-width="1.5"/>
-  <line x1="50" y1="96" x2="50" y2="89" stroke="white" stroke-width="2"/>
-  <line x1="17" y1="83" x2="22" y2="78" stroke="white" stroke-width="1.5"/>
-  <line x1="4"  y1="50" x2="11" y2="50" stroke="white" stroke-width="2"/>
-  <line x1="17" y1="17" x2="22" y2="22" stroke="white" stroke-width="1.5"/>
-  <line x1="50" y1="4"  x2="50" y2="11" stroke="white" stroke-width="2"/>
-  <line x1="83" y1="17" x2="78" y2="22" stroke="white" stroke-width="1.5"/>
-  <!-- Center dot -->
-  <circle cx="50" cy="50" r="3.5" fill="white"/>
+
+  <!-- 1 ── Base sphere ────────────────────────────────────────────────
+       83 % white rather than pure white so the specular hot-spot
+       (which can reach ~97 % white) is visibly brighter.             -->
+  <circle cx="50" cy="50" r="46" fill="white" opacity="0.83"/>
+
+  <!-- 2 ── Shadow layers ──────────────────────────────────────────────
+       Two offset black discs darken the lower-right hemisphere.
+       Primary: large disc, stronger darkening.
+       Secondary: smaller disc, adds depth at the core of the shadow.  -->
+  <circle cx="64" cy="64" r="46" fill="black" opacity="0.46"/>
+  <circle cx="60" cy="60" r="37" fill="black" opacity="0.17"/>
+
+  <!-- 3 ── Globe detail ───────────────────────────────────────────────
+       Brand-mark latitude bands, prime meridian, equator.
+       Very low opacity — visible as subtle dark lines on the sphere,
+       scales naturally with setTint (dark lines of any tint colour).  -->
+  <ellipse cx="50" cy="37" rx="31" ry="8"  fill="none"
+           stroke="black" stroke-width="1"   opacity="0.13"/>
+  <ellipse cx="50" cy="63" rx="31" ry="8"  fill="none"
+           stroke="black" stroke-width="1"   opacity="0.13"/>
+  <ellipse cx="50" cy="50" rx="13" ry="44" fill="none"
+           stroke="black" stroke-width="1"   opacity="0.13"/>
+  <ellipse cx="50" cy="50" rx="44" ry="13" fill="none"
+           stroke="black" stroke-width="1.5" opacity="0.20"/>
+
+  <!-- 4 ── Specular highlight ─────────────────────────────────────────
+       Three-layer soft hot-spot in the upper-left (light direction).
+       Outer glow → inner bloom → pin-point core.
+       Each layer compounds: lit area reaches ~97 % white.            -->
+  <ellipse cx="32" cy="29" rx="17" ry="13" fill="white" opacity="0.52"/>
+  <ellipse cx="28" cy="25" rx="9"  ry="7"  fill="white" opacity="0.48"/>
+  <ellipse cx="25" cy="22" rx="4.5" ry="3.5" fill="white" opacity="0.42"/>
+
+  <!-- 5 ── Rim highlight ──────────────────────────────────────────────
+       Thin bright corona on the sphere edge — prevents the orb from
+       looking flat where shadow meets the transparent background.     -->
+  <circle cx="50" cy="50" r="45.5" fill="none"
+          stroke="white" stroke-width="2" opacity="0.22"/>
+
 </svg>
