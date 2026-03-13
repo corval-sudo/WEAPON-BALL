@@ -318,7 +318,7 @@ export class ArenaScene extends Phaser.Scene {
     cx: number, cy: number,
     angle: number,
     color: number,
-    ballRpx: number,
+    _ballRpx: number,
     wDef: WeaponDef | null | undefined,
   ): void {
     if (!wDef) {
