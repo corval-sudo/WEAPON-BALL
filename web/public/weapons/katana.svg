@@ -19,13 +19,13 @@
   <ellipse cx="30" cy="50" rx="4" ry="11" stroke="white" stroke-width="1.8"/>
   <!-- Habaki (blade collar) -->
   <rect x="33" y="47" width="7" height="6" stroke="white" stroke-width="1.2"/>
-  <!-- Blade — subtle curve via quadratic bezier (spine + edge) -->
-  <path d="M 40,47 Q 68,45 94,48" stroke="white" stroke-width="1.8"/>
-  <path d="M 40,53 Q 68,52 94,48" stroke="white" stroke-width="1.8"/>
+  <!-- Blade — subtle curve via quadratic bezier (extends to viewBox edge for hitbox alignment) -->
+  <path d="M 40,47 Q 68,45 100,48" stroke="white" stroke-width="1.8"/>
+  <path d="M 40,53 Q 68,52 100,48" stroke="white" stroke-width="1.8"/>
   <!-- Yokote (blade shoulder line) -->
-  <line x1="86" y1="47" x2="89" y2="49" stroke="white" stroke-width="1"/>
+  <line x1="92" y1="47" x2="95" y2="48" stroke="white" stroke-width="1"/>
   <!-- Shinogi (blade ridge — subtle) -->
-  <line x1="40" y1="50" x2="88" y2="49" stroke="white" stroke-width="0.7" opacity="0.5"/>
+  <line x1="40" y1="50" x2="94" y2="49" stroke="white" stroke-width="0.7" opacity="0.5"/>
   <!-- Kissaki (tip) -->
-  <circle cx="94" cy="48" r="1.2" fill="white"/>
+  <circle cx="100" cy="48" r="1.2" fill="white"/>
 </svg>

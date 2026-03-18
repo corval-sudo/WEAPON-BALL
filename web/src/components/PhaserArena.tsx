@@ -47,6 +47,11 @@ interface PhaserArenaProps {
   recordingMode?: boolean;
   /** Set to "A" or "B" when the match ends — triggers the winner overlay. */
   winner?: "A" | "B" | null;
+  /** When true, draws simulation hitbox shapes over sprites. */
+  debugHitboxes?: boolean;
+  /** Arena dimensions from server (defaults to 400x700 in scene). */
+  arenaW?: number;
+  arenaH?: number;
   /** Called once the Phaser canvas is ready and at its correct pixel dimensions. */
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
   /**
@@ -81,6 +86,9 @@ export function PhaserArena({
   height = 620,
   recordingMode = false,
   winner = null,
+  debugHitboxes = false,
+  arenaW,
+  arenaH,
   onCanvasReady,
   preserveDrawingBuffer = false,
 }: PhaserArenaProps) {
@@ -103,6 +111,9 @@ export function PhaserArena({
     canvasW: width,
     canvasH: height,
     recordingMode,
+    debugHitboxes,
+    arenaW,
+    arenaH,
     winner,
     ballAWins,
     ballALosses,

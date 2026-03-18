@@ -14,11 +14,11 @@
   <line x1="27" y1="47" x2="27" y2="53" stroke="white" stroke-width="1"/>
   <!-- Crossguard -->
   <line x1="29" y1="37" x2="29" y2="63" stroke="white" stroke-width="2.5"/>
-  <!-- Blade edges (converging to tip) -->
-  <line x1="29" y1="47" x2="92" y2="50" stroke="white" stroke-width="1.8"/>
-  <line x1="29" y1="53" x2="92" y2="50" stroke="white" stroke-width="1.8"/>
+  <!-- Blade edges (converging to tip — extends to viewBox edge for hitbox alignment) -->
+  <line x1="29" y1="47" x2="100" y2="50" stroke="white" stroke-width="1.8"/>
+  <line x1="29" y1="53" x2="100" y2="50" stroke="white" stroke-width="1.8"/>
   <!-- Fuller (blood groove) -->
-  <line x1="35" y1="50" x2="82" y2="50" stroke="white" stroke-width="0.8" opacity="0.6"/>
+  <line x1="35" y1="50" x2="90" y2="50" stroke="white" stroke-width="0.8" opacity="0.6"/>
   <!-- Tip -->
-  <circle cx="92" cy="50" r="1.2" fill="white"/>
+  <circle cx="100" cy="50" r="1.2" fill="white"/>
 </svg>

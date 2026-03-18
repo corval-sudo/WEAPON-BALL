@@ -124,7 +124,7 @@ async function loadPngFromInput(input: HTMLInputElement): Promise<HTMLImageEleme
 
 // Weapon sprite anchor point inside the PNG (0..1)
 // 1.0 means right edge, 0.0 means left edge
-const WEAPON_TIP_ANCHOR_X = 0.92; // tune this (0.85–0.98 is common)
+const WEAPON_TIP_ANCHOR_X = 1.0; // SVG tips now extend to viewBox edge
 const WEAPON_TIP_ANCHOR_Y = 0.50; // center vertically
 
 // Image loading handlers with cleanup

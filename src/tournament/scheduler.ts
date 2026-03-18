@@ -195,6 +195,8 @@ export class TournamentScheduler {
       startsInMs: 3000,
       weaponA: this.resolveWeaponDef(ballA, "A"),
       weaponB: this.resolveWeaponDef(ballB, "B"),
+      arenaW: arenaConfig.w,
+      arenaH: arenaConfig.h,
     });
 
     // Pre-match announcement
@@ -217,6 +219,8 @@ export class TournamentScheduler {
       announcement,
       weaponA: this.resolveWeaponDef(ballA, "A"),
       weaponB: this.resolveWeaponDef(ballB, "B"),
+      arenaW: arenaConfig.w,
+      arenaH: arenaConfig.h,
     });
 
     // Run the match

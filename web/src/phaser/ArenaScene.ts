@@ -24,6 +24,8 @@ const SIM_SCALE  = 1000;
 const REPLAY_FPS  = 30;
 /** Native rasterization size for all SVG sprites (power of 2 for GPU). */
 const SPRITE_SIZE = 256;
+/** orb-wireframe.svg sphere r=46 in viewBox half=50 → 0.92 of sprite extent. */
+const SVG_SPHERE_FRAC = 46 / 50;
 
 // ─── Public config type ───────────────────────────────────────────────────────
 
@@ -40,8 +42,13 @@ export interface ArenaSceneConfig {
   weaponB: WeaponDef | null;
   canvasW: number;
   canvasH: number;
+  /** Arena dimensions from server (defaults to 400×700 constants). */
+  arenaW?: number;
+  arenaH?: number;
   /** When true, renders recording-only overlays (side cards + winner banner). */
   recordingMode?: boolean;
+  /** When true, draws simulation hitbox shapes over sprites. */
+  debugHitboxes?: boolean;
   /** Set to "A" or "B" when the match ends — triggers the winner overlay. */
   winner?: "A" | "B" | null;
   /** Fighter W/L record — displayed on recording side cards. */
@@ -67,11 +74,12 @@ export class ArenaScene extends Phaser.Scene {
   private wpnAImg!:   Phaser.GameObjects.Image;
   private wpnBImg!:   Phaser.GameObjects.Image;
 
-  // ── Graphics layers (retained for HP bars, flash rings, badges) ───────────
-  private bgGfx!:    Phaser.GameObjects.Graphics;
-  private flashGfx!: Phaser.GameObjects.Graphics;
-  private hpBarGfx!: Phaser.GameObjects.Graphics;
-  private badgeGfx!: Phaser.GameObjects.Graphics;
+  // ── Graphics layers (retained for HP bars, flash rings, badges, hitboxes) ─
+  private bgGfx!:     Phaser.GameObjects.Graphics;
+  private flashGfx!:  Phaser.GameObjects.Graphics;
+  private hpBarGfx!:  Phaser.GameObjects.Graphics;
+  private badgeGfx!:  Phaser.GameObjects.Graphics;
+  private hitboxGfx!: Phaser.GameObjects.Graphics;
 
   // Text
   private txtA!:       Phaser.GameObjects.Text;
@@ -166,6 +174,9 @@ export class ArenaScene extends Phaser.Scene {
     // ── Name badges + labels (depth 25–26) ───────────────────────────────
     this.badgeGfx = this.add.graphics().setDepth(25);
 
+    // ── Debug hitbox overlay (depth 30 — above badges, below recording) ─
+    this.hitboxGfx = this.add.graphics().setDepth(30);
+
     const mono = { fontFamily: "'Courier New', Courier, monospace", fontSize: "10px", color: "#4DFF91" };
 
     this.txtA = this.add.text(0, 0, "", { ...mono, fontStyle: "bold" }).setOrigin(0.5, 1).setDepth(26);
@@ -238,14 +249,16 @@ export class ArenaScene extends Phaser.Scene {
     this.updateWeaponSprite(this.wpnBImg, bx, by, angleB, cfg.ballBColor, ballRB, cfg.weaponB);
 
     // ── Ball sprites ──────────────────────────────────────────────────────
-    const ballAScale = (ballRA * 2) / SPRITE_SIZE;
+    // SVG sphere r=46 in viewBox half=50 → visual fills 92% of sprite.
+    // Scale up by 1/0.92 so the visible sphere edge matches the hitbox radius.
+    const ballAScale = (ballRA * 2) / (SPRITE_SIZE * SVG_SPHERE_FRAC);
     this.ballAImg
       .setVisible(true)
       .setPosition(ax, ay)
       .setScale(ballAScale)
       .setTint(cfg.ballAColor);
 
-    const ballBScale = (ballRB * 2) / SPRITE_SIZE;
+    const ballBScale = (ballRB * 2) / (SPRITE_SIZE * SVG_SPHERE_FRAC);
     this.ballBImg
       .setVisible(true)
       .setPosition(bx, by)
@@ -306,6 +319,10 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     this.txtTick.setText(`t:${frame.tick}`);
+
+    // ── Debug hitbox overlay ────────────────────────────────────────────
+    this.renderHitboxOverlay(ax, ay, ballRA, angleA, cfg.weaponA, cfg.ballAColor,
+                             bx, by, ballRB, angleB, cfg.weaponB, cfg.ballBColor);
 
     // ── Recording overlays ────────────────────────────────────────────────
     this.renderRecordingOverlays();
@@ -466,6 +483,74 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  // ─── Debug hitbox overlay ─────────────────────────────────────────────────
+
+  private renderHitboxOverlay(
+    ax: number, ay: number, ballRA: number, angleA: number, wA: WeaponDef | null,  colA: number,
+    bx: number, by: number, ballRB: number, angleB: number, wB: WeaponDef | null, colB: number,
+  ): void {
+    this.hitboxGfx.clear();
+    if (!this.cfg.debugHitboxes) return;
+    const g = this.hitboxGfx;
+
+    this.drawFighterHitbox(g, ax, ay, ballRA, angleA, wA, colA);
+    this.drawFighterHitbox(g, bx, by, ballRB, angleB, wB, colB);
+  }
+
+  private drawFighterHitbox(
+    g: Phaser.GameObjects.Graphics,
+    cx: number, cy: number, ballR: number,
+    angle: number, wDef: WeaponDef | null, color: number,
+  ): void {
+    // Ball body circle
+    g.lineStyle(1.5, color, 0.7);
+    g.strokeCircle(cx, cy, ballR);
+
+    if (!wDef) return;
+
+    const rad     = (angle / 65536) * 2 * Math.PI;
+    const cosA    = Math.cos(rad);
+    const sinA    = Math.sin(rad);
+    const reachPx = this.au(wDef.reach);
+    const tipX    = cx + cosA * reachPx;
+    const tipY    = cy + sinA * reachPx;
+    const tipRPx  = this.au(wDef.tipRadius);
+
+    // Shaft deflection zone (ball surface → bladeStart or reach)
+    const shaftRPx    = this.au(wDef.shaftRadius ?? 8);
+    const bladeStart  = wDef.bladeStart ?? Math.round(wDef.reach * 0.4);
+    const shaftEndPx  = wDef.type === "blade" ? this.au(bladeStart) : reachPx;
+    const shaftSX     = cx + cosA * ballR;
+    const shaftSY     = cy + sinA * ballR;
+    const shaftEX     = cx + cosA * shaftEndPx;
+    const shaftEY     = cy + sinA * shaftEndPx;
+
+    // Shaft — semi-transparent blue capsule (approximated as thick line)
+    g.lineStyle(shaftRPx * 2, 0x64c8ff, 0.12);
+    g.lineBetween(shaftSX, shaftSY, shaftEX, shaftEY);
+    g.lineStyle(1, 0x64c8ff, 0.35);
+    g.lineBetween(shaftSX, shaftSY, shaftEX, shaftEY);
+
+    if (wDef.type === "blade") {
+      // Blade capsule — from bladeStart to reach, width = bladeWidth*2
+      const bwPx   = this.au(wDef.bladeWidth ?? wDef.tipRadius);
+      const bsPx   = this.au(bladeStart);
+      const bsSX   = cx + cosA * bsPx;
+      const bsSY   = cy + sinA * bsPx;
+
+      g.lineStyle(bwPx * 2, 0xff3d00, 0.18);
+      g.lineBetween(bsSX, bsSY, tipX, tipY);
+      g.lineStyle(1.5, 0xff3d00, 0.55);
+      g.lineBetween(bsSX, bsSY, tipX, tipY);
+    }
+
+    // Tip circle (damage zone for point/blunt, visual reference for blade)
+    g.lineStyle(1.5, 0xff3d00, 0.6);
+    g.fillStyle(0xff3d00, 0.15);
+    g.fillCircle(tipX, tipY, tipRPx);
+    g.strokeCircle(tipX, tipY, tipRPx);
+  }
+
   // ─── Procedural drawing — HP bars + badges (retained) ────────────────────
 
   private drawHpBar(
@@ -558,6 +643,7 @@ export class ArenaScene extends Phaser.Scene {
     this.flashGfx?.clear();
     this.hpBarGfx?.clear();
     this.badgeGfx?.clear();
+    this.hitboxGfx?.clear();
     this.txtA?.setText("");            this.txtB?.setText("");
     this.txtEvent?.setVisible(false);
     this.txtTick?.setText("");
@@ -567,8 +653,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private updateScales(): void {
     if (!this.cfg) return;
-    this.scaleX = this.cfg.canvasW / ARENA_W;
-    this.scaleY = this.cfg.canvasH / ARENA_H;
+    this.scaleX = this.cfg.canvasW / (this.cfg.arenaW ?? ARENA_W);
+    this.scaleY = this.cfg.canvasH / (this.cfg.arenaH ?? ARENA_H);
   }
 
   /** Arena units → screen pixels */

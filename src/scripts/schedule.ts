@@ -387,6 +387,8 @@ async function runNextMatch(opts?: { test?: boolean }): Promise<void> {
     startsInMs: 5000,
     weaponA: resolveWeaponDef(ballA),
     weaponB: resolveWeaponDef(ballB),
+    arenaW: ARENA_CONFIG.w,
+    arenaH: ARENA_CONFIG.h,
   });
 
   // Pre-match announcement (passes narrative hooks to commentator)
@@ -411,6 +413,8 @@ async function runNextMatch(opts?: { test?: boolean }): Promise<void> {
     announcement,
     weaponA: resolveWeaponDef(ballA),
     weaponB: resolveWeaponDef(ballB),
+    arenaW: ARENA_CONFIG.w,
+    arenaH: ARENA_CONFIG.h,
   });
 
   let result;

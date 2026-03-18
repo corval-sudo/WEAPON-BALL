@@ -51,6 +51,9 @@ export default function Dashboard() {
   const [countdown, setCountdown]     = useState(0);
   const [nextMatch, setNextMatch]     = useState<NextMatchInfo | null>(null);
 
+  // ── Debug hitbox toggle ─────────────────────────────────────────────────
+  const [debugHitboxes, setDebugHitboxes] = useState(false);
+
   // ── Recording state ──────────────────────────────────────────────────────
   const [recordNextMatch, setRecordNextMatch]   = useState(false);
   const [recordAllMatches, setRecordAllMatches] = useState(false);
@@ -252,10 +255,25 @@ export default function Dashboard() {
               ballBRadius={ballB?.radius ?? 42}
               weaponA={arena.weaponA}
               weaponB={arena.weaponB}
+              debugHitboxes={debugHitboxes}
+              arenaW={arena.arenaW}
+              arenaH={arena.arenaH}
               width={340}
               height={595}
             />
           </div>
+
+          {/* Hitbox toggle */}
+          <button
+            onClick={() => setDebugHitboxes(h => !h)}
+            style={{
+              ...S.hitboxToggle,
+              borderColor: debugHitboxes ? "#ff3d00" : C.border,
+              color: debugHitboxes ? "#ff3d00" : C.muted,
+            }}
+          >
+            HITBOXES {debugHitboxes ? "ON" : "OFF"}
+          </button>
 
           {/* Announcement */}
           {arena.announcement && arena.phase === "live" && (
@@ -364,6 +382,8 @@ export default function Dashboard() {
             ballBRadius={ballB?.radius ?? 42}
             weaponA={arena.weaponA}
             weaponB={arena.weaponB}
+            arenaW={arena.arenaW}
+            arenaH={arena.arenaH}
             ballAWins={ballA?.wins}
             ballALosses={ballA?.losses}
             ballBWins={ballB?.wins}
@@ -610,6 +630,16 @@ const S: Record<string, React.CSSProperties> = {
   canvasWrap: {
     overflow: "hidden",
     border: `1px solid ${C.border}`,
+  },
+  hitboxToggle: {
+    background: "transparent",
+    border: `1px solid ${C.border}`,
+    fontFamily: "'Courier New', Courier, monospace",
+    fontSize: 8,
+    letterSpacing: "0.15em",
+    padding: "3px 8px",
+    cursor: "pointer",
+    textTransform: "uppercase" as const,
   },
   announcement: {
     fontSize: 11,

@@ -66,6 +66,9 @@ export interface ArenaState {
   /** Weapon defs received in match_start — used for accurate hitbox rendering. */
   weaponA: WeaponDef | null;
   weaponB: WeaponDef | null;
+  /** Arena dimensions from server (defaults to 400×700 for backward compat). */
+  arenaW: number;
+  arenaH: number;
   // result
   winner: "A" | "B" | null;
   resultBallA: Fighter | null;
@@ -87,6 +90,8 @@ const INITIAL_STATE: ArenaState = {
   currentFrame: null,
   weaponA: null,
   weaponB: null,
+  arenaW: 400,
+  arenaH: 700,
   winner: null,
   resultBallA: null,
   resultBallB: null,
@@ -147,6 +152,8 @@ export function useArenaSocket(): ArenaState {
           // countdown already know the weapon metadata before match_start.
           weaponA: msg.weaponA ?? prev.weaponA,
           weaponB: msg.weaponB ?? prev.weaponB,
+          arenaW: msg.arenaW ?? prev.arenaW,
+          arenaH: msg.arenaH ?? prev.arenaH,
         }));
         break;
 
@@ -162,6 +169,8 @@ export function useArenaSocket(): ArenaState {
           winner: null,
           weaponA: msg.weaponA ?? null,
           weaponB: msg.weaponB ?? null,
+          arenaW: msg.arenaW ?? prev.arenaW,
+          arenaH: msg.arenaH ?? prev.arenaH,
         }));
         break;
 
